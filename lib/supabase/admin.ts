@@ -1,0 +1,44 @@
+import "server-only";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+// service role クライアント。google_tokens の読み書き専用。
+// "server-only" によりクライアントバンドルへの混入をビルドエラーで防ぐ。
+function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    throw new Error(
+      "Supabaseの環境変数(NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)が設定されていません",
+    );
+  }
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
+ * Google の refresh token を google_tokens に upsert する(成功で true)。
+ * 失敗時はエラー種別のみログに残す。トークン値・認可コードは絶対にログに出さない。
+ */
+export async function saveGoogleRefreshToken(
+  userId: string,
+  refreshToken: string,
+): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("google_tokens")
+      .upsert({ user_id: userId, refresh_token: refreshToken });
+    if (error) {
+      console.error("google_tokensへの保存に失敗しました:", error.code);
+      return false;
+    }
+    return true;
+  } catch (cause) {
+    console.error(
+      "google_tokensへの保存に失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+    return false;
+  }
+}
