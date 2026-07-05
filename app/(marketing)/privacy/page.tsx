@@ -10,8 +10,7 @@ export const metadata: Metadata = {
 };
 
 const OPERATOR_NAME = "Sho Takasaki";
-// 制定日は公開(P0-4デプロイ)時に確定値へ差し替える(docs/specs/P0-3 承認時の確認事項2)
-const ESTABLISHED_DATE = "[制定日]";
+const ESTABLISHED_DATE = "2026年7月6日";
 
 const CONTACT_EMAIL = "showsphere1028@gmail.com";
 const GOOGLE_POLICY_URL =
