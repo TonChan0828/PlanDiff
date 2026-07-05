@@ -1,0 +1,16 @@
+#!/bin/sh
+# コミット前品質ゲート(CLAUDE.md: コミット前に必ずビルドを通すこと)
+# 緊急時の回避は --no-verify だが、使用したら docs/logs/ に理由を記録すること。
+set -e
+
+echo "[pre-commit] format:check"
+npm run --silent format:check
+echo "[pre-commit] typecheck"
+npm run --silent typecheck
+echo "[pre-commit] lint"
+npm run --silent lint
+echo "[pre-commit] test"
+npm test --silent
+echo "[pre-commit] build"
+npm run --silent build
+echo "[pre-commit] OK"
