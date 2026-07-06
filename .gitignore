@@ -47,3 +47,6 @@ supabase/.branches
 
 # Google OAuth client secret (絶対にコミットしない)
 client_secret_*.json
+
+# Playwright MCP作業ファイル(セッションcookie等を含みうるためコミット禁止)
+.playwright-mcp/
