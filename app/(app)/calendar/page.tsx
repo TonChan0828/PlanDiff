@@ -1,21 +1,34 @@
 import type { Metadata } from "next";
 import { signOutAction } from "@/app/(app)/actions";
-import {
-  CalendarSync,
-  type CalendarSyncEvent,
-} from "@/components/calendar-sync";
-import { computeSyncRange } from "@/lib/google/sync-range";
+import { CalendarView } from "@/components/calendar-view";
+import { fetchSyncedEvents } from "@/lib/calendar/events";
+import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { parseDateParam } from "@/lib/calendar/view-date";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "カレンダー | PlanDiff",
 };
 
-const HEADING = "カレンダー";
-const SIGN_OUT_LABEL = "ログアウト";
+interface CalendarSearchParams {
+  view?: string | string[];
+  date?: string | string[];
+}
 
-// キャッシュ済み予定の簡易リスト+同期(P1-2)。タイムライン表示の本実装はP2-1
-export default async function CalendarPage() {
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+// カレンダービュー(P2-1)。日/週の表示状態はURL(?view&date)で保持する
+export default async function CalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<CalendarSearchParams>;
+}) {
+  const params = await searchParams;
+  const viewParam = firstParam(params.view);
+  const dateParam = firstParam(params.date);
+
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) {
@@ -30,40 +43,32 @@ export default async function CalendarPage() {
     .single();
   const displayName = profile?.display_name || data.user.email || "ユーザー";
 
-  // 週境界はサーバーのタイムゾーンでの概算(±1週のバッファがあるため簡易リストには十分)。
-  // クライアント主導の週ナビゲーションはP2-1で実装する
-  const range = computeSyncRange(new Date());
-  const { data: eventRows } = await supabase
-    .from("synced_events")
-    .select("id, title, start_at, end_at")
-    .lt("start_at", range.timeMax)
-    .gt("end_at", range.timeMin)
-    .order("start_at", { ascending: true });
-
-  const events: CalendarSyncEvent[] = (eventRows ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    startAt: row.start_at,
-    endAt: row.end_at,
-  }));
+  // dateパラメータ省略時はサーバーTZの「今日」で概算する
+  // (読み取りは表示週±1週間のためTZ差はバッファが吸収する。表示上の選択日はクライアントが確定)
+  const baseDate = parseDateParam(dateParam) ?? new Date();
+  const events = await fetchSyncedEvents(supabase, baseDate);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">{HEADING}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
         <form action={signOutAction}>
           <button
             type="submit"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-6 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
-            {SIGN_OUT_LABEL}
+            {M.signOut}
           </button>
         </form>
       </div>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        {displayName} さんとしてログイン中です。
+        {displayName} {M.loggedInSuffix}
       </p>
-      <CalendarSync events={events} />
+      <CalendarView
+        events={events}
+        viewParam={viewParam}
+        dateParam={dateParam}
+      />
     </main>
   );
 }
