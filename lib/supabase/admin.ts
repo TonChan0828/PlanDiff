@@ -16,6 +16,60 @@ function createAdminClient() {
   });
 }
 
+export type GetGoogleRefreshTokenResult =
+  { ok: true; refreshToken: string | null } | { ok: false };
+
+/**
+ * google_tokens から refresh token を読み取る。
+ * 行がない場合は ok: true / refreshToken: null(=再認可が必要)、
+ * DB障害は ok: false で区別する(誤って再認可へ誘導しない)。
+ */
+export async function getGoogleRefreshToken(
+  userId: string,
+): Promise<GetGoogleRefreshTokenResult> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("google_tokens")
+      .select("refresh_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      console.error("google_tokensの読み取りに失敗しました:", error.code);
+      return { ok: false };
+    }
+    return { ok: true, refreshToken: data?.refresh_token ?? null };
+  } catch (cause) {
+    console.error(
+      "google_tokensの読み取りに失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+    return { ok: false };
+  }
+}
+
+/**
+ * 失効した refresh token の行を削除する(仕様書P1-2 確認事項2)。
+ * 削除失敗は再認可導線の妨げにならないためログのみ残す。
+ */
+export async function deleteGoogleRefreshToken(userId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("google_tokens")
+      .delete()
+      .eq("user_id", userId);
+    if (error) {
+      console.error("google_tokensの削除に失敗しました:", error.code);
+    }
+  } catch (cause) {
+    console.error(
+      "google_tokensの削除に失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+  }
+}
+
 /**
  * Google の refresh token を google_tokens に upsert する(成功で true)。
  * 失敗時はエラー種別のみログに残す。トークン値・認可コードは絶対にログに出さない。
