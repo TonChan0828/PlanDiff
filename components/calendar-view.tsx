@@ -15,6 +15,7 @@ import {
   startTimerAction,
   stopTimerAction,
 } from "@/app/(app)/calendar/timer-actions";
+import { FreeTimerBar } from "@/components/free-timer-bar";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
   layoutDayEvents,
@@ -241,6 +242,36 @@ export function CalendarView({
       .finally(() => setTimerPending(false));
   };
 
+  const handleStartFreeTimer = (title: string) => {
+    if (timerPending) {
+      return;
+    }
+    const previous = running;
+    setTimerError(null);
+    setTimerPending(true);
+    // 楽観的更新(実IDと開始時刻はサーバー確定後に refresh で置き換わる)
+    setRunning({
+      id: "optimistic-free",
+      title,
+      googleEventId: null,
+      startAt: new Date().toISOString(),
+    });
+    startTimerAction({ googleEventId: null, title })
+      .then((result) => {
+        if (result.ok) {
+          router.refresh();
+        } else {
+          setRunning(previous);
+          setTimerError(T.startError);
+        }
+      })
+      .catch(() => {
+        setRunning(previous);
+        setTimerError(T.startError);
+      })
+      .finally(() => setTimerPending(false));
+  };
+
   const handleBlockTap = (event: CalendarViewEvent) => {
     if (running && running.googleEventId === event.googleEventId) {
       handleStopTimer();
@@ -439,7 +470,9 @@ export function CalendarView({
           onStop={handleStopTimer}
           stopping={timerPending}
         />
-      ) : null}
+      ) : (
+        <FreeTimerBar onStart={handleStartFreeTimer} pending={timerPending} />
+      )}
     </section>
   );
 }

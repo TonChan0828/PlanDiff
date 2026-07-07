@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format, startOfDay, subHours } from "date-fns";
 
@@ -218,5 +218,90 @@ describe("タイマーバーの表示条件(S8)", () => {
   it("S8: 実行中エントリがないときはタイマーバーが表示されない", () => {
     renderView();
     expect(screen.queryByTestId("running-timer-bar")).not.toBeInTheDocument();
+  });
+});
+
+// 仕様書: docs/specs/P2-3_フリータイマー.md S5〜S8
+describe("フリータイマーの開始(S5〜S7)", () => {
+  it("S5: 実行中なしでタイトルを入力して開始すると、googleEventId:nullで開始アクションが呼ばれ実行中表示になる", async () => {
+    const user = userEvent.setup();
+    let resolveStart: (value: { ok: boolean }) => void;
+    startTimerActionMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStart = resolve;
+      }),
+    );
+    renderView();
+
+    expect(screen.getByTestId("free-timer-bar")).toBeInTheDocument();
+    await user.type(
+      screen.getByRole("textbox", { name: "作業内容(空欄可)" }),
+      "読書",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "フリータイマーを開始" }),
+    );
+
+    expect(startTimerActionMock).toHaveBeenCalledWith({
+      googleEventId: null,
+      title: "読書",
+    });
+    expect(screen.getByTestId("running-timer-bar")).toBeInTheDocument();
+    expect(screen.queryByTestId("free-timer-bar")).not.toBeInTheDocument();
+
+    resolveStart!({ ok: true });
+    await vi.waitFor(() => {
+      expect(routerMock.refresh).toHaveBeenCalled();
+    });
+  });
+
+  it("S6: タイトル未入力で開始すると、空文字で開始アクションが呼ばれ「(タイトルなし)」と表示される", async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await user.click(
+      screen.getByRole("button", { name: "フリータイマーを開始" }),
+    );
+
+    expect(startTimerActionMock).toHaveBeenCalledWith({
+      googleEventId: null,
+      title: "",
+    });
+    const { getByText } = within(screen.getByTestId("running-timer-bar"));
+    expect(getByText("(タイトルなし)")).toBeInTheDocument();
+  });
+
+  it("S7: 開始アクションが失敗すると日本語エラーが表示され、フリータイマー入力に戻る", async () => {
+    const user = userEvent.setup();
+    startTimerActionMock.mockResolvedValue({ ok: false });
+    renderView();
+
+    await user.type(
+      screen.getByRole("textbox", { name: "作業内容(空欄可)" }),
+      "読書",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "フリータイマーを開始" }),
+    );
+
+    expect(await screen.findByText(START_ERROR)).toBeInTheDocument();
+    expect(screen.getByTestId("free-timer-bar")).toBeInTheDocument();
+    expect(screen.queryByTestId("running-timer-bar")).not.toBeInTheDocument();
+  });
+});
+
+describe("フリータイマー実行中の表示(S8)", () => {
+  it("S8: フリータイマー実行中はRunningTimerBarが表示され、FreeTimerBarは表示されない", () => {
+    renderView({
+      runningEntry: {
+        id: "entry-free",
+        title: "読書",
+        googleEventId: null,
+        startAt: subHours(new Date(), 1).toISOString(),
+      },
+    });
+
+    expect(screen.getByTestId("running-timer-bar")).toBeInTheDocument();
+    expect(screen.queryByTestId("free-timer-bar")).not.toBeInTheDocument();
   });
 });
