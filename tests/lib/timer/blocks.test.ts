@@ -65,3 +65,15 @@ describe("actualBlockInputs(S2)", () => {
     expect(inputs.map((input) => input.id)).toEqual(["entry-1", "entry-run"]);
   });
 });
+
+// 仕様書: docs/specs/P2-4_実績の手動編集.md S1
+describe("actualBlockInputs editableフラグ(S1)", () => {
+  it("S1: 確定済み実績はeditable:true、実行中エントリはeditable:falseになる", () => {
+    const now = new Date(2026, 6, 7, 15, 0);
+    const inputs = actualBlockInputs(confirmed, running, now);
+    const confirmedInput = inputs.find((input) => input.id === "entry-1");
+    const runningInput = inputs.find((input) => input.id === "entry-run");
+    expect(confirmedInput?.editable).toBe(true);
+    expect(runningInput?.editable).toBe(false);
+  });
+});

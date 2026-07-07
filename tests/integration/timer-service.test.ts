@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { startTimer, stopTimer } from "@/lib/timer/service";
+import {
+  deleteTimeEntry,
+  startTimer,
+  stopTimer,
+  updateTimeEntry,
+} from "@/lib/timer/service";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 import {
   createAdminClient,
@@ -244,5 +249,140 @@ describe("実績の読み取り(S14)", () => {
     expect(running?.title).toBe("実行中の作業");
 
     await stopTimer(userA.client);
+  });
+});
+
+// 仕様書: docs/specs/P2-4_実績の手動編集.md S16〜S21
+describe("実績の手動編集(S16〜S21)", () => {
+  async function insertConfirmedEntry(
+    client: SupabaseClient,
+    userId: string,
+    title = "設計レビュー",
+  ) {
+    const startAt = new Date();
+    const endAt = new Date(startAt.getTime() + 30 * 60 * 1000);
+    const { data, error } = await client
+      .from("time_entries")
+      .insert({
+        user_id: userId,
+        title,
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString(),
+      })
+      .select("id")
+      .single();
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { id: data!.id as string, startAt, endAt };
+  }
+
+  it("S16: 確定済み実績のタイトル・開始/終了を更新できる", async () => {
+    await clearEntries(userA.client);
+    const entry = await insertConfirmedEntry(userA.client, userA.id);
+
+    const newStart = new Date(entry.startAt.getTime() + 60 * 1000);
+    const newEnd = new Date(entry.endAt.getTime() + 60 * 1000);
+    const result = await updateTimeEntry(userA.client, entry.id, {
+      title: "修正後タイトル",
+      startAt: newStart.toISOString(),
+      endAt: newEnd.toISOString(),
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.title).toBe("修正後タイトル");
+    expect(new Date(rows[0]!.start_at as string).getTime()).toBe(
+      newStart.getTime(),
+    );
+    expect(new Date(rows[0]!.end_at as string).getTime()).toBe(
+      newEnd.getTime(),
+    );
+  });
+
+  it("S17: 終了時刻が開始時刻より前だと更新は失敗し、行は変更されない", async () => {
+    await clearEntries(userA.client);
+    const entry = await insertConfirmedEntry(
+      userA.client,
+      userA.id,
+      "元タイトル",
+    );
+
+    const result = await updateTimeEntry(userA.client, entry.id, {
+      title: "変更後",
+      startAt: entry.startAt.toISOString(),
+      endAt: new Date(entry.startAt.getTime() - 60 * 1000).toISOString(),
+    });
+    expect(result.ok).toBe(false);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows[0]!.title).toBe("元タイトル");
+  });
+
+  it("S18: 実行中エントリ(end_at IS NULL)は更新できない", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, { googleEventId: "g-1", title: "作業中" });
+    const rowsBefore = await fetchAllEntries(userA.id);
+    const runningId = rowsBefore[0]!.id as string;
+
+    const result = await updateTimeEntry(userA.client, runningId, {
+      title: "書き換え試行",
+      startAt: new Date().toISOString(),
+      endAt: new Date().toISOString(),
+    });
+    expect(result.ok).toBe(false);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows[0]!.title).toBe("作業中");
+    expect(rows[0]!.end_at).toBeNull();
+
+    await stopTimer(userA.client);
+  });
+
+  it("S19: 確定済み実績を削除できる", async () => {
+    await clearEntries(userA.client);
+    const entry = await insertConfirmedEntry(userA.client, userA.id);
+
+    const result = await deleteTimeEntry(userA.client, entry.id);
+    expect(result.ok).toBe(true);
+    expect(await fetchAllEntries(userA.id)).toHaveLength(0);
+  });
+
+  it("S20: 実行中エントリは削除できない", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, { googleEventId: "g-1", title: "作業中" });
+    const rowsBefore = await fetchAllEntries(userA.id);
+    const runningId = rowsBefore[0]!.id as string;
+
+    const result = await deleteTimeEntry(userA.client, runningId);
+    expect(result.ok).toBe(false);
+    expect(await fetchAllEntries(userA.id)).toHaveLength(1);
+
+    await stopTimer(userA.client);
+  });
+
+  it("S21: 他ユーザーの確定済み実績は更新も削除もできない", async () => {
+    await clearEntries(userA.client);
+    await clearEntries(userB.client);
+    const entryB = await insertConfirmedEntry(
+      userB.client,
+      userB.id,
+      "Bの実績",
+    );
+
+    const updateResult = await updateTimeEntry(userA.client, entryB.id, {
+      title: "Aによる書き換え",
+      startAt: entryB.startAt.toISOString(),
+      endAt: entryB.endAt.toISOString(),
+    });
+    expect(updateResult.ok).toBe(false);
+
+    const deleteResult = await deleteTimeEntry(userA.client, entryB.id);
+    expect(deleteResult.ok).toBe(false);
+
+    const rowsB = await fetchAllEntries(userB.id);
+    expect(rowsB).toHaveLength(1);
+    expect(rowsB[0]!.title).toBe("Bの実績");
   });
 });
