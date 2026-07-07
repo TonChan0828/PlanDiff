@@ -138,6 +138,68 @@ describe("ユーザー分離(S13)", () => {
   });
 });
 
+// 仕様書: docs/specs/P2-3_フリータイマー.md S9〜S11
+describe("フリータイマー(S9〜S11)", () => {
+  it("S9: 実行中なしでフリータイマーを開始すると、google_event_idがNULLの実行中エントリが作られる", async () => {
+    await clearEntries(userA.client);
+
+    const result = await startTimer(userA.client, {
+      googleEventId: null,
+      title: "読書",
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.google_event_id).toBeNull();
+    expect(rows[0]!.title).toBe("読書");
+    expect(rows[0]!.end_at).toBeNull();
+  });
+
+  it("S10: 予定連動タイマーが実行中のときにフリータイマーを開始すると、既存が自動停止されフリータイマーが実行中になる", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, { googleEventId: "g-1", title: "作業1" });
+
+    const result = await startTimer(userA.client, {
+      googleEventId: null,
+      title: "読書",
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(2);
+
+    const stopped = rows.find((row) => row.google_event_id === "g-1")!;
+    const running = rows.find((row) => row.google_event_id === null)!;
+    expect(stopped.end_at).not.toBeNull();
+    expect(running.end_at).toBeNull();
+    expect(running.title).toBe("読書");
+
+    const runningRows = rows.filter((row) => row.end_at === null);
+    expect(runningRows).toHaveLength(1);
+  });
+
+  it("S11: フリータイマーが実行中のときに別の予定を開始すると、フリータイマーが自動停止され実績として確定する", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, { googleEventId: null, title: "読書" });
+
+    const result = await startTimer(userA.client, {
+      googleEventId: "g-2",
+      title: "作業2",
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(2);
+
+    const stoppedFree = rows.find((row) => row.google_event_id === null)!;
+    const runningEvent = rows.find((row) => row.google_event_id === "g-2")!;
+    expect(stoppedFree.end_at).not.toBeNull();
+    expect(stoppedFree.title).toBe("読書");
+    expect(runningEvent.end_at).toBeNull();
+  });
+});
+
 describe("実績の読み取り(S14)", () => {
   it("S14: 確定済み実績は表示週±1週間のみ返り、実行中は期間外でも返る", async () => {
     await clearEntries(userA.client);

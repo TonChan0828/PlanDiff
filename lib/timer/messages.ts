@@ -12,4 +12,7 @@ export const TIMER_MESSAGES = {
     `${title || CALENDAR_MESSAGES.untitled}のタイマーを開始`,
   stopLabel: (title: string) =>
     `${title || CALENDAR_MESSAGES.untitled}のタイマーを停止`,
+  freePlaceholder: "作業内容(空欄可)",
+  freeStart: "開始",
+  freeStartLabel: "フリータイマーを開始",
 } as const;
