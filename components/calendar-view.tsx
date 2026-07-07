@@ -12,9 +12,16 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
+  deleteTimeEntryAction,
   startTimerAction,
   stopTimerAction,
+  updateTimeEntryAction,
 } from "@/app/(app)/calendar/timer-actions";
+import {
+  EditEntryPanel,
+  type EditEntryPanelEntry,
+  type EditEntrySaveInput,
+} from "@/components/edit-entry-panel";
 import { FreeTimerBar } from "@/components/free-timer-bar";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
@@ -32,7 +39,7 @@ import {
   type CalendarViewMode,
 } from "@/lib/calendar/view-date";
 import { computeSyncRange } from "@/lib/google/sync-range";
-import { actualBlockInputs } from "@/lib/timer/blocks";
+import { actualBlockInputs, type ActualBlockInput } from "@/lib/timer/blocks";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
@@ -280,6 +287,72 @@ export function CalendarView({
     }
   };
 
+  // ---- 実績の手動編集(P2-4): 確定済み実績のみ対象。楽観的更新はせずServer Action成功後にrefresh ----
+  const [editingEntry, setEditingEntry] = useState<EditEntryPanelEntry | null>(
+    null,
+  );
+  const [editPending, setEditPending] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const handleEditActual = (block: ActualBlockInput) => {
+    if (!block.editable) {
+      return;
+    }
+    setEditError(null);
+    setEditingEntry({
+      id: block.id,
+      title: block.title,
+      startAt: block.startAt,
+      endAt: block.endAt,
+    });
+  };
+
+  const handleCloseEdit = () => {
+    if (editPending) {
+      return;
+    }
+    setEditingEntry(null);
+    setEditError(null);
+  };
+
+  const handleSaveEdit = (input: EditEntrySaveInput) => {
+    if (!editingEntry || editPending) {
+      return;
+    }
+    setEditPending(true);
+    setEditError(null);
+    updateTimeEntryAction(editingEntry.id, input)
+      .then((result) => {
+        if (result.ok) {
+          setEditingEntry(null);
+          router.refresh();
+        } else {
+          setEditError(T.updateError);
+        }
+      })
+      .catch(() => setEditError(T.updateError))
+      .finally(() => setEditPending(false));
+  };
+
+  const handleDeleteEditing = () => {
+    if (!editingEntry || editPending) {
+      return;
+    }
+    setEditPending(true);
+    setEditError(null);
+    deleteTimeEntryAction(editingEntry.id)
+      .then((result) => {
+        if (result.ok) {
+          setEditingEntry(null);
+          router.refresh();
+        } else {
+          setEditError(T.deleteError);
+        }
+      })
+      .catch(() => setEditError(T.deleteError))
+      .finally(() => setEditPending(false));
+  };
+
   // 実績レーンの入力(確定済み+実行中)。実行中ブロックは現在時刻に依存するためハイドレーション後のみ
   const actualInputs = actualBlockInputs(
     timeEntries,
@@ -447,6 +520,7 @@ export function CalendarView({
                 runningEventId={running?.googleEventId ?? null}
                 timerPending={timerPending}
                 onBlockTap={handleBlockTap}
+                onEditActual={handleEditActual}
                 now={now}
                 showTime={view === "day"}
               />
@@ -473,6 +547,18 @@ export function CalendarView({
       ) : (
         <FreeTimerBar onStart={handleStartFreeTimer} pending={timerPending} />
       )}
+
+      {editingEntry ? (
+        <EditEntryPanel
+          key={editingEntry.id}
+          entry={editingEntry}
+          onSave={handleSaveEdit}
+          onDelete={handleDeleteEditing}
+          onClose={handleCloseEdit}
+          pending={editPending}
+          error={editError}
+        />
+      ) : null}
     </section>
   );
 }
@@ -539,15 +625,17 @@ function DayColumn({
   runningEventId,
   timerPending,
   onBlockTap,
+  onEditActual,
   now,
   showTime,
 }: {
   day: Date;
   events: CalendarViewEvent[];
-  actualInputs: CalendarBlockInput[];
+  actualInputs: ActualBlockInput[];
   runningEventId: string | null;
   timerPending: boolean;
   onBlockTap: (event: CalendarViewEvent) => void;
+  onEditActual: (block: ActualBlockInput) => void;
   now: Date | null;
   showTime: boolean;
 }) {
@@ -583,7 +671,7 @@ function DayColumn({
         style={{ width: `${ACTUAL_LANE_PERCENT}%` }}
       >
         {actualBlocks.map((block) => (
-          <ActualBlock key={block.id} block={block} />
+          <ActualBlock key={block.id} block={block} onEdit={onEditActual} />
         ))}
       </ul>
       {isToday ? (
@@ -671,24 +759,51 @@ function PlanBlock({
   );
 }
 
-function ActualBlock({ block }: { block: CalendarBlock }) {
+function ActualBlock({
+  block,
+  onEdit,
+}: {
+  block: CalendarBlock<ActualBlockInput>;
+  onEdit: (block: ActualBlockInput) => void;
+}) {
   const widthPercent = 100 / block.columnCount;
+  const positionStyle = {
+    top: `${block.topPercent}%`,
+    height: `${block.heightPercent}%`,
+    left: `${block.column * widthPercent}%`,
+    width: `calc(${widthPercent}% - 2px)`,
+  };
+  const roundedClassName = `${block.clippedStart ? "" : "rounded-t-md"} ${
+    block.clippedEnd ? "" : "rounded-b-md"
+  }`;
+  const titleNode = (
+    <p className="line-clamp-2 text-xs leading-tight font-medium break-words text-white dark:text-sky-950">
+      {block.title || M.untitled}
+    </p>
+  );
+
+  if (!block.editable) {
+    return (
+      <li
+        data-testid="actual-block"
+        className={`absolute overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 dark:border-sky-400 dark:bg-sky-500/80 ${roundedClassName}`}
+        style={positionStyle}
+      >
+        {titleNode}
+      </li>
+    );
+  }
+
   return (
-    <li
-      data-testid="actual-block"
-      className={`absolute overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 dark:border-sky-400 dark:bg-sky-500/80 ${
-        block.clippedStart ? "" : "rounded-t-md"
-      } ${block.clippedEnd ? "" : "rounded-b-md"}`}
-      style={{
-        top: `${block.topPercent}%`,
-        height: `${block.heightPercent}%`,
-        left: `${block.column * widthPercent}%`,
-        width: `calc(${widthPercent}% - 2px)`,
-      }}
-    >
-      <p className="line-clamp-2 text-xs leading-tight font-medium break-words text-white dark:text-sky-950">
-        {block.title || M.untitled}
-      </p>
+    <li data-testid="actual-block" className="absolute" style={positionStyle}>
+      <button
+        type="button"
+        aria-label={T.editLabel(block.title)}
+        onClick={() => onEdit(block)}
+        className={`block h-full w-full overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 text-left dark:border-sky-400 dark:bg-sky-500/80 ${roundedClassName}`}
+      >
+        {titleNode}
+      </button>
     </li>
   );
 }

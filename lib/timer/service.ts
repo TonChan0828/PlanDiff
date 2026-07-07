@@ -66,3 +66,61 @@ export async function stopTimer(client: SupabaseClient): Promise<TimerResult> {
   const stopped = await stopRunning(client, new Date().toISOString());
   return stopped ? { ok: true } : { ok: false };
 }
+
+export interface UpdateTimeEntryInput {
+  title: string;
+  /** UTCのISO文字列 */
+  startAt: string;
+  /** UTCのISO文字列 */
+  endAt: string;
+}
+
+// 確定済み実績(end_at IS NOT NULL)のみが対象。実行中エントリはガード条件で除外し、
+// 停止前に直接書き換えられないようにする(P2-4)。RLSにより他人の行は対象にならない。
+
+/** 確定済み実績のタイトル・開始/終了時刻を更新する。実行中エントリは対象外 */
+export async function updateTimeEntry(
+  client: SupabaseClient,
+  id: string,
+  input: UpdateTimeEntryInput,
+): Promise<TimerResult> {
+  const { data: userData } = await client.auth.getUser();
+  if (!userData.user) {
+    return { ok: false };
+  }
+  const { data, error } = await client
+    .from("time_entries")
+    .update({
+      title: input.title,
+      start_at: input.startAt,
+      end_at: input.endAt,
+    })
+    .eq("id", id)
+    .not("end_at", "is", null)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
+/** 確定済み実績を削除する。実行中エントリは対象外 */
+export async function deleteTimeEntry(
+  client: SupabaseClient,
+  id: string,
+): Promise<TimerResult> {
+  const { data: userData } = await client.auth.getUser();
+  if (!userData.user) {
+    return { ok: false };
+  }
+  const { data, error } = await client
+    .from("time_entries")
+    .delete()
+    .eq("id", id)
+    .not("end_at", "is", null)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
