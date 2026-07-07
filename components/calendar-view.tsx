@@ -12,6 +12,11 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
+  startTimerAction,
+  stopTimerAction,
+} from "@/app/(app)/calendar/timer-actions";
+import { RunningTimerBar } from "@/components/running-timer-bar";
+import {
   layoutDayEvents,
   type CalendarBlock,
   type CalendarBlockInput,
@@ -26,16 +31,23 @@ import {
   type CalendarViewMode,
 } from "@/lib/calendar/view-date";
 import { computeSyncRange } from "@/lib/google/sync-range";
+import { actualBlockInputs } from "@/lib/timer/blocks";
+import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
+import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
-// カレンダービュー本体(P2-1)。日/週タイムライン+ナビゲーション+同期トリガ。
-// 予定ブロックはFR-06のオーバーレイ規約を先取りし、日列の左55%レーンに薄い塗りで置く
-// (右側はP2-2以降の実績ブロック用)。
+// カレンダービュー本体(P2-1/P2-2)。日/週タイムライン+ナビゲーション+同期トリガ+タイマー操作。
+// FR-06のオーバーレイ規約を先取りし、予定=左55%レーンに薄い塗り、実績=右45%レーンに濃い塗りで置く。
+// 予定ブロックのタップでタイマーを開始/停止する(楽観的更新。確定はServer Action)。
 
-export type CalendarViewEvent = CalendarBlockInput;
+export type CalendarViewEvent = CalendarBlockInput & {
+  /** タイマー(time_entries)と紐づくGoogle予定ID */
+  googleEventId: string;
+};
 
 const HOUR_PX = 56; // 1時間の高さ(375pxの1画面に約8時間)
 const DAY_MINUTES = 24 * 60;
 const PLAN_LANE_PERCENT = 55; // 予定レーン(左寄せ)の幅
+const ACTUAL_LANE_PERCENT = 45; // 実績レーン(右寄せ)の幅
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
 // SSR(サーバーTZ)とクライアントTZの不一致を避けるため、
@@ -51,12 +63,18 @@ function useHydrated(): boolean {
 
 interface CalendarViewProps {
   events: CalendarViewEvent[];
+  /** 表示範囲内の確定済み実績 */
+  timeEntries?: TimeEntryItem[];
+  /** 実行中タイマー(サーバーで取得した初期状態) */
+  runningEntry?: RunningEntry | null;
   viewParam?: string;
   dateParam?: string;
 }
 
 export function CalendarView({
   events,
+  timeEntries = [],
+  runningEntry = null,
   viewParam,
   dateParam,
 }: CalendarViewProps) {
@@ -157,6 +175,87 @@ export function CalendarView({
     setSyncNonce((nonce) => nonce + 1);
   };
 
+  // ---- タイマー(P2-2): 楽観的更新+Server Action。失敗時はロールバック ----
+  const [running, setRunning] = useState<RunningEntry | null>(runningEntry);
+  const [timerPending, setTimerPending] = useState(false);
+  const [timerError, setTimerError] = useState<string | null>(null);
+
+  // router.refresh 等でサーバー状態(props)が更新されたら追従する(render中の派生state調整パターン)
+  const [prevRunningEntry, setPrevRunningEntry] = useState(runningEntry);
+  if (prevRunningEntry !== runningEntry) {
+    setPrevRunningEntry(runningEntry);
+    setRunning(runningEntry);
+  }
+
+  const handleStartTimer = (event: CalendarViewEvent) => {
+    if (timerPending) {
+      return;
+    }
+    const previous = running;
+    setTimerError(null);
+    setTimerPending(true);
+    // 楽観的更新(実IDと開始時刻はサーバー確定後に refresh で置き換わる)
+    setRunning({
+      id: `optimistic-${event.googleEventId}`,
+      title: event.title,
+      googleEventId: event.googleEventId,
+      startAt: new Date().toISOString(),
+    });
+    startTimerAction({ googleEventId: event.googleEventId, title: event.title })
+      .then((result) => {
+        if (result.ok) {
+          router.refresh();
+        } else {
+          setRunning(previous);
+          setTimerError(T.startError);
+        }
+      })
+      .catch(() => {
+        setRunning(previous);
+        setTimerError(T.startError);
+      })
+      .finally(() => setTimerPending(false));
+  };
+
+  const handleStopTimer = () => {
+    if (timerPending || !running) {
+      return;
+    }
+    const previous = running;
+    setTimerError(null);
+    setTimerPending(true);
+    setRunning(null);
+    stopTimerAction()
+      .then((result) => {
+        if (result.ok) {
+          router.refresh();
+        } else {
+          setRunning(previous);
+          setTimerError(T.stopError);
+        }
+      })
+      .catch(() => {
+        setRunning(previous);
+        setTimerError(T.stopError);
+      })
+      .finally(() => setTimerPending(false));
+  };
+
+  const handleBlockTap = (event: CalendarViewEvent) => {
+    if (running && running.googleEventId === event.googleEventId) {
+      handleStopTimer();
+    } else {
+      handleStartTimer(event);
+    }
+  };
+
+  // 実績レーンの入力(確定済み+実行中)。実行中ブロックは現在時刻に依存するためハイドレーション後のみ
+  const actualInputs = actualBlockInputs(
+    timeEntries,
+    now ? running : null,
+    now ?? new Date(0),
+  );
+
   const days = selectedDate
     ? view === "week"
       ? weekDaysOf(selectedDate)
@@ -244,6 +343,15 @@ export function CalendarView({
         </p>
       ) : null}
 
+      {timerError ? (
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+        >
+          {timerError}
+        </p>
+      ) : null}
+
       {view === "day" && selectedDate && now ? (
         <WeekStrip
           selectedDate={selectedDate}
@@ -304,6 +412,10 @@ export function CalendarView({
                 key={toDateParam(day)}
                 day={day}
                 events={events}
+                actualInputs={actualInputs}
+                runningEventId={running?.googleEventId ?? null}
+                timerPending={timerPending}
+                onBlockTap={handleBlockTap}
                 now={now}
                 showTime={view === "day"}
               />
@@ -320,6 +432,14 @@ export function CalendarView({
           </p>
         ) : null}
       </div>
+
+      {running ? (
+        <RunningTimerBar
+          entry={running}
+          onStop={handleStopTimer}
+          stopping={timerPending}
+        />
+      ) : null}
     </section>
   );
 }
@@ -382,15 +502,24 @@ function WeekStrip({
 function DayColumn({
   day,
   events,
+  actualInputs,
+  runningEventId,
+  timerPending,
+  onBlockTap,
   now,
   showTime,
 }: {
   day: Date;
   events: CalendarViewEvent[];
+  actualInputs: CalendarBlockInput[];
+  runningEventId: string | null;
+  timerPending: boolean;
+  onBlockTap: (event: CalendarViewEvent) => void;
   now: Date | null;
   showTime: boolean;
 }) {
   const blocks = layoutDayEvents(events, day);
+  const actualBlocks = layoutDayEvents(actualInputs, day);
   const isToday = now ? isSameDay(day, now) : false;
   const nowPercent = now
     ? (differenceInMinutes(now, startOfDay(now)) / DAY_MINUTES) * 100
@@ -399,13 +528,29 @@ function DayColumn({
   return (
     <div className="relative border-l border-zinc-100 dark:border-zinc-800">
       <HourLines />
-      {/* 予定レーン(左55%)。右側はP2-2以降の実績ブロック用 */}
+      {/* 予定レーン(左55%) */}
       <ul
         className="absolute inset-y-0 left-0"
         style={{ width: `${PLAN_LANE_PERCENT}%` }}
       >
         {blocks.map((block) => (
-          <PlanBlock key={block.id} block={block} showTime={showTime} />
+          <PlanBlock
+            key={block.id}
+            block={block}
+            showTime={showTime}
+            isRunning={runningEventId === block.googleEventId}
+            disabled={timerPending}
+            onTap={onBlockTap}
+          />
+        ))}
+      </ul>
+      {/* 実績レーン(右45%)。濃い塗り。作り込みはP3-1 */}
+      <ul
+        className="absolute inset-y-0 right-0"
+        style={{ width: `${ACTUAL_LANE_PERCENT}%` }}
+      >
+        {actualBlocks.map((block) => (
+          <ActualBlock key={block.id} block={block} />
         ))}
       </ul>
       {isToday ? (
@@ -423,15 +568,82 @@ function DayColumn({
 function PlanBlock({
   block,
   showTime,
+  isRunning,
+  disabled,
+  onTap,
 }: {
-  block: CalendarBlock;
+  block: CalendarBlock<CalendarViewEvent>;
   showTime: boolean;
+  isRunning: boolean;
+  disabled: boolean;
+  onTap: (event: CalendarViewEvent) => void;
 }) {
   const widthPercent = 100 / block.columnCount;
   const timeLabel = `${format(parseISO(block.startAt), "HH:mm")}〜${format(parseISO(block.endAt), "HH:mm")}`;
+  const tapLabel = isRunning
+    ? T.stopLabel(block.title)
+    : T.startLabel(block.title);
   return (
     <li
-      className={`absolute overflow-hidden border border-sky-300 bg-sky-100/80 px-1 py-0.5 dark:border-sky-800 dark:bg-sky-950/60 ${
+      className="absolute"
+      style={{
+        top: `${block.topPercent}%`,
+        height: `${block.heightPercent}%`,
+        left: `${block.column * widthPercent}%`,
+        width: `calc(${widthPercent}% - 2px)`,
+      }}
+    >
+      <button
+        type="button"
+        aria-label={tapLabel}
+        aria-pressed={isRunning}
+        disabled={disabled}
+        onClick={() =>
+          onTap({
+            id: block.id,
+            googleEventId: block.googleEventId,
+            title: block.title,
+            startAt: block.startAt,
+            endAt: block.endAt,
+          })
+        }
+        className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left disabled:opacity-60 ${
+          isRunning
+            ? "border-2 border-sky-600 bg-sky-100/80 dark:border-sky-400 dark:bg-sky-950/60"
+            : "border-sky-300 bg-sky-100/80 hover:bg-sky-200/80 dark:border-sky-800 dark:bg-sky-950/60 dark:hover:bg-sky-900/60"
+        } ${block.clippedStart ? "" : "rounded-t-md"} ${
+          block.clippedEnd ? "" : "rounded-b-md"
+        }`}
+      >
+        {/* 週ビュー(時刻非表示)は列が狭いため1〜2行で省略する */}
+        <p
+          className={`text-xs leading-tight font-medium break-words text-sky-900 dark:text-sky-200 ${
+            showTime ? "" : "line-clamp-2"
+          }`}
+        >
+          {block.title || M.untitled}
+        </p>
+        {isRunning ? (
+          <p className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+            {T.recording}
+          </p>
+        ) : null}
+        {showTime ? (
+          <p className="text-[10px] text-sky-700 tabular-nums dark:text-sky-400">
+            {timeLabel}
+          </p>
+        ) : null}
+      </button>
+    </li>
+  );
+}
+
+function ActualBlock({ block }: { block: CalendarBlock }) {
+  const widthPercent = 100 / block.columnCount;
+  return (
+    <li
+      data-testid="actual-block"
+      className={`absolute overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 dark:border-sky-400 dark:bg-sky-500/80 ${
         block.clippedStart ? "" : "rounded-t-md"
       } ${block.clippedEnd ? "" : "rounded-b-md"}`}
       style={{
@@ -441,19 +653,9 @@ function PlanBlock({
         width: `calc(${widthPercent}% - 2px)`,
       }}
     >
-      {/* 週ビュー(時刻非表示)は列が狭いため1〜2行で省略する */}
-      <p
-        className={`text-xs leading-tight font-medium break-words text-sky-900 dark:text-sky-200 ${
-          showTime ? "" : "line-clamp-2"
-        }`}
-      >
+      <p className="line-clamp-2 text-xs leading-tight font-medium break-words text-white dark:text-sky-950">
         {block.title || M.untitled}
       </p>
-      {showTime ? (
-        <p className="text-[10px] text-sky-700 tabular-nums dark:text-sky-400">
-          {timeLabel}
-        </p>
-      ) : null}
     </li>
   );
 }

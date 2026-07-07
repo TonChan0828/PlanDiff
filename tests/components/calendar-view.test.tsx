@@ -41,6 +41,7 @@ function eventOn(
   const base = startOfDay(day);
   return {
     id,
+    googleEventId: `g-${id}`,
     title,
     startAt: new Date(
       base.getFullYear(),
