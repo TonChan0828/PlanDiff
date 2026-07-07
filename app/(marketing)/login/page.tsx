@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: "ログイン | PlanDiff",
 };
 
+// cookies()を呼ぶ前に環境変数チェックで例外を投げるとNext.jsの動的判定より先に
+// ビルド時プリレンダリングが走ってしまうため、force-dynamicで明示する
+export const dynamic = "force-dynamic";
+
 const HEADING = "ログイン";
 const DESCRIPTION =
   "Googleアカウントでログインして、カレンダーの予定と実績のギャップを可視化しましょう。";
