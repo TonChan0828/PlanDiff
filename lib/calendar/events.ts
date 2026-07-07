@@ -8,6 +8,8 @@ import { computeSyncRange } from "@/lib/google/sync-range";
 
 export interface SyncedEvent {
   id: string;
+  /** タイマー(P2-2)が time_entries と紐づけるためのGoogle予定ID */
+  googleEventId: string;
   title: string;
   /** UTCのISO文字列 */
   startAt: string;
@@ -22,7 +24,7 @@ export async function fetchSyncedEvents(
   const range = computeSyncRange(baseDate);
   const { data, error } = await client
     .from("synced_events")
-    .select("id, title, start_at, end_at")
+    .select("id, google_event_id, title, start_at, end_at")
     .lt("start_at", range.timeMax)
     .gt("end_at", range.timeMin)
     .order("start_at", { ascending: true });
@@ -33,6 +35,7 @@ export async function fetchSyncedEvents(
   // Postgresの「+00:00」表記を「Z」のUTC ISOへ正規化して返す
   return (data ?? []).map((row) => ({
     id: row.id as string,
+    googleEventId: row.google_event_id as string,
     title: row.title as string,
     startAt: new Date(row.start_at as string).toISOString(),
     endAt: new Date(row.end_at as string).toISOString(),

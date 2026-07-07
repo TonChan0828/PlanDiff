@@ -1,0 +1,68 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// タイマー操作のコアロジック(P2-2)。Server Actionから呼ぶ。
+// 時刻はすべてサーバー側で決定し、UTCで保存する。
+// 実行中1本の保証はDBの partial unique index(one_running_timer_per_user)が最終防衛線。
+
+export interface StartTimerInput {
+  /** フリータイマー(P2-3)は null */
+  googleEventId: string | null;
+  /** 予定タイトルのスナップショット */
+  title: string;
+}
+
+export type TimerResult = { ok: true } | { ok: false };
+
+const UNIQUE_VIOLATION = "23505";
+
+/** 実行中エントリがあれば停止する(なければ何もしない) */
+async function stopRunning(
+  client: SupabaseClient,
+  endAtIso: string,
+): Promise<boolean> {
+  const { error } = await client
+    .from("time_entries")
+    .update({ end_at: endAtIso })
+    .is("end_at", null);
+  return !error;
+}
+
+export async function startTimer(
+  client: SupabaseClient,
+  input: StartTimerInput,
+): Promise<TimerResult> {
+  const { data: userData } = await client.auth.getUser();
+  if (!userData.user) {
+    return { ok: false };
+  }
+
+  // 競合(別デバイスの同時開始で unique index 違反)時は 停止→insert を1回だけリトライする
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const nowIso = new Date().toISOString();
+    if (!(await stopRunning(client, nowIso))) {
+      return { ok: false };
+    }
+    const { error } = await client.from("time_entries").insert({
+      user_id: userData.user.id,
+      title: input.title,
+      google_event_id: input.googleEventId,
+      start_at: nowIso,
+      end_at: null,
+    });
+    if (!error) {
+      return { ok: true };
+    }
+    if (error.code !== UNIQUE_VIOLATION) {
+      return { ok: false };
+    }
+  }
+  return { ok: false };
+}
+
+/** 実行中エントリを停止して実績として確定する。実行中がなければ何もせず成功(冪等) */
+export async function stopTimer(client: SupabaseClient): Promise<TimerResult> {
+  const stopped = await stopRunning(client, new Date().toISOString());
+  return stopped ? { ok: true } : { ok: false };
+}

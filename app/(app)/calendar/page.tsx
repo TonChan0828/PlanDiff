@@ -5,6 +5,7 @@ import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { createClient } from "@/lib/supabase/server";
+import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 
 export const metadata: Metadata = {
   title: "カレンダー | PlanDiff",
@@ -46,7 +47,11 @@ export default async function CalendarPage({
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
   // (読み取りは表示週±1週間のためTZ差はバッファが吸収する。表示上の選択日はクライアントが確定)
   const baseDate = parseDateParam(dateParam) ?? new Date();
-  const events = await fetchSyncedEvents(supabase, baseDate);
+  const [events, timeEntries, runningEntry] = await Promise.all([
+    fetchSyncedEvents(supabase, baseDate),
+    fetchTimeEntries(supabase, baseDate),
+    fetchRunningEntry(supabase),
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -66,6 +71,8 @@ export default async function CalendarPage({
       </p>
       <CalendarView
         events={events}
+        timeEntries={timeEntries}
+        runningEntry={runningEntry}
         viewParam={viewParam}
         dateParam={dateParam}
       />

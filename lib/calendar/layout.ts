@@ -12,7 +12,7 @@ export interface CalendarBlockInput {
   endAt: string;
 }
 
-export interface CalendarBlock extends CalendarBlockInput {
+export interface CalendarBlockLayout {
   /** 日の高さに対する上端位置(0〜100%) */
   topPercent: number;
   /** 日の高さに対する高さ(0〜100%) */
@@ -27,13 +27,17 @@ export interface CalendarBlock extends CalendarBlockInput {
   clippedEnd: boolean;
 }
 
+/** 入力の追加フィールド(googleEventId等)は配置結果にそのまま引き継がれる */
+export type CalendarBlock<T extends CalendarBlockInput = CalendarBlockInput> =
+  T & CalendarBlockLayout;
+
 /** 極短予定でも視認・(P2-2で)タップ可能な最小高さ(分換算) */
 export const MIN_BLOCK_MINUTES = 24;
 
 const DAY_MINUTES = 24 * 60;
 
-interface WorkItem {
-  input: CalendarBlockInput;
+interface WorkItem<T extends CalendarBlockInput> {
+  input: T;
   top: number;
   bottom: number;
   clippedStart: boolean;
@@ -42,14 +46,14 @@ interface WorkItem {
   columnCount: number;
 }
 
-export function layoutDayEvents(
-  events: CalendarBlockInput[],
+export function layoutDayEvents<T extends CalendarBlockInput>(
+  events: T[],
   day: Date,
-): CalendarBlock[] {
+): CalendarBlock<T>[] {
   const dayStart = startOfDay(day);
   const dayEnd = addDays(dayStart, 1);
 
-  const items: WorkItem[] = [];
+  const items: WorkItem<T>[] = [];
   for (const input of events) {
     const start = parseISO(input.startAt);
     const end = parseISO(input.endAt);
@@ -92,7 +96,7 @@ export function layoutDayEvents(
       a.input.id.localeCompare(b.input.id),
   );
 
-  let cluster: WorkItem[] = [];
+  let cluster: WorkItem<T>[] = [];
   let clusterEnd = -1;
   const flushCluster = () => {
     if (cluster.length === 0) {
