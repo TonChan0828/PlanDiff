@@ -17,6 +17,7 @@ const confirmed: TimeEntryItem[] = [
   {
     id: "entry-1",
     title: "設計レビュー",
+    googleEventId: "g-1",
     startAt: isoAt(9, 0),
     endAt: isoAt(10, 30),
   },

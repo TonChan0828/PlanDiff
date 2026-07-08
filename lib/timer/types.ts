@@ -3,6 +3,8 @@
 export interface TimeEntryItem {
   id: string;
   title: string;
+  /** 紐づく予定のGoogle予定ID。フリータイマーはnull */
+  googleEventId: string | null;
   /** UTCのISO文字列 */
   startAt: string;
   /** UTCのISO文字列 */

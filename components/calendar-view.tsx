@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   differenceInMinutes,
@@ -40,6 +46,12 @@ import {
 } from "@/lib/calendar/view-date";
 import { computeSyncRange } from "@/lib/google/sync-range";
 import { actualBlockInputs, type ActualBlockInput } from "@/lib/timer/blocks";
+import {
+  computeActualGaps,
+  type ActualGapInfo,
+  type ActualGapInput,
+  type PlanEventForGap,
+} from "@/lib/timer/gap";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
@@ -646,6 +658,23 @@ function DayColumn({
     ? (differenceInMinutes(now, startOfDay(now)) / DAY_MINUTES) * 100
     : 0;
 
+  // ズレ計算(P3-1)。紐づき判定はgoogleEventIdで行い、開始遅延・超過を求める
+  const planByEventId = new Map(
+    blocks.map((block) => [block.googleEventId, block]),
+  );
+  const gapInputs: ActualGapInput[] = actualBlocks.map((block) => ({
+    id: block.id,
+    googleEventId: block.googleEventId,
+    startAt: block.startAt,
+    endAt: block.endAt,
+  }));
+  const planForGap: PlanEventForGap[] = blocks.map((block) => ({
+    googleEventId: block.googleEventId,
+    startAt: block.startAt,
+    endAt: block.endAt,
+  }));
+  const gaps = computeActualGaps(gapInputs, planForGap);
+
   return (
     <div className="relative border-l border-zinc-100 dark:border-zinc-800">
       <HourLines />
@@ -665,14 +694,43 @@ function DayColumn({
           />
         ))}
       </ul>
-      {/* 実績レーン(右45%)。濃い塗り。作り込みはP3-1 */}
+      {/* 実績レーン(右45%)。濃い塗り。紐づく実績は同系色、フリー/割り込みは別色(P3-1) */}
       <ul
         className="absolute inset-y-0 right-0"
         style={{ width: `${ACTUAL_LANE_PERCENT}%` }}
       >
-        {actualBlocks.map((block) => (
-          <ActualBlock key={block.id} block={block} onEdit={onEditActual} />
-        ))}
+        {actualBlocks.map((block) => {
+          const gap: ActualGapInfo = gaps.get(block.id) ?? {
+            linked: false,
+            startDelayMinutes: 0,
+            overrunMinutes: 0,
+          };
+          const plan = block.googleEventId
+            ? planByEventId.get(block.googleEventId)
+            : undefined;
+          const delayBar =
+            gap.startDelayMinutes > 0 && plan
+              ? gapBarStyle(day, plan.startAt, block.startAt)
+              : null;
+          const overrunBar =
+            gap.overrunMinutes > 0 && plan
+              ? gapBarStyle(day, plan.endAt, block.endAt)
+              : null;
+          return (
+            <Fragment key={block.id}>
+              {delayBar ? <GapStripe testId="gap-delay" {...delayBar} /> : null}
+              <ActualBlock
+                block={block}
+                gap={gap}
+                showTime={showTime}
+                onEdit={onEditActual}
+              />
+              {overrunBar ? (
+                <GapStripe testId="gap-overrun" {...overrunBar} />
+              ) : null}
+            </Fragment>
+          );
+        })}
       </ul>
       {isToday ? (
         <div
@@ -759,11 +817,62 @@ function PlanBlock({
   );
 }
 
+// 日の0時からの経過分(範囲外は0〜DAY_MINUTESにクランプ)
+function minutesFromDayStart(iso: string, day: Date): number {
+  return Math.min(
+    Math.max(differenceInMinutes(parseISO(iso), startOfDay(day)), 0),
+    DAY_MINUTES,
+  );
+}
+
+/** ズレ装飾バーの位置(日基準の%)。予定時刻〜実績時刻の区間を表す */
+function gapBarStyle(
+  day: Date,
+  fromIso: string,
+  toIso: string,
+): { topPercent: number; heightPercent: number } {
+  const fromMinutes = minutesFromDayStart(fromIso, day);
+  const toMinutes = minutesFromDayStart(toIso, day);
+  return {
+    topPercent: (fromMinutes / DAY_MINUTES) * 100,
+    heightPercent: ((toMinutes - fromMinutes) / DAY_MINUTES) * 100,
+  };
+}
+
+// ズレ(開始遅延・超過)を示す装飾バー。ストライプ柄で色以外の手がかりも与える(ui-quality Skill)
+function GapStripe({
+  testId,
+  topPercent,
+  heightPercent,
+}: {
+  testId: string;
+  topPercent: number;
+  heightPercent: number;
+}) {
+  return (
+    <li
+      data-testid={testId}
+      aria-hidden="true"
+      className="pointer-events-none absolute right-0 left-0 border-x border-amber-600/70"
+      style={{
+        top: `${topPercent}%`,
+        height: `${Math.max(heightPercent, 0.5)}%`,
+        backgroundImage:
+          "repeating-linear-gradient(135deg, rgba(180,83,9,0.5) 0px, rgba(180,83,9,0.5) 4px, transparent 4px, transparent 8px)",
+      }}
+    />
+  );
+}
+
 function ActualBlock({
   block,
+  gap,
+  showTime,
   onEdit,
 }: {
   block: CalendarBlock<ActualBlockInput>;
+  gap: ActualGapInfo;
+  showTime: boolean;
   onEdit: (block: ActualBlockInput) => void;
 }) {
   const widthPercent = 100 / block.columnCount;
@@ -776,17 +885,59 @@ function ActualBlock({
   const roundedClassName = `${block.clippedStart ? "" : "rounded-t-md"} ${
     block.clippedEnd ? "" : "rounded-b-md"
   }`;
+  // 紐づく実績はsky系(予定と同系色)、フリー/割り込みはamber系で区別する(FR-06)
+  const colorClassName = gap.linked
+    ? "border-sky-700 bg-sky-600/90 dark:border-sky-400 dark:bg-sky-500/80"
+    : "border-amber-700 bg-amber-600/90 dark:border-amber-400 dark:bg-amber-500/80";
+  const textColorClassName = gap.linked
+    ? "text-white dark:text-sky-950"
+    : "text-white dark:text-amber-950";
+
+  // 色だけに依存せずテキストでもズレ・紐づき状態を伝える(ui-quality Skill)
+  const gapSuffix = !gap.linked
+    ? `(${T.freeBadge})`
+    : gap.startDelayMinutes > 0 && gap.overrunMinutes > 0
+      ? `(${T.delayLabel(gap.startDelayMinutes)}、${T.overrunLabel(gap.overrunMinutes)})`
+      : gap.startDelayMinutes > 0
+        ? `(${T.delayLabel(gap.startDelayMinutes)})`
+        : gap.overrunMinutes > 0
+          ? `(${T.overrunLabel(gap.overrunMinutes)})`
+          : "";
+
+  const detailNode = showTime ? (
+    <>
+      {!gap.linked ? (
+        <p className="text-[10px] font-semibold text-amber-50">{T.freeBadge}</p>
+      ) : null}
+      {gap.startDelayMinutes > 0 ? (
+        <p className="text-[10px] font-semibold text-amber-50">
+          {T.delayLabel(gap.startDelayMinutes)}
+        </p>
+      ) : null}
+      {gap.overrunMinutes > 0 ? (
+        <p className="text-[10px] font-semibold text-amber-50">
+          {T.overrunLabel(gap.overrunMinutes)}
+        </p>
+      ) : null}
+    </>
+  ) : null;
+
   const titleNode = (
-    <p className="line-clamp-2 text-xs leading-tight font-medium break-words text-white dark:text-sky-950">
-      {block.title || M.untitled}
-    </p>
+    <>
+      <p
+        className={`line-clamp-2 text-xs leading-tight font-medium break-words ${textColorClassName}`}
+      >
+        {block.title || M.untitled}
+      </p>
+      {detailNode}
+    </>
   );
 
   if (!block.editable) {
     return (
       <li
         data-testid="actual-block"
-        className={`absolute overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 dark:border-sky-400 dark:bg-sky-500/80 ${roundedClassName}`}
+        className={`absolute overflow-hidden border px-1 py-0.5 ${colorClassName} ${roundedClassName}`}
         style={positionStyle}
       >
         {titleNode}
@@ -798,9 +949,9 @@ function ActualBlock({
     <li data-testid="actual-block" className="absolute" style={positionStyle}>
       <button
         type="button"
-        aria-label={T.editLabel(block.title)}
+        aria-label={`${T.editLabel(block.title)}${gapSuffix}`}
         onClick={() => onEdit(block)}
-        className={`block h-full w-full overflow-hidden border border-sky-700 bg-sky-600/90 px-1 py-0.5 text-left dark:border-sky-400 dark:bg-sky-500/80 ${roundedClassName}`}
+        className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left ${colorClassName} ${roundedClassName}`}
       >
         {titleNode}
       </button>

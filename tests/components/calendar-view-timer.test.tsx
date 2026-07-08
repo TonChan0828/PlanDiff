@@ -57,6 +57,7 @@ const planEvents = [
 const confirmedEntry: TimeEntryItem = {
   id: "entry-1",
   title: "朝会",
+  googleEventId: null,
   startAt: isoAt(8, 0),
   endAt: isoAt(8, 30),
 };

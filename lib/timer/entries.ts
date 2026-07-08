@@ -15,7 +15,7 @@ export async function fetchTimeEntries(
   const range = computeSyncRange(baseDate);
   const { data, error } = await client
     .from("time_entries")
-    .select("id, title, start_at, end_at")
+    .select("id, title, google_event_id, start_at, end_at")
     .not("end_at", "is", null)
     .lt("start_at", range.timeMax)
     .gt("end_at", range.timeMin)
@@ -28,6 +28,7 @@ export async function fetchTimeEntries(
   return (data ?? []).map((row) => ({
     id: row.id as string,
     title: row.title as string,
+    googleEventId: (row.google_event_id as string | null) ?? null,
     startAt: new Date(row.start_at as string).toISOString(),
     endAt: new Date(row.end_at as string).toISOString(),
   }));
