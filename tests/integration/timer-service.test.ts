@@ -250,6 +250,20 @@ describe("実績の読み取り(S14)", () => {
 
     await stopTimer(userA.client);
   });
+
+  // 仕様書: docs/specs/P3-1_オーバーレイ表示.md S13
+  it("S13: 確定済み実績にgoogle_event_idが設定されている場合、googleEventIdとして返る", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, {
+      googleEventId: "g-1",
+      title: "設計レビュー",
+    });
+    await stopTimer(userA.client);
+
+    const entries = await fetchTimeEntries(userA.client, new Date());
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.googleEventId).toBe("g-1");
+  });
 });
 
 // 仕様書: docs/specs/P2-4_実績の手動編集.md S16〜S21

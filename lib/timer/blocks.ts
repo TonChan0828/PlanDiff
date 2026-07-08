@@ -6,7 +6,11 @@ import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 // 配置計算はP2-1の layoutDayEvents をそのまま使う。
 
 /** editable: 確定済み(true)か実行中(false)か。実行中は手動編集の対象外(P2-4) */
-export type ActualBlockInput = CalendarBlockInput & { editable: boolean };
+export type ActualBlockInput = CalendarBlockInput & {
+  editable: boolean;
+  /** 紐づく予定のGoogle予定ID。フリータイマーはnull(P3-1) */
+  googleEventId: string | null;
+};
 
 export function actualBlockInputs(
   entries: TimeEntryItem[],
@@ -16,6 +20,7 @@ export function actualBlockInputs(
   const inputs: ActualBlockInput[] = entries.map((entry) => ({
     id: entry.id,
     title: entry.title,
+    googleEventId: entry.googleEventId,
     startAt: entry.startAt,
     endAt: entry.endAt,
     editable: true,
@@ -29,6 +34,7 @@ export function actualBlockInputs(
     inputs.push({
       id: running.id,
       title: running.title,
+      googleEventId: running.googleEventId,
       startAt: running.startAt,
       endAt,
       editable: false,

@@ -58,6 +58,7 @@ const planEvents = [
 const confirmedEntry: TimeEntryItem = {
   id: "entry-1",
   title: "朝会",
+  googleEventId: null,
   startAt: isoAt(8, 0),
   endAt: isoAt(8, 30),
 };
@@ -110,7 +111,9 @@ describe("実績ブロックタップで編集パネルを開く(S10/S11)", () =
     const user = userEvent.setup();
     renderView();
 
-    await user.click(screen.getByRole("button", { name: "朝会の実績を編集" }));
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("タイトル")).toHaveValue("朝会");
@@ -130,7 +133,9 @@ describe("編集パネルの保存(S12/S13)", () => {
     const user = userEvent.setup();
     renderView();
 
-    await user.click(screen.getByRole("button", { name: "朝会の実績を編集" }));
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(updateTimeEntryActionMock).toHaveBeenCalledWith("entry-1", {
@@ -149,7 +154,9 @@ describe("編集パネルの保存(S12/S13)", () => {
     updateTimeEntryActionMock.mockResolvedValue({ ok: false });
     renderView();
 
-    await user.click(screen.getByRole("button", { name: "朝会の実績を編集" }));
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(await screen.findByText(UPDATE_ERROR)).toBeInTheDocument();
@@ -162,7 +169,9 @@ describe("編集パネルの削除(S14/S15)", () => {
     const user = userEvent.setup();
     renderView();
 
-    await user.click(screen.getByRole("button", { name: "朝会の実績を編集" }));
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
     await user.click(screen.getByRole("button", { name: "削除" }));
     await user.click(screen.getByRole("button", { name: "削除する" }));
 
@@ -178,7 +187,9 @@ describe("編集パネルの削除(S14/S15)", () => {
     deleteTimeEntryActionMock.mockResolvedValue({ ok: false });
     renderView();
 
-    await user.click(screen.getByRole("button", { name: "朝会の実績を編集" }));
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
     await user.click(screen.getByRole("button", { name: "削除" }));
     await user.click(screen.getByRole("button", { name: "削除する" }));
 
