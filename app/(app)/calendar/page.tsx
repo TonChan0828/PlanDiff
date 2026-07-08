@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { signOutAction } from "@/app/(app)/actions";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
+import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
 import { createClient } from "@/lib/supabase/server";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 
@@ -55,16 +57,24 @@ export default async function CalendarPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
-        <form action={signOutAction}>
-          <button
-            type="submit"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-6 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/summary"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
-            {M.signOut}
-          </button>
-        </form>
+            {SUMMARY_MESSAGES.summaryLink}
+          </Link>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {M.signOut}
+            </button>
+          </form>
+        </div>
       </div>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         {displayName} {M.loggedInSuffix}
