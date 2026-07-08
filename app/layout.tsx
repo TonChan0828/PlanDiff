@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+import { BRAND_COLOR, DARK_BACKGROUND_COLOR } from "@/lib/pwa/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +18,18 @@ export const metadata: Metadata = {
   title: "PlanDiff",
   description:
     "Googleカレンダーの予定とタイムトラッキングの実績を重ね、計画と現実のギャップを可視化するツール",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "PlanDiff",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: BRAND_COLOR },
+    { media: "(prefers-color-scheme: dark)", color: DARK_BACKGROUND_COLOR },
+  ],
 };
 
 export default function RootLayout({
