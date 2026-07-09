@@ -29,6 +29,10 @@ import {
   type EditEntrySaveInput,
 } from "@/components/edit-entry-panel";
 import { FreeTimerBar } from "@/components/free-timer-bar";
+import {
+  GoogleConnectionBanner,
+  type GoogleConnectionStatus,
+} from "@/components/google-connection-banner";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
   layoutDayEvents,
@@ -89,6 +93,8 @@ interface CalendarViewProps {
   runningEntry?: RunningEntry | null;
   viewParam?: string;
   dateParam?: string;
+  /** Googleカレンダー連携済みか(サーバーで取得した初期状態。任意連携のためfalseでも表示は継続する) */
+  googleConnected?: boolean;
 }
 
 export function CalendarView({
@@ -97,6 +103,7 @@ export function CalendarView({
   runningEntry = null,
   viewParam,
   dateParam,
+  googleConnected = true,
 }: CalendarViewProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -111,6 +118,10 @@ export function CalendarView({
   const [syncing, setSyncing] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncNonce, setSyncNonce] = useState(0);
+  // Google未連携/連携失効は強制遷移させず、バナー表示のみで通常描画を継続する(仕様書P1-3)
+  const [connectionStatus, setConnectionStatus] = useState<
+    GoogleConnectionStatus | "connected"
+  >(googleConnected ? "connected" : "not_connected");
   const weekKey = selectedDate
     ? toDateParam(startOfWeek(selectedDate, { weekStartsOn: 1 }))
     : null;
@@ -141,15 +152,20 @@ export function CalendarView({
         }
         if (response.ok) {
           setSyncing(false);
+          setConnectionStatus("connected");
           router.refresh();
           return;
         }
         if (response.status === 401) {
+          if (cancelled) {
+            return;
+          }
           const body = (await response.json().catch(() => null)) as {
             error?: string;
           } | null;
-          router.push(
-            body?.error === "reauthorize" ? "/auth/reauthorize" : "/login",
+          setSyncing(false);
+          setConnectionStatus(
+            body?.error === "reauthorize" ? "reauthorize" : "not_connected",
           );
           return;
         }
@@ -466,6 +482,10 @@ export function CalendarView({
         >
           {timerError}
         </p>
+      ) : null}
+
+      {connectionStatus !== "connected" ? (
+        <GoogleConnectionBanner status={connectionStatus} />
       ) : null}
 
       {view === "day" && selectedDate && now ? (

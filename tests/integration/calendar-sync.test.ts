@@ -305,11 +305,11 @@ describe("POST /api/calendar/sync(結合)", () => {
     expect(googleCalls).toEqual([]);
   });
 
-  it("S13: google_tokens に行がない場合は 401 reauthorize が返り、Google APIは呼ばれない", async () => {
+  it("S13(P1-3更新): google_tokens に行がない場合は 401 not_connected が返り、Google APIは呼ばれない", async () => {
     const response = await callSync();
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "reauthorize" });
+    expect(await response.json()).toEqual({ error: "not_connected" });
     expect(googleCalls).toEqual([]);
   });
 

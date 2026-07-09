@@ -248,14 +248,52 @@ describe("CalendarView 空状態・エラー(S11 / S12)", () => {
     expect(routerMock.refresh).not.toHaveBeenCalled();
   });
 
-  it("S12: 401 reauthorize の場合は /auth/reauthorize へ誘導される", async () => {
+  it("S24(P1-3): 401 not_connected の場合は遷移せず未連携バナーが表示される", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: "not_connected" }));
+
+    render(<CalendarView events={[]} viewParam="day" dateParam={todayParam} />);
+
+    expect(
+      await screen.findByText(
+        "Googleカレンダーが未接続です。接続すると予定と実績のギャップが見えるようになります。",
+      ),
+    ).toBeInTheDocument();
+    expect(routerMock.push).not.toHaveBeenCalled();
+  });
+
+  it("S25(P1-3): 401 reauthorize の場合は遷移せず連携失効バナーが表示される", async () => {
     fetchMock.mockResolvedValue(jsonResponse(401, { error: "reauthorize" }));
 
     render(<CalendarView events={[]} viewParam="day" dateParam={todayParam} />);
 
-    await vi.waitFor(() => {
-      expect(routerMock.push).toHaveBeenCalledWith("/auth/reauthorize");
-    });
+    expect(
+      await screen.findByText(
+        "Googleカレンダーとの連携の有効期限が切れています。設定から再接続してください。",
+      ),
+    ).toBeInTheDocument();
+    expect(routerMock.push).not.toHaveBeenCalled();
+  });
+
+  it("S23(P1-3): googleConnected=falseの場合も予定レーンは空のままフリータイマーが操作できる", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: "not_connected" }));
+
+    render(
+      <CalendarView
+        events={[]}
+        viewParam="day"
+        dateParam={todayParam}
+        googleConnected={false}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "Googleカレンダーが未接続です。接続すると予定と実績のギャップが見えるようになります。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "フリータイマーを開始" }),
+    ).toBeInTheDocument();
   });
 
   it("S12: 手動リフレッシュ(更新ボタン)で再同期される", async () => {

@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "sync_failed" }, { status: 500 });
   }
   if (!tokenResult.refreshToken) {
-    return NextResponse.json({ error: "reauthorize" }, { status: 401 });
+    // Google未連携(一度も連携していない)。連携失効(reauthorize)とは区別する(仕様書P1-3)
+    return NextResponse.json({ error: "not_connected" }, { status: 401 });
   }
 
   const refreshed = await refreshAccessToken(tokenResult.refreshToken);
