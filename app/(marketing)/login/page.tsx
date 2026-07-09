@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { LoginForm } from "@/components/login-form";
+import { AUTH_MESSAGES as M } from "@/lib/auth/messages";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -11,21 +13,14 @@ export const metadata: Metadata = {
 // ビルド時プリレンダリングが走ってしまうため、force-dynamicで明示する
 export const dynamic = "force-dynamic";
 
-const HEADING = "ログイン";
-const DESCRIPTION =
-  "Googleアカウントでログインして、カレンダーの予定と実績のギャップを可視化しましょう。";
-const SIGN_IN_LABEL = "Googleでログイン";
-const DEFAULT_ERROR_MESSAGE =
-  "ログインに失敗しました。時間をおいてもう一度お試しください";
 const ERROR_MESSAGES: Record<string, string> = {
-  auth: "ログインがキャンセルされました。もう一度お試しください",
-  failed: DEFAULT_ERROR_MESSAGE,
+  confirm_failed: M.confirmFailedLogin,
 };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string }>;
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -33,17 +28,15 @@ export default async function LoginPage({
     redirect("/calendar");
   }
 
-  const { error } = await searchParams;
-  const errorMessage = error
-    ? (ERROR_MESSAGES[error] ?? DEFAULT_ERROR_MESSAGE)
-    : null;
+  const { error, reset } = await searchParams;
+  const errorMessage = error ? (ERROR_MESSAGES[error] ?? null) : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-6 px-6 py-16">
       <div className="flex flex-col gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">{HEADING}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{M.loginHeading}</h1>
         <p className="max-w-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-          {DESCRIPTION}
+          {M.loginDescription}
         </p>
       </div>
       {errorMessage && (
@@ -54,8 +47,24 @@ export default async function LoginPage({
           {errorMessage}
         </p>
       )}
-      <div className="max-w-xs">
-        <GoogleSignInButton label={SIGN_IN_LABEL} />
+      {reset === "success" && (
+        <p
+          role="status"
+          className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+        >
+          {M.resetPasswordSuccess}
+        </p>
+      )}
+      <div className="max-w-sm">
+        <LoginForm />
+      </div>
+      <div className="flex flex-col gap-1 text-sm">
+        <Link href="/signup" className="underline">
+          {M.noAccountYet}
+        </Link>
+        <Link href="/forgot-password" className="underline">
+          {M.forgotPasswordLink}
+        </Link>
       </div>
     </div>
   );

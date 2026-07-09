@@ -1,6 +1,13 @@
 # 仕様書: P1-1 Google認証(ログイン/ログアウト・refresh token取得・再認可導線)
 
-- ステータス: 承認済み(2026-07-05。実装計画承認による一括承認)
+> **後継注記(2026-07-09)**: 本項目は
+> [P1-3_メール認証とGoogle任意連携](P1-3_メール認証とGoogle任意連携.md) に引き継がれた。
+> Googleをログイン手段とする本仕様の実装(`app/auth/callback/route.ts`、
+> `components/google-sign-in-button.tsx`、`lib/supabase/auth-options.ts`、
+> `app/(app)/auth/reauthorize/page.tsx`)はP1-3で削除され、Googleカレンダー連携は
+> ログイン後に任意で行う独立したOAuth2フローに置き換わる。本ファイルは経緯の記録として残す。
+
+- ステータス: 承認済み(2026-07-05。実装計画承認による一括承認)。**P1-3により置き換え(2026-07-09)**
 - 関連: docs/要件定義書.md の FR-01 / §7.1 / §12(refresh token取得リスク)、docs/開発計画.md P1-1
 - 依存: P0-1(Supabaseプロジェクト)、P0-2(Google OAuthクライアント)、P0-6(google_tokensテーブル)
 - 指示資料: なし(docs/指示資料/ を確認済み、2026-07-05時点でREADMEのみ)

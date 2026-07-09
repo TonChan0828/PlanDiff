@@ -60,3 +60,49 @@ export async function refreshAccessToken(
     return { ok: false, reason: "transient" };
   }
 }
+
+// Google Calendar連携(任意)のOAuth2認可コード交換。
+// refresh_token が返らないケース(offlineアクセス未許可等)は ok: true / refreshToken: null で区別する。
+export type ExchangeAuthorizationCodeResult =
+  { ok: true; refreshToken: string | null } | { ok: false };
+
+export async function exchangeAuthorizationCode(
+  code: string,
+  redirectUri: string,
+): Promise<ExchangeAuthorizationCodeResult> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "Googleの環境変数(GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)が設定されていません",
+    );
+  }
+
+  try {
+    const response = await fetch(TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      }).toString(),
+    });
+
+    if (!response.ok) {
+      console.error("認可コードの交換に失敗しました:", response.status);
+      return { ok: false };
+    }
+
+    const body = (await response.json()) as { refresh_token?: string };
+    return { ok: true, refreshToken: body.refresh_token ?? null };
+  } catch (cause) {
+    console.error(
+      "認可コードの交換に失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+    return { ok: false };
+  }
+}

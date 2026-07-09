@@ -14,4 +14,10 @@ export const CALENDAR_MESSAGES = {
   navToday: "今日",
   viewDay: "日",
   viewWeek: "週",
+  settingsLink: "設定",
+  googleNotConnectedBanner:
+    "Googleカレンダーが未接続です。接続すると予定と実績のギャップが見えるようになります。",
+  googleReauthorizeBanner:
+    "Googleカレンダーとの連携の有効期限が切れています。設定から再接続してください。",
+  googleConnectSettingsLink: "設定でGoogleカレンダーを接続する",
 } as const;

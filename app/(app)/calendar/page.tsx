@@ -6,6 +6,7 @@ import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
+import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 
@@ -49,11 +50,13 @@ export default async function CalendarPage({
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
   // (読み取りは表示週±1週間のためTZ差はバッファが吸収する。表示上の選択日はクライアントが確定)
   const baseDate = parseDateParam(dateParam) ?? new Date();
-  const [events, timeEntries, runningEntry] = await Promise.all([
+  const [events, timeEntries, runningEntry, tokenResult] = await Promise.all([
     fetchSyncedEvents(supabase, baseDate),
     fetchTimeEntries(supabase, baseDate),
     fetchRunningEntry(supabase),
+    getGoogleRefreshToken(data.user.id),
   ]);
+  const googleConnected = tokenResult.ok && tokenResult.refreshToken !== null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -65,6 +68,12 @@ export default async function CalendarPage({
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
           >
             {SUMMARY_MESSAGES.summaryLink}
+          </Link>
+          <Link
+            href="/settings"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {M.settingsLink}
           </Link>
           <form action={signOutAction}>
             <button
@@ -85,6 +94,7 @@ export default async function CalendarPage({
         runningEntry={runningEntry}
         viewParam={viewParam}
         dateParam={dateParam}
+        googleConnected={googleConnected}
       />
     </main>
   );
