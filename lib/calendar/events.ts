@@ -8,13 +8,15 @@ import { computeSyncRange } from "@/lib/google/sync-range";
 
 export interface SyncedEvent {
   id: string;
-  /** タイマー(P2-2)が time_entries と紐づけるためのGoogle予定ID */
+  /** タイマー(P2-2)が time_entries と紐づける予定キー(Google予定ID or "app:<uuid>") */
   googleEventId: string;
   title: string;
   /** UTCのISO文字列 */
   startAt: string;
   /** UTCのISO文字列 */
   endAt: string;
+  /** 予定の由来。'app' はアプリ内作成(編集・削除可。P2-5) */
+  source: "google" | "app";
 }
 
 export async function fetchSyncedEvents(
@@ -24,7 +26,7 @@ export async function fetchSyncedEvents(
   const range = computeSyncRange(baseDate);
   const { data, error } = await client
     .from("synced_events")
-    .select("id, google_event_id, title, start_at, end_at")
+    .select("id, google_event_id, title, start_at, end_at, source")
     .lt("start_at", range.timeMax)
     .gt("end_at", range.timeMin)
     .order("start_at", { ascending: true });
@@ -39,5 +41,6 @@ export async function fetchSyncedEvents(
     title: row.title as string,
     startAt: new Date(row.start_at as string).toISOString(),
     endAt: new Date(row.end_at as string).toISOString(),
+    source: row.source === "app" ? "app" : "google",
   }));
 }

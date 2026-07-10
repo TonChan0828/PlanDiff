@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addDays, isAfter, isValid, parseISO } from "date-fns";
 import { fetchPrimaryEvents } from "@/lib/google/calendar";
+import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { refreshAccessToken } from "@/lib/google/token";
 import {
   deleteGoogleRefreshToken,
@@ -43,6 +44,11 @@ function parseSyncRange(body: unknown): SyncRange | null {
 }
 
 export async function POST(request: NextRequest) {
+  // Google連携の凍結中(フラグOFF)は同期APIを公開しない(P2-5)
+  if (!isGoogleIntegrationEnabled()) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
@@ -108,10 +114,13 @@ export async function POST(request: NextRequest) {
   }
 
   // 期間内でGoogle側から消えた予定をキャッシュから削除する(期間外の行は触らない)。
-  // 期間との重なり判定は start_at < timeMax AND end_at > timeMin
+  // 期間との重なり判定は start_at < timeMax AND end_at > timeMin。
+  // source='google' のみが対象: アプリ内予定(source='app')はGoogleレスポンスに
+  // 存在しないため、フィルタしないと同期のたびに削除されてしまう(P2-5)
   const { data: cachedRows, error: cachedError } = await supabase
     .from("synced_events")
     .select("id, google_event_id")
+    .eq("source", "google")
     .lt("start_at", range.timeMax)
     .gt("end_at", range.timeMin);
   if (cachedError) {

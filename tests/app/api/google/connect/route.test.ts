@@ -19,6 +19,8 @@ function mockUser(user: { id: string } | null) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("GOOGLE_CLIENT_ID", "test-client-id");
+  // P2-5: フラグ未設定=凍結(404)のため、P1-3のシナリオはフラグONで検証する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
 });
 
 describe("/api/google/connect", () => {

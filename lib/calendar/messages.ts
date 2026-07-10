@@ -20,4 +20,21 @@ export const CALENDAR_MESSAGES = {
   googleReauthorizeBanner:
     "Googleカレンダーとの連携の有効期限が切れています。設定から再接続してください。",
   googleConnectSettingsLink: "設定でGoogleカレンダーを接続する",
+  // アプリ内予定(P2-5)
+  eventAdd: "予定を追加",
+  eventCreateTitle: "予定を追加",
+  eventEditTitle: "予定を編集",
+  eventTitleField: "タイトル",
+  eventStartField: "開始時刻",
+  eventEndField: "終了時刻",
+  eventTitleRequired: "タイトルを入力してください",
+  eventRequiredDateTime: "開始・終了時刻を入力してください",
+  eventInvalidRange: "終了時刻は開始時刻より後にしてください",
+  eventCreateError: "予定の作成に失敗しました",
+  eventUpdateError: "予定の更新に失敗しました",
+  eventDeleteError: "予定の削除に失敗しました",
+  eventDeleteConfirm: "この予定を削除しますか?",
+  eventDeleteConfirmYes: "削除する",
+  eventEditLabel: (title: string) => `${title || "(タイトルなし)"}の予定を編集`,
+  emptyAddHint: "「予定を追加」ボタンから計画を作成できます",
 } as const;
