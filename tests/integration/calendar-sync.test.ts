@@ -113,6 +113,8 @@ async function fetchCachedRows(user: TestUser) {
 }
 
 beforeAll(async () => {
+  // P2-5: 凍結フラグOFF時は404になるため、同期の結合テストはフラグONで実行する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   vi.stubEnv("GOOGLE_CLIENT_ID", "it-client-id");
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "it-client-secret");
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
@@ -355,6 +357,41 @@ describe("POST /api/calendar/sync(結合)", () => {
     expect(rows[0]!.google_event_id).toBe("cached-1");
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it("P2-5 S16: 同期のstale削除は source='google' のみが対象で、アプリ予定は削除されずレスポンスにも含まれる", async () => {
+    await seedToken(userA);
+    // Google側から消えたstale行(source='google')
+    await seedCachedEvent(
+      userA,
+      "gone-1",
+      "2026-07-07T01:00:00.000Z",
+      "2026-07-07T02:00:00.000Z",
+    );
+    // 期間内のアプリ予定(source='app')。Googleレスポンスには存在しない
+    const { error: appInsertError } = await userA.client
+      .from("synced_events")
+      .insert({
+        user_id: userA.id,
+        source: "app",
+        google_event_id: "app:uuid-sync-1",
+        title: "アプリ予定",
+        start_at: "2026-07-08T01:00:00.000Z",
+        end_at: "2026-07-08T02:00:00.000Z",
+      });
+    expect(appInsertError).toBeNull();
+    eventsResponse = { status: 200, body: { items: [] } };
+
+    const response = await callSync();
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(
+      json.events.map((e: { googleEventId: string }) => e.googleEventId),
+    ).toEqual(["app:uuid-sync-1"]);
+
+    const rows = await fetchCachedRows(userA);
+    expect(rows.map((row) => row.google_event_id)).toEqual(["app:uuid-sync-1"]);
   });
 
   it("S17: 同期しても別ユーザーのキャッシュ行は削除・変更されない", async () => {

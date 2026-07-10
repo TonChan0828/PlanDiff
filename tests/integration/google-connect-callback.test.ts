@@ -76,6 +76,8 @@ async function fetchTokenRows(userId: string) {
 
 beforeEach(() => {
   vi.mocked(createClient).mockReset();
+  // P2-5: フラグ未設定=凍結(404)のため、P1-3のシナリオはフラグONで検証する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   vi.stubEnv("GOOGLE_CLIENT_ID", "test-client-id");
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "test-client-secret");
   vi.stubGlobal("fetch", fetchMock);

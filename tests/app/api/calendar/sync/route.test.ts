@@ -30,6 +30,8 @@ function callSync(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // P2-5: フラグ未設定=凍結(404)のため、P1-2のシナリオはフラグONで検証する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   createClientMock.mockResolvedValue({
     auth: {
       getUser: vi

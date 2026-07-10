@@ -22,5 +22,8 @@ export default defineConfig({
     env: loadEnv("test", process.cwd(), ""),
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    // 共有のローカルDBを使うため、ファイル並列実行だとテーブル全削除系の
+    // クリーンアップ(summary等)が他ファイルの行を消して不安定になる。直列で実行する
+    fileParallelism: false,
   },
 });
