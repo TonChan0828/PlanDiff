@@ -5,6 +5,7 @@ import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
+import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -50,13 +51,19 @@ export default async function CalendarPage({
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
   // (読み取りは表示週±1週間のためTZ差はバッファが吸収する。表示上の選択日はクライアントが確定)
   const baseDate = parseDateParam(dateParam) ?? new Date();
+  // Google連携の凍結中(フラグOFF)はトークンを読まず、同期UIも無効にする(P2-5)
+  const googleEnabled = isGoogleIntegrationEnabled();
   const [events, timeEntries, runningEntry, tokenResult] = await Promise.all([
     fetchSyncedEvents(supabase, baseDate),
     fetchTimeEntries(supabase, baseDate),
     fetchRunningEntry(supabase),
-    getGoogleRefreshToken(data.user.id),
+    googleEnabled ? getGoogleRefreshToken(data.user.id) : Promise.resolve(null),
   ]);
-  const googleConnected = tokenResult.ok && tokenResult.refreshToken !== null;
+  const googleConnected =
+    googleEnabled &&
+    tokenResult !== null &&
+    tokenResult.ok &&
+    tokenResult.refreshToken !== null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -95,6 +102,7 @@ export default async function CalendarPage({
         viewParam={viewParam}
         dateParam={dateParam}
         googleConnected={googleConnected}
+        googleEnabled={googleEnabled}
       />
     </main>
   );

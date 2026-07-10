@@ -38,6 +38,8 @@ function requestWithState(query: string, cookieState?: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // P2-5: フラグ未設定=凍結(404)のため、P1-3のシナリオはフラグONで検証する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   mockUser({ id: "u1" });
 });
 

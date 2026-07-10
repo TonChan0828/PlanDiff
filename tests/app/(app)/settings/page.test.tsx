@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -12,17 +12,24 @@ import { createClient } from "@/lib/supabase/server";
 import SettingsPage from "@/app/(app)/settings/page";
 
 // 仕様書: docs/specs/P1-3_メール認証とGoogle任意連携.md S21
+// 仕様書: docs/specs/P2-5_アプリ内予定とGoogle連携凍結.md S17(凍結フラグ)
 
 const createClientMock = vi.mocked(createClient);
 const getGoogleRefreshTokenMock = vi.mocked(getGoogleRefreshToken);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // P2-5: フラグ未設定=凍結のため、既存(P1-3)のシナリオはフラグONで検証する
+  vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   createClientMock.mockResolvedValue({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1" } } }),
     },
   } as unknown as Awaited<ReturnType<typeof createClient>>);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("設定ページ", () => {
@@ -89,5 +96,28 @@ describe("設定ページ", () => {
         "オフラインアクセスの許可が必要です。もう一度連携をやり直し、アクセス許可画面ですべての権限を許可してください",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("P2-5 S17: 凍結フラグOFFではGoogle連携セクションが表示されず、トークンも読まれない", async () => {
+    vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "");
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.queryByText("Googleカレンダー連携")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "連携する" }),
+    ).not.toBeInTheDocument();
+    expect(getGoogleRefreshTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("P2-5 S17: 凍結フラグONではGoogle連携セクションが従来どおり表示される", async () => {
+    getGoogleRefreshTokenMock.mockResolvedValue({
+      ok: true,
+      refreshToken: null,
+    });
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Googleカレンダー連携")).toBeInTheDocument();
   });
 });

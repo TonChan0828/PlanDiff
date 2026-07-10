@@ -18,11 +18,20 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
+  createAppEventAction,
+  deleteAppEventAction,
+  updateAppEventAction,
+} from "@/app/(app)/calendar/event-actions";
+import {
   deleteTimeEntryAction,
   startTimerAction,
   stopTimerAction,
   updateTimeEntryAction,
 } from "@/app/(app)/calendar/timer-actions";
+import {
+  AppEventPanel,
+  type AppEventPanelValues,
+} from "@/components/app-event-panel";
 import {
   EditEntryPanel,
   type EditEntryPanelEntry,
@@ -64,8 +73,10 @@ import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 // 予定ブロックのタップでタイマーを開始/停止する(楽観的更新。確定はServer Action)。
 
 export type CalendarViewEvent = CalendarBlockInput & {
-  /** タイマー(time_entries)と紐づくGoogle予定ID */
+  /** タイマー(time_entries)と紐づく予定キー(Google予定ID or "app:<uuid>") */
   googleEventId: string;
+  /** 予定の由来。'app' はアプリ内作成(編集・削除可)。省略時は 'google' 扱い(P2-5) */
+  source?: "google" | "app";
 };
 
 const HOUR_PX = 56; // 1時間の高さ(375pxの1画面に約8時間)
@@ -95,6 +106,8 @@ interface CalendarViewProps {
   dateParam?: string;
   /** Googleカレンダー連携済みか(サーバーで取得した初期状態。任意連携のためfalseでも表示は継続する) */
   googleConnected?: boolean;
+  /** Google連携機能が有効か(凍結フラグ。falseなら同期・更新ボタン・バナーを出さない。P2-5) */
+  googleEnabled?: boolean;
 }
 
 export function CalendarView({
@@ -104,6 +117,7 @@ export function CalendarView({
   viewParam,
   dateParam,
   googleConnected = true,
+  googleEnabled = true,
 }: CalendarViewProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -115,7 +129,8 @@ export function CalendarView({
   const now = hydrated ? new Date() : null;
 
   // ---- 同期(P1-2の挙動を維持): マウント時+表示週の変化+手動リフレッシュ ----
-  const [syncing, setSyncing] = useState(true);
+  // 凍結フラグOFF(googleEnabled=false)時は同期を一切行わない(P2-5)
+  const [syncing, setSyncing] = useState(googleEnabled);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncNonce, setSyncNonce] = useState(0);
   // Google未連携/連携失効は強制遷移させず、バナー表示のみで通常描画を継続する(仕様書P1-3)
@@ -127,7 +142,7 @@ export function CalendarView({
     : null;
 
   useEffect(() => {
-    if (!weekKey) {
+    if (!googleEnabled || !weekKey) {
       return;
     }
     let cancelled = false;
@@ -176,7 +191,7 @@ export function CalendarView({
     return () => {
       cancelled = true;
     };
-  }, [router, weekKey, syncNonce]);
+  }, [router, weekKey, syncNonce, googleEnabled]);
 
   // ---- 初期スクロール: 8:00付近(今日で現在時刻が8時以降なら現在時刻−1時間) ----
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -315,6 +330,104 @@ export function CalendarView({
     }
   };
 
+  // ---- アプリ内予定の作成・編集・削除(P2-5): 楽観的更新はせずServer Action成功後にrefresh ----
+  type EventPanelState =
+    | { mode: "create"; initial: AppEventPanelValues }
+    | { mode: "edit"; eventId: string; initial: AppEventPanelValues };
+  const [eventPanel, setEventPanel] = useState<EventPanelState | null>(null);
+  const [eventPending, setEventPending] = useState(false);
+  const [eventError, setEventError] = useState<string | null>(null);
+
+  // 作成モードの初期値: 選択中の日付で「次の正時から1時間」(例: 14:23 → 15:00〜16:00)
+  const handleOpenCreateEvent = () => {
+    const current = new Date();
+    const baseDay = selectedDate ?? startOfDay(current);
+    const start = new Date(
+      baseDay.getFullYear(),
+      baseDay.getMonth(),
+      baseDay.getDate(),
+      current.getHours() + 1,
+      0,
+      0,
+      0,
+    );
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setEventError(null);
+    setEventPanel({
+      mode: "create",
+      initial: {
+        title: "",
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+      },
+    });
+  };
+
+  const handleOpenEditEvent = (event: CalendarViewEvent) => {
+    setEventError(null);
+    setEventPanel({
+      mode: "edit",
+      eventId: event.id,
+      initial: {
+        title: event.title,
+        startAt: event.startAt,
+        endAt: event.endAt,
+      },
+    });
+  };
+
+  const handleCloseEventPanel = () => {
+    if (eventPending) {
+      return;
+    }
+    setEventPanel(null);
+    setEventError(null);
+  };
+
+  const handleSaveEvent = (values: AppEventPanelValues) => {
+    if (!eventPanel || eventPending) {
+      return;
+    }
+    const failureMessage =
+      eventPanel.mode === "create" ? M.eventCreateError : M.eventUpdateError;
+    setEventPending(true);
+    setEventError(null);
+    const action =
+      eventPanel.mode === "create"
+        ? createAppEventAction(values)
+        : updateAppEventAction(eventPanel.eventId, values);
+    action
+      .then((result) => {
+        if (result.ok) {
+          setEventPanel(null);
+          router.refresh();
+        } else {
+          setEventError(failureMessage);
+        }
+      })
+      .catch(() => setEventError(failureMessage))
+      .finally(() => setEventPending(false));
+  };
+
+  const handleDeleteEvent = () => {
+    if (!eventPanel || eventPanel.mode !== "edit" || eventPending) {
+      return;
+    }
+    setEventPending(true);
+    setEventError(null);
+    deleteAppEventAction(eventPanel.eventId)
+      .then((result) => {
+        if (result.ok) {
+          setEventPanel(null);
+          router.refresh();
+        } else {
+          setEventError(M.eventDeleteError);
+        }
+      })
+      .catch(() => setEventError(M.eventDeleteError))
+      .finally(() => setEventPending(false));
+  };
+
   // ---- 実績の手動編集(P2-4): 確定済み実績のみ対象。楽観的更新はせずServer Action成功後にrefresh ----
   const [editingEntry, setEditingEntry] = useState<EditEntryPanelEntry | null>(
     null,
@@ -434,6 +547,13 @@ export function CalendarView({
           {rangeLabel}
         </p>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleOpenCreateEvent}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          >
+            {M.eventAdd}
+          </button>
           <div
             role="group"
             aria-label="表示切替"
@@ -455,14 +575,16 @@ export function CalendarView({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={syncing}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {syncing ? M.syncing : M.refresh}
-          </button>
+          {googleEnabled ? (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={syncing}
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              {syncing ? M.syncing : M.refresh}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -484,7 +606,7 @@ export function CalendarView({
         </p>
       ) : null}
 
-      {connectionStatus !== "connected" ? (
+      {googleEnabled && connectionStatus !== "connected" ? (
         <GoogleConnectionBanner status={connectionStatus} />
       ) : null}
 
@@ -552,6 +674,7 @@ export function CalendarView({
                 runningEventId={running?.googleEventId ?? null}
                 timerPending={timerPending}
                 onBlockTap={handleBlockTap}
+                onEditEvent={handleOpenEditEvent}
                 onEditActual={handleEditActual}
                 now={now}
                 showTime={view === "day"}
@@ -564,9 +687,14 @@ export function CalendarView({
           )}
         </div>
         {rangeIsEmpty ? (
-          <p className="absolute top-3 left-12 text-sm text-zinc-500 dark:text-zinc-400">
-            {M.empty}
-          </p>
+          <div className="absolute top-3 left-12 flex flex-col gap-1">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {M.empty}
+            </p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {M.emptyAddHint}
+            </p>
+          </div>
         ) : null}
       </div>
 
@@ -579,6 +707,19 @@ export function CalendarView({
       ) : (
         <FreeTimerBar onStart={handleStartFreeTimer} pending={timerPending} />
       )}
+
+      {eventPanel ? (
+        <AppEventPanel
+          key={eventPanel.mode === "edit" ? eventPanel.eventId : "create"}
+          mode={eventPanel.mode}
+          initial={eventPanel.initial}
+          onSave={handleSaveEvent}
+          onDelete={eventPanel.mode === "edit" ? handleDeleteEvent : undefined}
+          onClose={handleCloseEventPanel}
+          pending={eventPending}
+          error={eventError}
+        />
+      ) : null}
 
       {editingEntry ? (
         <EditEntryPanel
@@ -657,6 +798,7 @@ function DayColumn({
   runningEventId,
   timerPending,
   onBlockTap,
+  onEditEvent,
   onEditActual,
   now,
   showTime,
@@ -667,6 +809,7 @@ function DayColumn({
   runningEventId: string | null;
   timerPending: boolean;
   onBlockTap: (event: CalendarViewEvent) => void;
+  onEditEvent: (event: CalendarViewEvent) => void;
   onEditActual: (block: ActualBlockInput) => void;
   now: Date | null;
   showTime: boolean;
@@ -711,6 +854,7 @@ function DayColumn({
             isRunning={runningEventId === block.googleEventId}
             disabled={timerPending}
             onTap={onBlockTap}
+            onEdit={onEditEvent}
           />
         ))}
       </ul>
@@ -770,18 +914,28 @@ function PlanBlock({
   isRunning,
   disabled,
   onTap,
+  onEdit,
 }: {
   block: CalendarBlock<CalendarViewEvent>;
   showTime: boolean;
   isRunning: boolean;
   disabled: boolean;
   onTap: (event: CalendarViewEvent) => void;
+  onEdit: (event: CalendarViewEvent) => void;
 }) {
   const widthPercent = 100 / block.columnCount;
   const timeLabel = `${format(parseISO(block.startAt), "HH:mm")}〜${format(parseISO(block.endAt), "HH:mm")}`;
   const tapLabel = isRunning
     ? T.stopLabel(block.title)
     : T.startLabel(block.title);
+  const viewEvent: CalendarViewEvent = {
+    id: block.id,
+    googleEventId: block.googleEventId,
+    title: block.title,
+    startAt: block.startAt,
+    endAt: block.endAt,
+    source: block.source,
+  };
   return (
     <li
       className="absolute"
@@ -797,15 +951,7 @@ function PlanBlock({
         aria-label={tapLabel}
         aria-pressed={isRunning}
         disabled={disabled}
-        onClick={() =>
-          onTap({
-            id: block.id,
-            googleEventId: block.googleEventId,
-            title: block.title,
-            startAt: block.startAt,
-            endAt: block.endAt,
-          })
-        }
+        onClick={() => onTap(viewEvent)}
         className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left disabled:opacity-60 ${
           isRunning
             ? "border-2 border-sky-600 bg-sky-100/80 dark:border-sky-400 dark:bg-sky-950/60"
@@ -833,6 +979,17 @@ function PlanBlock({
           </p>
         ) : null}
       </button>
+      {/* アプリ内予定のみ編集導線(P2-5)。本体ボタン(タイマー)とは兄弟要素で重ねる */}
+      {block.source === "app" ? (
+        <button
+          type="button"
+          aria-label={M.eventEditLabel(block.title)}
+          onClick={() => onEdit(viewEvent)}
+          className="absolute top-0.5 right-0.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs text-sky-900 shadow-sm hover:bg-white dark:bg-zinc-900/90 dark:text-sky-200 dark:hover:bg-zinc-800"
+        >
+          ✎
+        </button>
+      ) : null}
     </li>
   );
 }

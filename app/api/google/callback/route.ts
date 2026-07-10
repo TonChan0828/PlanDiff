@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { STATE_COOKIE } from "@/app/api/google/connect/route";
+import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { exchangeAuthorizationCode } from "@/lib/google/token";
 import { saveGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -15,6 +16,11 @@ function redirectAndClearState(origin: string, path: string): NextResponse {
 }
 
 export async function GET(request: NextRequest) {
+  // Google連携の凍結中(フラグOFF)はコールバックを公開しない(P2-5)
+  if (!isGoogleIntegrationEnabled()) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const { searchParams, origin } = new URL(request.url);
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
