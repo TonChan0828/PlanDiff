@@ -12,18 +12,13 @@ export function DeleteAccountSection() {
   const canDelete = confirmText === M.deleteAccountConfirmPhrase;
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-red-300 p-4 dark:border-red-900">
-      <h2 className="text-base font-semibold text-red-700 dark:text-red-400">
+    <section className="border-danger/40 bg-surface flex flex-col gap-3 rounded-xl border p-4">
+      <h2 className="text-danger text-base font-semibold">
         {M.dangerSectionHeading}
       </h2>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        {M.deleteAccountDescription}
-      </p>
+      <p className="text-ink-muted text-sm">{M.deleteAccountDescription}</p>
       <form action={deleteAccountAction} className="flex flex-col gap-3">
-        <label
-          htmlFor={inputId}
-          className="text-sm text-zinc-600 dark:text-zinc-400"
-        >
+        <label htmlFor={inputId} className="text-ink-muted text-sm">
           {M.deleteAccountConfirmLabel}
         </label>
         <input
@@ -32,12 +27,12 @@ export function DeleteAccountSection() {
           value={confirmText}
           onChange={(event) => setConfirmText(event.target.value)}
           autoComplete="off"
-          className="min-h-11 w-full max-w-sm rounded-md border border-zinc-300 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="border-line bg-surface min-h-11 w-full max-w-sm rounded-lg border px-3 text-sm"
         />
         <button
           type="submit"
           disabled={!canDelete}
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-red-600 px-6 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="bg-danger hover:bg-danger/90 inline-flex min-h-11 w-fit items-center justify-center rounded-lg px-6 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40"
         >
           {M.deleteAccountButton}
         </button>

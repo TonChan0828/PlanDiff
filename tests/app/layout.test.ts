@@ -22,8 +22,9 @@ describe("app/layout.tsx のPWA関連メタデータ", () => {
       (entry) => entry.media === "(prefers-color-scheme: dark)",
     );
 
-    expect(light?.color).toBe("#0284c7");
-    expect(dark?.color).toBe("#0a0a0a");
+    // D-1-2: ブランド色=群青、ダーク背景=宵(docs/specs/D-1-2_デザイン刷新.md)
+    expect(light?.color).toBe("#2f4acb");
+    expect(dark?.color).toBe("#0e1116");
   });
 
   it("appleWebAppでスタンドアロン表示用のメタデータが設定されている", () => {

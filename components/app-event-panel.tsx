@@ -100,7 +100,7 @@ export function AppEventPanel({
         aria-modal="true"
         aria-label={heading}
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="border-line bg-surface w-full max-w-sm rounded-2xl border p-5 shadow-xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{heading}</h2>
@@ -109,7 +109,7 @@ export function AppEventPanel({
             aria-label="閉じる"
             onClick={handleClose}
             disabled={pending}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-lg text-zinc-500 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="text-ink-muted hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-lg disabled:opacity-50"
           >
             ×
           </button>
@@ -117,14 +117,9 @@ export function AppEventPanel({
 
         {confirmingDelete && onDelete ? (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              {M.eventDeleteConfirm}
-            </p>
+            <p className="text-sm">{M.eventDeleteConfirm}</p>
             {displayedError ? (
-              <p
-                role="alert"
-                className="text-sm text-red-700 dark:text-red-400"
-              >
+              <p role="alert" className="text-danger text-sm">
                 {displayedError}
               </p>
             ) : null}
@@ -133,7 +128,7 @@ export function AppEventPanel({
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
                 disabled={pending}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium disabled:opacity-50 dark:border-zinc-700"
+                className="border-line inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium disabled:opacity-50"
               >
                 キャンセル
               </button>
@@ -141,7 +136,7 @@ export function AppEventPanel({
                 type="button"
                 onClick={onDelete}
                 disabled={pending}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-4 text-sm font-medium text-white disabled:opacity-50 dark:bg-red-500"
+                className="bg-danger inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-medium text-white disabled:opacity-50"
               >
                 {M.eventDeleteConfirmYes}
               </button>
@@ -157,7 +152,7 @@ export function AppEventPanel({
                 onChange={(event) => setTitle(event.target.value)}
                 disabled={pending}
                 maxLength={200}
-                className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -167,7 +162,7 @@ export function AppEventPanel({
                 value={startLocal}
                 onChange={(event) => setStartLocal(event.target.value)}
                 disabled={pending}
-                className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -177,14 +172,11 @@ export function AppEventPanel({
                 value={endLocal}
                 onChange={(event) => setEndLocal(event.target.value)}
                 disabled={pending}
-                className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
             {displayedError ? (
-              <p
-                role="alert"
-                className="text-sm text-red-700 dark:text-red-400"
-              >
+              <p role="alert" className="text-danger text-sm">
                 {displayedError}
               </p>
             ) : null}
@@ -196,7 +188,7 @@ export function AppEventPanel({
                   type="button"
                   onClick={() => setConfirmingDelete(true)}
                   disabled={pending}
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-red-300 px-4 text-sm font-medium text-red-700 disabled:opacity-50 dark:border-red-800 dark:text-red-400"
+                  className="border-danger/40 text-danger inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium disabled:opacity-50"
                 >
                   削除
                 </button>
@@ -204,7 +196,7 @@ export function AppEventPanel({
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 保存
               </button>

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { AppBar } from "@/components/app-bar";
+import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { createClient } from "@/lib/supabase/server";
 
 // 認証必須グループ。未ログインは /login へリダイレクトする
@@ -7,6 +9,9 @@ import { createClient } from "@/lib/supabase/server";
 // ビルド時プリレンダリングが走ってしまうため、force-dynamicで明示する
 export const dynamic = "force-dynamic";
 
+// 共通シェル(D-1c): AppBar+コンテンツ+下部タブ。h-dvhで固定し、
+// コンテンツ領域を内部スクロールにすることでカレンダーのタイムラインが
+// 残り高さいっぱいに広がれるようにする(D-1d)
 export default async function AppLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
@@ -16,5 +21,13 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  return <div className="flex min-h-full flex-1 flex-col">{children}</div>;
+  return (
+    <div className="flex h-dvh flex-col">
+      <AppBar />
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {children}
+      </div>
+      <BottomTabBar />
+    </div>
+  );
 }

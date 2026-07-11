@@ -516,21 +516,21 @@ export function CalendarView({
     days.every((day) => layoutDayEvents(events, day).length === 0);
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <button
             type="button"
             aria-label={M.navPrev}
             onClick={() => handleNavigate("prev")}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-zinc-300 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
           >
             ‹
           </button>
           <button
             type="button"
             onClick={handleToday}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors"
           >
             {M.navToday}
           </button>
@@ -538,26 +538,19 @@ export function CalendarView({
             type="button"
             aria-label={M.navNext}
             onClick={() => handleNavigate("next")}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-zinc-300 text-sm transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
           >
             ›
           </button>
         </div>
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <p className="font-mono text-sm font-medium tabular-nums">
           {rangeLabel}
         </p>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleOpenCreateEvent}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            {M.eventAdd}
-          </button>
           <div
             role="group"
             aria-label="表示切替"
-            className="flex overflow-hidden rounded-full border border-zinc-300 dark:border-zinc-700"
+            className="border-line flex overflow-hidden rounded-lg border"
           >
             {(["day", "week"] as const).map((mode) => (
               <button
@@ -565,10 +558,8 @@ export function CalendarView({
                 type="button"
                 aria-pressed={view === mode}
                 onClick={() => handleViewChange(mode)}
-                className={`inline-flex min-h-11 items-center justify-center px-4 text-sm font-medium transition-colors ${
-                  view === mode
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className={`inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors ${
+                  view === mode ? "bg-brand text-brand-ink" : "hover:bg-ink/5"
                 }`}
               >
                 {mode === "day" ? M.viewDay : M.viewWeek}
@@ -580,18 +571,25 @@ export function CalendarView({
               type="button"
               onClick={handleRefresh}
               disabled={syncing}
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
             >
               {syncing ? M.syncing : M.refresh}
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={handleOpenCreateEvent}
+            className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 text-sm font-medium transition-colors"
+          >
+            {M.eventAdd}
+          </button>
         </div>
       </div>
 
       {errorMessage ? (
         <p
           role="alert"
-          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
         >
           {errorMessage}
         </p>
@@ -600,7 +598,7 @@ export function CalendarView({
       {timerError ? (
         <p
           role="alert"
-          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
         >
           {timerError}
         </p>
@@ -628,12 +626,12 @@ export function CalendarView({
               aria-current={now && isSameDay(day, now) ? "date" : undefined}
               className={`flex flex-col items-center rounded-md py-1 text-xs ${
                 now && isSameDay(day, now)
-                  ? "bg-zinc-900 font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-600 dark:text-zinc-400"
+                  ? "bg-brand text-brand-ink font-semibold"
+                  : "text-ink-muted"
               }`}
             >
               <span>{format(day, "E", { locale: ja })}</span>
-              <span className="tabular-nums">{format(day, "d")}</span>
+              <span className="font-mono tabular-nums">{format(day, "d")}</span>
             </div>
           ))}
         </div>
@@ -641,7 +639,7 @@ export function CalendarView({
 
       <div
         ref={scrollRef}
-        className="relative max-h-[65dvh] overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
+        className="border-line bg-surface relative min-h-64 flex-1 overflow-y-auto rounded-xl border"
       >
         <div
           className={`grid ${
@@ -656,7 +654,7 @@ export function CalendarView({
             {HOURS.map((hour) => (
               <span
                 key={hour}
-                className="absolute right-1 -translate-y-1/2 text-[10px] text-zinc-400 tabular-nums dark:text-zinc-500"
+                className="text-ink-muted absolute right-1 -translate-y-1/2 font-mono text-[10px] tabular-nums"
                 style={{ top: `${hour * HOUR_PX}px` }}
               >
                 {hour === 0 ? "" : `${hour}:00`}
@@ -681,19 +679,15 @@ export function CalendarView({
               />
             ))
           ) : (
-            <div className="relative border-l border-zinc-100 dark:border-zinc-800">
+            <div className="border-line/60 relative border-l">
               <HourLines />
             </div>
           )}
         </div>
         {rangeIsEmpty ? (
           <div className="absolute top-3 left-12 flex flex-col gap-1">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {M.empty}
-            </p>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {M.emptyAddHint}
-            </p>
+            <p className="text-ink-muted text-sm">{M.empty}</p>
+            <p className="text-ink-muted text-sm">{M.emptyAddHint}</p>
           </div>
         ) : null}
       </div>
@@ -743,13 +737,24 @@ function HourLines() {
         <div
           key={hour}
           aria-hidden="true"
-          className="absolute right-0 left-0 border-t border-zinc-100 dark:border-zinc-800"
-          style={{ top: `${hour * HOUR_PX}px` }}
+          className="absolute right-0 left-0 border-t"
+          style={{
+            top: `${hour * HOUR_PX}px`,
+            borderColor: "var(--grid-hour)",
+          }}
         />
       ))}
     </>
   );
 }
+
+// 方眼背景(D-2)。15分刻みの薄い水平線+垂直線で「方眼紙に時間を記録する」質感を出す。
+// 水平ピッチは HOUR_PX/4(15分)、垂直は同じピッチの正方格子
+const GRID_BACKGROUND_STYLE = {
+  backgroundImage:
+    "repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 14px)," +
+    "repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 14px)",
+} as const;
 
 function WeekStrip({
   selectedDate,
@@ -775,14 +780,14 @@ function WeekStrip({
               onClick={() => onSelect(day)}
               className={`flex min-h-11 w-full flex-col items-center justify-center rounded-lg border text-xs transition-colors ${
                 isSelected
-                  ? "border-zinc-900 bg-zinc-900 font-semibold text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "border-brand bg-brand text-brand-ink font-semibold"
                   : isToday
-                    ? "border-zinc-400 font-semibold dark:border-zinc-500"
-                    : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    ? "border-brand/50 font-semibold"
+                    : "border-line text-ink-muted hover:bg-ink/5"
               }`}
             >
               <span>{format(day, "E", { locale: ja })}</span>
-              <span className="tabular-nums">{format(day, "d")}</span>
+              <span className="font-mono tabular-nums">{format(day, "d")}</span>
             </button>
           </li>
         );
@@ -839,7 +844,10 @@ function DayColumn({
   const gaps = computeActualGaps(gapInputs, planForGap);
 
   return (
-    <div className="relative border-l border-zinc-100 dark:border-zinc-800">
+    <div
+      className="border-line/60 relative border-l"
+      style={GRID_BACKGROUND_STYLE}
+    >
       <HourLines />
       {/* 予定レーン(左55%) */}
       <ul
@@ -896,13 +904,17 @@ function DayColumn({
           );
         })}
       </ul>
-      {isToday ? (
+      {isToday && now ? (
         <div
           data-testid="current-time-line"
           aria-hidden="true"
-          className="absolute right-0 left-0 border-t-2 border-red-500"
+          className="border-danger absolute right-0 left-0 border-t-2"
           style={{ top: `${nowPercent}%` }}
-        />
+        >
+          <span className="bg-danger absolute top-0 left-0.5 -translate-y-1/2 rounded px-1 py-px font-mono text-[9px] leading-tight font-bold text-white tabular-nums">
+            {format(now, "HH:mm")}
+          </span>
+        </div>
       ) : null}
     </div>
   );
@@ -954,27 +966,27 @@ function PlanBlock({
         onClick={() => onTap(viewEvent)}
         className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left disabled:opacity-60 ${
           isRunning
-            ? "border-2 border-sky-600 bg-sky-100/80 dark:border-sky-400 dark:bg-sky-950/60"
-            : "border-sky-300 bg-sky-100/80 hover:bg-sky-200/80 dark:border-sky-800 dark:bg-sky-950/60 dark:hover:bg-sky-900/60"
+            ? "border-brand bg-plan-fill border-2"
+            : "border-plan-border bg-plan-fill hover:bg-brand/15"
         } ${block.clippedStart ? "" : "rounded-t-md"} ${
           block.clippedEnd ? "" : "rounded-b-md"
         }`}
       >
         {/* 週ビュー(時刻非表示)は列が狭いため1〜2行で省略する */}
         <p
-          className={`text-xs leading-tight font-medium break-words text-sky-900 dark:text-sky-200 ${
+          className={`text-plan-text text-xs leading-tight font-medium break-words ${
             showTime ? "" : "line-clamp-2"
           }`}
         >
           {block.title || M.untitled}
         </p>
         {isRunning ? (
-          <p className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+          <p className="text-plan-text text-[10px] font-semibold">
             {T.recording}
           </p>
         ) : null}
         {showTime ? (
-          <p className="text-[10px] text-sky-700 tabular-nums dark:text-sky-400">
+          <p className="text-plan-text/80 font-mono text-[10px] tabular-nums">
             {timeLabel}
           </p>
         ) : null}
@@ -985,7 +997,7 @@ function PlanBlock({
           type="button"
           aria-label={M.eventEditLabel(block.title)}
           onClick={() => onEdit(viewEvent)}
-          className="absolute top-0.5 right-0.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs text-sky-900 shadow-sm hover:bg-white dark:bg-zinc-900/90 dark:text-sky-200 dark:hover:bg-zinc-800"
+          className="bg-surface/90 text-plan-text hover:bg-surface absolute top-0.5 right-0.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs shadow-sm"
         >
           ✎
         </button>
@@ -1016,7 +1028,8 @@ function gapBarStyle(
   };
 }
 
-// ズレ(開始遅延・超過)を示す装飾バー。ストライプ柄で色以外の手がかりも与える(ui-quality Skill)
+// ズレ(開始遅延・超過)を示す斜線ハッチ。ストライプ柄で色以外の手がかりも与える(ui-quality Skill)。
+// 色はトークン(柿)に追随する(D-2)
 function GapStripe({
   testId,
   topPercent,
@@ -1030,12 +1043,12 @@ function GapStripe({
     <li
       data-testid={testId}
       aria-hidden="true"
-      className="pointer-events-none absolute right-0 left-0 border-x border-amber-600/70"
+      className="border-interrupt/70 pointer-events-none absolute right-0 left-0 border-x"
       style={{
         top: `${topPercent}%`,
         height: `${Math.max(heightPercent, 0.5)}%`,
         backgroundImage:
-          "repeating-linear-gradient(135deg, rgba(180,83,9,0.5) 0px, rgba(180,83,9,0.5) 4px, transparent 4px, transparent 8px)",
+          "repeating-linear-gradient(135deg, var(--hatch) 0px, var(--hatch) 4px, transparent 4px, transparent 8px)",
       }}
     />
   );
@@ -1062,13 +1075,11 @@ function ActualBlock({
   const roundedClassName = `${block.clippedStart ? "" : "rounded-t-md"} ${
     block.clippedEnd ? "" : "rounded-b-md"
   }`;
-  // 紐づく実績はsky系(予定と同系色)、フリー/割り込みはamber系で区別する(FR-06)
+  // 紐づく実績は群青(予定と同系色)、フリー/割り込みは柿で区別する(FR-06/D-2)
   const colorClassName = gap.linked
-    ? "border-sky-700 bg-sky-600/90 dark:border-sky-400 dark:bg-sky-500/80"
-    : "border-amber-700 bg-amber-600/90 dark:border-amber-400 dark:bg-amber-500/80";
-  const textColorClassName = gap.linked
-    ? "text-white dark:text-sky-950"
-    : "text-white dark:text-amber-950";
+    ? "border-brand bg-brand"
+    : "border-interrupt bg-interrupt";
+  const textColorClassName = "text-white";
 
   // 色だけに依存せずテキストでもズレ・紐づき状態を伝える(ui-quality Skill)
   const gapSuffix = !gap.linked
@@ -1084,15 +1095,15 @@ function ActualBlock({
   const detailNode = showTime ? (
     <>
       {!gap.linked ? (
-        <p className="text-[10px] font-semibold text-amber-50">{T.freeBadge}</p>
+        <p className="text-[10px] font-semibold text-white/90">{T.freeBadge}</p>
       ) : null}
       {gap.startDelayMinutes > 0 ? (
-        <p className="text-[10px] font-semibold text-amber-50">
+        <p className="font-mono text-[10px] font-bold text-white/90 tabular-nums">
           {T.delayLabel(gap.startDelayMinutes)}
         </p>
       ) : null}
       {gap.overrunMinutes > 0 ? (
-        <p className="text-[10px] font-semibold text-amber-50">
+        <p className="font-mono text-[10px] font-bold text-white/90 tabular-nums">
           {T.overrunLabel(gap.overrunMinutes)}
         </p>
       ) : null}

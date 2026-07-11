@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
+/* D-1-2 デザイン刷新「時間のdiff」のトークン(docs/specs/D-1-2_デザイン刷新.md)。
+   色はここに一元化し、コンポーネントへの直書きをしない */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* スクロールバー・フォーム部品をテーマに追随させる */
+  color-scheme: light dark;
+  --paper: #f6f7f9; /* 方眼紙(背景) */
+  --surface: #ffffff; /* 面 */
+  --ink: #1a1d23; /* 墨 */
+  --ink-muted: #5a6272; /* 墨・淡 */
+  --line: #e3e6eb; /* 枠線 */
+  --brand: #2f4acb; /* 群青(実績・ブランド) */
+  --brand-ink: #ffffff;
+  --plan-fill: rgba(47, 74, 203, 0.1); /* 群青10%(計画) */
+  --plan-border: rgba(47, 74, 203, 0.38);
+  --plan-text: #22368f;
+  --interrupt: #d9480f; /* 柿(割り込み・ズレ) */
+  --danger: #dc2626; /* 紅 */
+  --hatch: rgba(217, 72, 15, 0.5); /* ズレの斜線 */
+  --grid: rgba(26, 29, 35, 0.05); /* 方眼(15分) */
+  --grid-hour: rgba(26, 29, 35, 0.12); /* 方眼(1時間) */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-plan-fill: var(--plan-fill);
+  --color-plan-border: var(--plan-border);
+  --color-plan-text: var(--plan-text);
+  --color-interrupt: var(--interrupt);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0e1116; /* 宵 */
+    --surface: #151a23;
+    --ink: #e8eaef;
+    --ink-muted: #9aa3b2;
+    --line: #262c38;
+    --brand: #4c6ef5;
+    --brand-ink: #ffffff;
+    --plan-fill: rgba(92, 124, 250, 0.15);
+    --plan-border: rgba(92, 124, 250, 0.45);
+    --plan-text: #bac8ff;
+    --interrupt: #e8590c;
+    --danger: #ef4444;
+    --hatch: rgba(255, 138, 80, 0.45);
+    --grid: rgba(232, 234, 239, 0.055);
+    --grid-hour: rgba(232, 234, 239, 0.12);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  /* Geist Sans(next/fontでロード)+日本語フォールバック。時刻・数値は font-mono(Geist Mono) */
+  font-family:
+    var(--font-geist-sans), "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+
+/* ワードマーク: Plan=群青のアウトライン文字、Diff=群青の塗り(name itself is a diff) */
+.wordmark-plan {
+  color: transparent;
+  -webkit-text-stroke: 1px var(--brand);
+}
+@supports not (-webkit-text-stroke: 1px black) {
+  .wordmark-plan {
+    color: var(--brand);
+    opacity: 0.45;
+  }
 }

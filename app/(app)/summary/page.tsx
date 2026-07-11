@@ -53,28 +53,20 @@ export default async function SummaryPage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">{S.heading}</h1>
-        <Link
-          href="/calendar"
-          className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-6 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {S.backToCalendar}
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">{S.heading}</h1>
 
       <div
         role="group"
         aria-label={S.heading}
-        className="flex w-fit overflow-hidden rounded-full border border-zinc-300 dark:border-zinc-700"
+        className="border-line flex w-fit overflow-hidden rounded-lg border"
       >
         <Link
           href="/summary?range=today"
           aria-pressed={activeRange === "today"}
           className={`inline-flex min-h-11 items-center justify-center px-4 text-sm font-medium transition-colors ${
             activeRange === "today"
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              ? "bg-brand text-brand-ink"
+              : "hover:bg-ink/5"
           }`}
         >
           {S.todayTab}
@@ -84,8 +76,8 @@ export default async function SummaryPage({
           aria-pressed={activeRange === "week"}
           className={`inline-flex min-h-11 items-center justify-center px-4 text-sm font-medium transition-colors ${
             activeRange === "week"
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              ? "bg-brand text-brand-ink"
+              : "hover:bg-ink/5"
           }`}
         >
           {S.weekTab}
@@ -93,28 +85,24 @@ export default async function SummaryPage({
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {S.planTotal}
-          </p>
-          <p className="text-lg font-semibold tabular-nums">
+        <div className="border-line bg-surface rounded-xl border p-4">
+          <p className="text-ink-muted text-xs">{S.planTotal}</p>
+          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
             {formatDurationMinutes(summary.planTotalMinutes)}
           </p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {S.actualTotal}
-          </p>
-          <p className="text-lg font-semibold tabular-nums">
+        <div className="border-line bg-surface rounded-xl border p-4">
+          <p className="text-ink-muted text-xs">{S.actualTotal}</p>
+          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
             {formatDurationMinutes(summary.actualTotalMinutes)}
           </p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">{S.gap}</p>
-          <p className="text-lg font-semibold tabular-nums">
+        <div className="border-line bg-surface rounded-xl border p-4">
+          <p className="text-ink-muted text-xs">{S.gap}</p>
+          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
             {formatSignedDurationMinutes(summary.gapMinutes)}
           </p>
-          <p className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+          <p className="text-ink-muted font-mono text-xs tabular-nums">
             {summary.gapPercent === null
               ? S.gapPercentUnavailable
               : formatSignedPercent(summary.gapPercent)}
@@ -123,33 +111,31 @@ export default async function SummaryPage({
       </div>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <h2 className="text-ink-muted text-sm font-semibold">
           {S.itemsHeading}
         </h2>
         {summary.items.length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {S.itemsEmpty}
-          </p>
+          <p className="text-ink-muted text-sm">{S.itemsEmpty}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {summary.items.map((item) => (
               <li
                 key={item.googleEventId}
-                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                className="border-line bg-surface flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
               >
                 <div className="flex min-w-0 flex-col">
                   <p className="truncate text-sm font-medium">{item.title}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <p className="text-ink-muted text-xs">
                     {S.planTotal} {formatDurationMinutes(item.planMinutes)} /{" "}
                     {S.actualTotal} {formatDurationMinutes(item.actualMinutes)}
                   </p>
                 </div>
                 {item.notStarted ? (
-                  <span className="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  <span className="bg-ink/8 text-ink-muted shrink-0 rounded-full px-3 py-1 text-xs font-medium">
                     {S.notStarted}
                   </span>
                 ) : (
-                  <span className="shrink-0 text-sm font-medium tabular-nums">
+                  <span className="shrink-0 font-mono text-sm font-medium tabular-nums">
                     {formatSignedDurationMinutes(item.gapMinutes)}
                   </span>
                 )}
@@ -160,22 +146,20 @@ export default async function SummaryPage({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <h2 className="text-ink-muted text-sm font-semibold">
           {S.interruptionsHeading}
         </h2>
         {summary.interruptions.length === 0 ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {S.interruptionsEmpty}
-          </p>
+          <p className="text-ink-muted text-sm">{S.interruptionsEmpty}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {summary.interruptions.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                className="border-line bg-surface flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
               >
                 <p className="truncate text-sm font-medium">{item.title}</p>
-                <span className="shrink-0 text-sm text-zinc-600 tabular-nums dark:text-zinc-400">
+                <span className="text-ink-muted shrink-0 font-mono text-sm tabular-nums">
                   {formatDurationMinutes(item.actualMinutes)}
                 </span>
               </li>

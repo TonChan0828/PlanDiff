@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
       "Googleカレンダーの予定とタイムトラッキングの実績を重ね、計画と現実のギャップを可視化するツール",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
+    background_color: "#f6f7f9",
     theme_color: BRAND_COLOR,
     icons: [
       {

@@ -180,7 +180,7 @@ export function TrackView({
       {timerError ? (
         <p
           role="alert"
-          className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
         >
           {timerError}
         </p>
@@ -201,7 +201,7 @@ export function TrackView({
 
       {quickStartEvents.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          <h2 className="text-ink-muted text-sm font-semibold">
             {TR.quickStartHeading}
           </h2>
           <ul aria-label={TR.quickStartHeading} className="flex flex-col gap-2">
@@ -224,20 +224,20 @@ export function TrackView({
                     onClick={() => handleQuickStartTap(event)}
                     className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border px-4 py-2 text-left transition-colors disabled:opacity-60 ${
                       isRunning
-                        ? "border-2 border-sky-600 bg-sky-100/80 dark:border-sky-400 dark:bg-sky-950/60"
-                        : "border-sky-300 bg-sky-100/80 hover:bg-sky-200/80 dark:border-sky-800 dark:bg-sky-950/60 dark:hover:bg-sky-900/60"
+                        ? "border-brand bg-plan-fill border-2"
+                        : "border-plan-border bg-plan-fill hover:bg-brand/15"
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-sky-900 dark:text-sky-200">
+                      <span className="text-plan-text block truncate text-sm font-medium">
                         {event.title || M.untitled}
                       </span>
-                      <span className="block text-xs text-sky-700 tabular-nums dark:text-sky-400">
+                      <span className="text-plan-text/80 block font-mono text-xs tabular-nums">
                         {format(parseISO(event.startAt), "HH:mm")}〜
                         {format(parseISO(event.endAt), "HH:mm")}
                       </span>
                     </span>
-                    <span className="shrink-0 text-xs font-semibold text-sky-700 dark:text-sky-300">
+                    <span className="text-plan-text shrink-0 text-xs font-semibold">
                       {isRunning
                         ? T.recording
                         : isOngoing
@@ -254,18 +254,18 @@ export function TrackView({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+          <h2 className="text-ink-muted text-sm font-semibold">
             {TR.todayHeading}
           </h2>
           <Link
             href="/calendar"
-            className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="text-ink-muted hover:text-ink text-xs underline underline-offset-2"
           >
             {TR.editHint}
           </Link>
         </div>
         {hydrated && todayEntries.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+          <p className="border-line text-ink-muted rounded-xl border border-dashed px-4 py-6 text-center text-sm">
             {TR.emptyToday}
           </p>
         ) : (
@@ -279,13 +279,13 @@ export function TrackView({
               return (
                 <li
                   key={entry.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                  className="border-line bg-surface flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
                       {entry.title || M.untitled}
                     </p>
-                    <p className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+                    <p className="text-ink-muted font-mono text-xs tabular-nums">
                       {format(parseISO(entry.startAt), "HH:mm")}〜
                       {format(parseISO(entry.endAt), "HH:mm")}(
                       {formatDurationMinutes(minutes)})・
@@ -297,7 +297,7 @@ export function TrackView({
                       type="button"
                       aria-label={TR.promoteLabel(entry.title)}
                       onClick={() => handleOpenPromotion(entry)}
-                      className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      className="border-line hover:bg-ink/5 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
                     >
                       {TR.promote}
                     </button>
