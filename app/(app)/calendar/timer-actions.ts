@@ -27,6 +27,7 @@ export async function startTimerAction(
   const result = await startTimer(supabase, input);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
@@ -40,6 +41,7 @@ export async function stopTimerAction(): Promise<TimerResult> {
   const result = await stopTimer(supabase);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
@@ -56,6 +58,7 @@ export async function updateTimeEntryAction(
   const result = await updateTimeEntry(supabase, id, input);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
@@ -69,6 +72,7 @@ export async function deleteTimeEntryAction(id: string): Promise<TimerResult> {
   const result = await deleteTimeEntry(supabase, id);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
