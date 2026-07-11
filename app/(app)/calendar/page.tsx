@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signOutAction } from "@/app/(app)/actions";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
+import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
 import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -43,9 +45,12 @@ export default async function CalendarPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, onboarded_at")
     .eq("id", data.user.id)
     .single();
+  if (shouldRedirectToOnboarding(profile)) {
+    redirect("/onboarding");
+  }
   const displayName = profile?.display_name || data.user.email || "ユーザー";
 
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
