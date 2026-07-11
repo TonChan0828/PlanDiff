@@ -25,6 +25,7 @@ export async function createAppEventAction(
   const result = await createAppEvent(supabase, input);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
@@ -41,6 +42,7 @@ export async function updateAppEventAction(
   const result = await updateAppEvent(supabase, id, input);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }
@@ -56,6 +58,7 @@ export async function deleteAppEventAction(
   const result = await deleteAppEvent(supabase, id);
   if (result.ok) {
     revalidatePath("/calendar");
+    revalidatePath("/track");
   }
   return result;
 }

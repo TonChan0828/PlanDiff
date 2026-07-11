@@ -12,6 +12,7 @@ import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
+import { TRACK_MESSAGES } from "@/lib/track/messages";
 
 export const metadata: Metadata = {
   title: "カレンダー | PlanDiff",
@@ -75,6 +76,12 @@ export default async function CalendarPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/track"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {TRACK_MESSAGES.trackLink}
+          </Link>
           <Link
             href="/summary"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
