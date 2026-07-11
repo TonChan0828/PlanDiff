@@ -14,4 +14,17 @@ export const SETTINGS_MESSAGES = {
   errorFailed: "Google連携に失敗しました。時間をおいてもう一度お試しください",
   errorNoRefreshToken:
     "オフラインアクセスの許可が必要です。もう一度連携をやり直し、アクセス許可画面ですべての権限を許可してください",
+
+  // P4-2: アカウント・ログアウト・データ全削除
+  accountSectionHeading: "アカウント",
+  emailLabel: "メールアドレス",
+  signOutButton: "ログアウト",
+  dangerSectionHeading: "危険な操作",
+  deleteAccountDescription:
+    "アカウントと、予定・実績などすべてのデータが完全に削除されます。この操作は取り消せません。",
+  deleteAccountConfirmLabel: "確認のため「削除」と入力してください",
+  deleteAccountConfirmPhrase: "削除",
+  deleteAccountButton: "アカウントを削除",
+  errorAccountDeleteFailed:
+    "アカウントの削除に失敗しました。時間をおいてもう一度お試しください",
 } as const;

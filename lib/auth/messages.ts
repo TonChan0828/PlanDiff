@@ -34,6 +34,7 @@ export const AUTH_MESSAGES = {
   forgotPasswordLink: "パスワードをお忘れの方はこちら",
   resetPasswordSuccess:
     "パスワードを再設定しました。新しいパスワードでログインしてください",
+  accountDeleted: "アカウントとデータをすべて削除しました",
 
   forgotPasswordHeading: "パスワード再設定",
   forgotPasswordDescription:
