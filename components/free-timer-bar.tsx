@@ -26,7 +26,7 @@ export function FreeTimerBar({ onStart, pending }: FreeTimerBarProps) {
     <form
       data-testid="free-timer-bar"
       onSubmit={handleSubmit}
-      className="sticky bottom-3 z-10 flex items-center gap-3 rounded-full border border-zinc-300 bg-white/95 py-2 pr-2 pl-4 shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95"
+      className="border-line bg-surface/95 sticky bottom-2 z-10 flex items-center gap-3 rounded-xl border py-2 pr-2 pl-4 shadow-lg backdrop-blur"
     >
       <input
         type="text"
@@ -35,13 +35,13 @@ export function FreeTimerBar({ onStart, pending }: FreeTimerBarProps) {
         placeholder={T.freePlaceholder}
         aria-label={T.freePlaceholder}
         disabled={pending}
-        className="min-h-11 min-w-0 flex-1 rounded-full border border-transparent bg-transparent px-2 text-sm outline-none focus:border-zinc-300 disabled:opacity-50 dark:focus:border-zinc-600"
+        className="focus:border-line min-h-11 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-sm outline-none disabled:opacity-50"
       />
       <button
         type="submit"
         disabled={pending}
         aria-label={T.freeStartLabel}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-5 text-sm font-bold transition-colors disabled:opacity-50"
       >
         {T.freeStart}
       </button>

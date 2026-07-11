@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { signOutAction } from "@/app/(app)/actions";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
-import { SUMMARY_MESSAGES } from "@/lib/summary/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
-import { TRACK_MESSAGES } from "@/lib/track/messages";
 
 export const metadata: Metadata = {
   title: "カレンダー | PlanDiff",
@@ -46,13 +42,12 @@ export default async function CalendarPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, onboarded_at")
+    .select("onboarded_at")
     .eq("id", data.user.id)
     .single();
   if (shouldRedirectToOnboarding(profile)) {
     redirect("/onboarding");
   }
-  const displayName = profile?.display_name || data.user.email || "ユーザー";
 
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
   // (読み取りは表示週±1週間のためTZ差はバッファが吸収する。表示上の選択日はクライアントが確定)
@@ -72,41 +67,9 @@ export default async function CalendarPage({
     tokenResult.refreshToken !== null;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/track"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {TRACK_MESSAGES.trackLink}
-          </Link>
-          <Link
-            href="/summary"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {SUMMARY_MESSAGES.summaryLink}
-          </Link>
-          <Link
-            href="/settings"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {M.settingsLink}
-          </Link>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {M.signOut}
-            </button>
-          </form>
-        </div>
-      </div>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        {displayName} {M.loggedInSuffix}
-      </p>
+    <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-3 pt-3 pb-2 sm:px-6">
+      {/* ワードマーク+ツールバーが見出しを兼ねるため、h1はスクリーンリーダー向けのみ(D-1c) */}
+      <h1 className="sr-only">{M.heading}</h1>
       <CalendarView
         events={events}
         timeEntries={timeEntries}

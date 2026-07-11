@@ -53,15 +53,7 @@ export default async function SettingsPage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
-        <Link
-          href="/calendar"
-          className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {M.backToCalendar}
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">{M.heading}</h1>
 
       {googleEnabled && connected === "1" && (
         <p
@@ -74,53 +66,49 @@ export default async function SettingsPage({
       {errorMessage && (
         <p
           role="alert"
-          className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
         >
           {errorMessage}
         </p>
       )}
 
-      <section className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
         <h2 className="text-base font-semibold">{M.accountSectionHeading}</h2>
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500 dark:text-zinc-500">
-            {M.emailLabel}
-          </span>
-          <p className="text-sm text-zinc-900 dark:text-zinc-100">
-            {data.user.email}
-          </p>
+          <span className="text-ink-muted text-xs">{M.emailLabel}</span>
+          <p className="text-sm">{data.user.email}</p>
         </div>
         <form action={signOutAction}>
           <button
             type="submit"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
           >
             {M.signOutButton}
           </button>
         </form>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
         <h2 className="text-base font-semibold">{M.helpSectionHeading}</h2>
         <Link
           href="/onboarding"
-          className="inline-flex min-h-11 w-fit items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="border-line hover:bg-ink/5 inline-flex min-h-11 w-fit items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
         >
           {M.reviewOnboardingLink}
         </Link>
       </section>
 
       {googleEnabled ? (
-        <section className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
           <h2 className="text-base font-semibold">{M.googleSectionHeading}</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-ink-muted text-sm">
             {googleConnected ? M.connected : M.notConnected}
           </p>
           {googleConnected ? (
             <form action={disconnectGoogleAction}>
               <button
                 type="submit"
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-zinc-300 px-4 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
               >
                 {M.disconnectButton}
               </button>
@@ -128,7 +116,7 @@ export default async function SettingsPage({
           ) : (
             <a
               href="/api/google/connect"
-              className="inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-zinc-900 px-6 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 w-fit items-center justify-center rounded-lg px-6 text-sm font-medium transition-colors"
             >
               {M.connectButton}
             </a>

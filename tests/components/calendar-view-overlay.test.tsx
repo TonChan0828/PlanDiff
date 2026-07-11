@@ -84,7 +84,7 @@ afterEach(() => {
 });
 
 describe("開始遅延の表示(S8)", () => {
-  it("S8: 紐づく実績が予定より遅く開始した場合、開始N分遅れの文言とストライプ装飾が表示される", async () => {
+  it("S8: 紐づく実績が予定より遅く開始した場合、+N分 遅れの文言とストライプ装飾が表示される", async () => {
     renderView({
       timeEntries: [
         {
@@ -97,13 +97,13 @@ describe("開始遅延の表示(S8)", () => {
       ],
     });
 
-    expect(await screen.findByText("開始15分遅れ")).toBeInTheDocument();
+    expect(await screen.findByText("+15分 遅れ")).toBeInTheDocument();
     expect(screen.getByTestId("gap-delay")).toBeInTheDocument();
   });
 });
 
 describe("超過の表示(S9)", () => {
-  it("S9: 紐づく実績が予定より遅く終了した場合、N分超過の文言とストライプ装飾が表示される", async () => {
+  it("S9: 紐づく実績が予定より遅く終了した場合、+N分 超過の文言とストライプ装飾が表示される", async () => {
     renderView({
       timeEntries: [
         {
@@ -116,13 +116,13 @@ describe("超過の表示(S9)", () => {
       ],
     });
 
-    expect(await screen.findByText("20分超過")).toBeInTheDocument();
+    expect(await screen.findByText("+20分 超過")).toBeInTheDocument();
     expect(screen.getByTestId("gap-overrun")).toBeInTheDocument();
   });
 });
 
 describe("紐づかない実績の色分け(S10)", () => {
-  it("S10: フリータイマーの実績はamber系の見た目になり、フリーラベルとaria-labelが付く", async () => {
+  it("S10: フリータイマーの実績は柿(interrupt)系の見た目になり、フリーラベルとaria-labelが付く", async () => {
     renderView({
       timeEntries: [
         {
@@ -138,7 +138,7 @@ describe("紐づかない実績の色分け(S10)", () => {
     const block = await screen.findByRole("button", {
       name: /読書の実績を編集/,
     });
-    expect(block.className).toContain("amber");
+    expect(block.className).toContain("interrupt");
     expect(screen.getByText("フリー")).toBeInTheDocument();
     expect(
       screen.getByLabelText(/読書の実績を編集\(フリー\)/),
@@ -184,9 +184,9 @@ describe("週ビューでのズレ表示(S12)", () => {
     });
 
     await screen.findByTestId("actual-block");
-    expect(screen.queryByText("開始15分遅れ")).not.toBeInTheDocument();
+    expect(screen.queryByText("+15分 遅れ")).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText(/設計レビューの実績を編集\(開始15分遅れ\)/),
+      screen.getByLabelText(/設計レビューの実績を編集\(\+15分 遅れ\)/),
     ).toBeInTheDocument();
   });
 });

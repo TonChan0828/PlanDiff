@@ -31,7 +31,8 @@ export const TIMER_MESSAGES = {
   close: "閉じる",
   updateError: "実績を更新できませんでした",
   deleteError: "実績を削除できませんでした",
-  delayLabel: (minutes: number) => `開始${minutes}分遅れ`,
-  overrunLabel: (minutes: number) => `${minutes}分超過`,
+  // ズレは符号付きdiff形式で表す(D-1-2「時間のdiff」)
+  delayLabel: (minutes: number) => `+${minutes}分 遅れ`,
+  overrunLabel: (minutes: number) => `+${minutes}分 超過`,
   freeBadge: "フリー",
 } as const;

@@ -38,15 +38,20 @@ export function RunningTimerBar({
   return (
     <div
       data-testid="running-timer-bar"
-      className="sticky bottom-3 z-10 flex items-center justify-between gap-3 rounded-full border border-zinc-300 bg-white/95 py-2 pr-2 pl-4 shadow-lg backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95"
+      className="border-line bg-surface/95 sticky bottom-2 z-10 flex items-center gap-3 rounded-xl border py-2 pr-2 pl-4 shadow-lg backdrop-blur"
     >
-      <div className="flex min-w-0 items-baseline gap-3">
+      {/* 記録中のドット(柿)。点滅はprefers-reduced-motionで停止する(D-2) */}
+      <span
+        aria-hidden="true"
+        className="bg-interrupt h-2 w-2 shrink-0 animate-pulse rounded-full motion-reduce:animate-none"
+      />
+      <div className="flex min-w-0 flex-1 items-baseline gap-3">
         <p className="truncate text-sm font-medium">
           {entry.title || T.untitled}
         </p>
         <p
           aria-label="経過時間"
-          className="shrink-0 text-sm text-zinc-600 tabular-nums dark:text-zinc-400"
+          className="text-ink-muted shrink-0 font-mono text-sm font-semibold tabular-nums"
         >
           {now ? formatElapsed(entry.startAt, now) : "0:00:00"}
         </p>
@@ -55,7 +60,7 @@ export function RunningTimerBar({
         type="button"
         onClick={onStop}
         disabled={stopping}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-500 dark:hover:bg-red-600"
+        className="bg-danger hover:bg-danger/90 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-5 text-sm font-bold text-white transition-colors disabled:opacity-50"
       >
         {T.stop}
       </button>

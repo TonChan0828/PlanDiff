@@ -12,7 +12,8 @@ describe("app/manifest.ts", () => {
     expect(result.short_name).toBe("PlanDiff");
     expect(result.start_url).toBe("/");
     expect(result.display).toBe("standalone");
-    expect(result.theme_color).toBe("#0284c7");
+    // D-1-2: ブランド色を群青に変更(docs/specs/D-1-2_デザイン刷新.md)
+    expect(result.theme_color).toBe("#2f4acb");
   });
 
   it("S2: iconsに192x192(any)と512x512(any/maskable)がimage/pngで含まれる", () => {

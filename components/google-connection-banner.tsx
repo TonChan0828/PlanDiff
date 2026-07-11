@@ -17,7 +17,7 @@ export function GoogleConnectionBanner({
       : M.googleNotConnectedBanner;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+    <div className="border-interrupt/40 bg-interrupt/10 text-ink flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm">
       <p>{message}</p>
       <Link href="/settings" className="font-medium underline">
         {M.googleConnectSettingsLink}
