@@ -20,7 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string; deleted?: string }>;
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -28,7 +28,7 @@ export default async function LoginPage({
     redirect("/calendar");
   }
 
-  const { error, reset } = await searchParams;
+  const { error, reset, deleted } = await searchParams;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? null) : null;
 
   return (
@@ -45,6 +45,14 @@ export default async function LoginPage({
           className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
         >
           {errorMessage}
+        </p>
+      )}
+      {deleted === "1" && (
+        <p
+          role="status"
+          className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+        >
+          {M.accountDeleted}
         </p>
       )}
       {reset === "success" && (

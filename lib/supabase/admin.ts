@@ -71,6 +71,29 @@ export async function deleteGoogleRefreshToken(userId: string): Promise<void> {
 }
 
 /**
+ * アカウントとデータの全削除(仕様書P4-2)。auth.users の削除により
+ * profiles / google_tokens / synced_events / time_entries は cascade で消える(P0-6)。
+ * 成功で true。失敗はエラー種別のみログに残す。
+ */
+export async function deleteUserAccount(userId: string): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) {
+      console.error("アカウントの削除に失敗しました:", error.code);
+      return false;
+    }
+    return true;
+  } catch (cause) {
+    console.error(
+      "アカウントの削除に失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+    return false;
+  }
+}
+
+/**
  * Google の refresh token を google_tokens に upsert する(成功で true)。
  * 失敗時はエラー種別のみログに残す。トークン値・認可コードは絶対にログに出さない。
  */

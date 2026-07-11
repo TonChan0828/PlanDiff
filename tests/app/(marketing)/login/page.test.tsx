@@ -63,6 +63,20 @@ describe("ログインページ", () => {
     ).toBeInTheDocument();
   });
 
+  it("P4-2 S6: deleted=1 の場合はアカウント削除完了メッセージを表示する", async () => {
+    mockUser(null);
+
+    render(
+      await LoginPage({
+        searchParams: Promise.resolve({ deleted: "1" }),
+      }),
+    );
+
+    expect(
+      screen.getByText("アカウントとデータをすべて削除しました"),
+    ).toBeInTheDocument();
+  });
+
   it("reset=success の場合はパスワード再設定完了メッセージを表示する", async () => {
     mockUser(null);
 
