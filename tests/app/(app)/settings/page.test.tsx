@@ -5,6 +5,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({
   getGoogleRefreshToken: vi.fn(),
   deleteGoogleRefreshToken: vi.fn(),
+  deleteUserAccount: vi.fn(),
 }));
 
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
@@ -13,6 +14,7 @@ import SettingsPage from "@/app/(app)/settings/page";
 
 // 仕様書: docs/specs/P1-3_メール認証とGoogle任意連携.md S21
 // 仕様書: docs/specs/P2-5_アプリ内予定とGoogle連携凍結.md S17(凍結フラグ)
+// 仕様書: docs/specs/P4-2_設定画面.md S1・S2・S9・S12
 
 const createClientMock = vi.mocked(createClient);
 const getGoogleRefreshTokenMock = vi.mocked(getGoogleRefreshToken);
@@ -23,7 +25,9 @@ beforeEach(() => {
   vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "true");
   createClientMock.mockResolvedValue({
     auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u1" } } }),
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: "u1", email: "user@example.com" } },
+      }),
     },
   } as unknown as Awaited<ReturnType<typeof createClient>>);
 });
@@ -119,5 +123,62 @@ describe("設定ページ", () => {
     render(await SettingsPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByText("Googleカレンダー連携")).toBeInTheDocument();
+  });
+
+  it("P4-2 S1: アカウントセクションにメールアドレスが表示される", async () => {
+    getGoogleRefreshTokenMock.mockResolvedValue({
+      ok: true,
+      refreshToken: null,
+    });
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("アカウント")).toBeInTheDocument();
+    expect(screen.getByText("user@example.com")).toBeInTheDocument();
+  });
+
+  it("P4-2 S2: ログアウトボタンが表示される", async () => {
+    getGoogleRefreshTokenMock.mockResolvedValue({
+      ok: true,
+      refreshToken: null,
+    });
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(
+      screen.getByRole("button", { name: "ログアウト" }),
+    ).toBeInTheDocument();
+  });
+
+  it("P4-2 S9: error=account_delete_failed は凍結中でも日本語エラーが表示される", async () => {
+    vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "");
+
+    render(
+      await SettingsPage({
+        searchParams: Promise.resolve({ error: "account_delete_failed" }),
+      }),
+    );
+
+    expect(
+      screen.getByText(
+        "アカウントの削除に失敗しました。時間をおいてもう一度お試しください",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("P4-2 S12: 凍結中でもアカウント・ログアウト・削除セクションは表示される", async () => {
+    vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "");
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.queryByText("Googleカレンダー連携")).not.toBeInTheDocument();
+    expect(screen.getByText("アカウント")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "ログアウト" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("危険な操作")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "アカウントを削除" }),
+    ).toBeInTheDocument();
   });
 });
