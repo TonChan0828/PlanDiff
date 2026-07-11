@@ -27,4 +27,8 @@ export const SETTINGS_MESSAGES = {
   deleteAccountButton: "アカウントを削除",
   errorAccountDeleteFailed:
     "アカウントの削除に失敗しました。時間をおいてもう一度お試しください",
+
+  // P4-1: オンボーディング再閲覧
+  helpSectionHeading: "使い方",
+  reviewOnboardingLink: "使い方をもう一度見る",
 } as const;

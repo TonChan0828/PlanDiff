@@ -166,6 +166,19 @@ describe("設定ページ", () => {
     ).toBeInTheDocument();
   });
 
+  it("P4-1 導線: 「使い方をもう一度見る」リンクが/onboardingを指す", async () => {
+    getGoogleRefreshTokenMock.mockResolvedValue({
+      ok: true,
+      refreshToken: null,
+    });
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(
+      screen.getByRole("link", { name: "使い方をもう一度見る" }),
+    ).toHaveAttribute("href", "/onboarding");
+  });
+
   it("P4-2 S12: 凍結中でもアカウント・ログアウト・削除セクションは表示される", async () => {
     vi.stubEnv("GOOGLE_INTEGRATION_ENABLED", "");
 
