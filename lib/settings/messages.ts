@@ -31,4 +31,10 @@ export const SETTINGS_MESSAGES = {
   // P4-1: オンボーディング再閲覧
   helpSectionHeading: "使い方",
   reviewOnboardingLink: "使い方をもう一度見る",
+
+  // D-1e: 外観(テーマ切替)
+  themeSectionHeading: "外観",
+  themeLight: "ライト",
+  themeDark: "ダーク",
+  themeSystem: "システムに合わせる",
 } as const;
