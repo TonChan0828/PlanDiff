@@ -4,7 +4,9 @@ import { addDays, addWeeks, startOfDay, startOfWeek } from "date-fns";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { computeGapSummary, type SummaryRange } from "@/lib/summary/aggregate";
 import {
+  formatClockMinutes,
   formatDurationMinutes,
+  formatSignedClockMinutes,
   formatSignedDurationMinutes,
   formatSignedPercent,
 } from "@/lib/summary/format";
@@ -84,31 +86,47 @@ export default async function SummaryPage({
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="border-line bg-surface rounded-xl border p-4">
-          <p className="text-ink-muted text-xs">{S.planTotal}</p>
-          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
-            {formatDurationMinutes(summary.planTotalMinutes)}
-          </p>
-        </div>
-        <div className="border-line bg-surface rounded-xl border p-4">
-          <p className="text-ink-muted text-xs">{S.actualTotal}</p>
-          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
-            {formatDurationMinutes(summary.actualTotalMinutes)}
-          </p>
-        </div>
-        <div className="border-line bg-surface rounded-xl border p-4">
-          <p className="text-ink-muted text-xs">{S.gap}</p>
-          <p className="font-mono text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg">
-            {formatSignedDurationMinutes(summary.gapMinutes)}
-          </p>
-          <p className="text-ink-muted font-mono text-xs tabular-nums">
-            {summary.gapPercent === null
-              ? S.gapPercentUnavailable
-              : formatSignedPercent(summary.gapPercent)}
-          </p>
-        </div>
-      </div>
+      {/* diffヒーロー(D-3): ズレを主役に。正=柿・負=群青・ゼロ=墨、
+          ズレありのときだけハッチ下線(オーバーレイと同じ紋章)を敷く */}
+      <section className="border-line bg-surface flex flex-col items-center gap-1 rounded-2xl border p-5">
+        <p className="text-ink-muted self-start text-xs font-bold">
+          {activeRange === "week" ? S.gapHeroWeek : S.gapHeroToday}
+        </p>
+        <p
+          data-testid="gap-hero-value"
+          className={`font-mono text-5xl leading-tight font-semibold tracking-tight tabular-nums ${
+            summary.gapMinutes > 0
+              ? "text-interrupt"
+              : summary.gapMinutes < 0
+                ? "text-brand"
+                : ""
+          }`}
+        >
+          {formatSignedClockMinutes(summary.gapMinutes)}
+        </p>
+        {summary.gapMinutes !== 0 ? (
+          <span
+            data-testid="gap-hero-underline"
+            aria-hidden="true"
+            className="border-interrupt/70 h-2 w-32 border-x"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, var(--hatch) 0px, var(--hatch) 4px, transparent 4px, transparent 8px)",
+            }}
+          />
+        ) : null}
+        <p
+          data-testid="gap-hero-meta"
+          className="text-ink-muted mt-1 font-mono text-sm tabular-nums"
+        >
+          {S.planShort} {formatClockMinutes(summary.planTotalMinutes)} /{" "}
+          {S.actualShort} {formatClockMinutes(summary.actualTotalMinutes)}(
+          {summary.gapPercent === null
+            ? S.gapPercentUnavailable
+            : formatSignedPercent(summary.gapPercent)}
+          )
+        </p>
+      </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-ink-muted text-sm font-semibold">
