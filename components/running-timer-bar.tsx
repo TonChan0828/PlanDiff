@@ -1,39 +1,32 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { format, parseISO } from "date-fns";
 import { formatElapsed } from "@/lib/timer/elapsed";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
+import { useNowSeconds } from "@/lib/timer/use-now-seconds";
 import type { RunningEntry } from "@/lib/timer/types";
 
 // 実行中タイマーバー(P2-2)。タイトル+経過時間+停止ボタン。
 // 経過時間は1秒ごとにクライアントで更新する(SSRとの不一致を避けるためサーバーでは非表示値)。
-
-// 秒単位の現在時刻を外部ストアとして購読する(スナップショットは秒で安定させる)
-function subscribeSecondTick(onTick: () => void): () => void {
-  const timerId = setInterval(onTick, 1000);
-  return () => clearInterval(timerId);
-}
-function useNowSeconds(): number | null {
-  return useSyncExternalStore(
-    subscribeSecondTick,
-    () => Math.floor(Date.now() / 1000),
-    () => null,
-  );
-}
+// onEditStartが渡された場合は開始時刻ボタンを表示し、タップで変更パネルを開く(D-4)
 
 interface RunningTimerBarProps {
   entry: RunningEntry;
   onStop: () => void;
   stopping: boolean;
+  /** 開始時刻変更パネルを開く(D-4)。省略時はボタンを出さない */
+  onEditStart?: () => void;
 }
 
 export function RunningTimerBar({
   entry,
   onStop,
   stopping,
+  onEditStart,
 }: RunningTimerBarProps) {
   const nowSeconds = useNowSeconds();
   const now = nowSeconds === null ? null : new Date(nowSeconds * 1000);
+  const startTime = format(parseISO(entry.startAt), "HH:mm");
 
   return (
     <div
@@ -49,9 +42,19 @@ export function RunningTimerBar({
         <p className="truncate text-sm font-medium">
           {entry.title || T.untitled}
         </p>
+        {onEditStart ? (
+          <button
+            type="button"
+            onClick={onEditStart}
+            aria-label={T.runningSinceLabel(startTime)}
+            className="text-ink-muted hover:text-ink inline-flex min-h-11 shrink-0 items-center font-mono text-xs tabular-nums underline underline-offset-2"
+          >
+            {startTime}〜
+          </button>
+        ) : null}
         <p
           aria-label="経過時間"
-          className="text-ink-muted shrink-0 font-mono text-sm font-semibold tabular-nums"
+          className="text-ink-muted shrink-0 font-mono text-lg font-semibold tabular-nums"
         >
           {now ? formatElapsed(entry.startAt, now) : "0:00:00"}
         </p>

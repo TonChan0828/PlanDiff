@@ -7,14 +7,16 @@ import { differenceInMinutes, format, parseISO } from "date-fns";
 import {
   startTimerAction,
   stopTimerAction,
+  updateRunningStartAction,
 } from "@/app/(app)/calendar/timer-actions";
 import { createAppEventAction } from "@/app/(app)/calendar/event-actions";
 import {
   AppEventPanel,
   type AppEventPanelValues,
 } from "@/components/app-event-panel";
+import { EditStartPanel } from "@/components/edit-start-panel";
 import { FreeTimerBar } from "@/components/free-timer-bar";
-import { RunningTimerBar } from "@/components/running-timer-bar";
+import { RunningTimerHero } from "@/components/running-timer-hero";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { formatDurationMinutes } from "@/lib/summary/format";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
@@ -134,6 +136,43 @@ export function TrackView({
     }
   };
 
+  // ---- 開始時刻変更(D-4): 実行中エントリのstart_atをその場で修正する ----
+  const [editingStart, setEditingStart] = useState(false);
+  const [startPending, setStartPending] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+
+  const handleOpenEditStart = () => {
+    setStartError(null);
+    setEditingStart(true);
+  };
+
+  const handleCloseEditStart = () => {
+    if (startPending) {
+      return;
+    }
+    setEditingStart(false);
+    setStartError(null);
+  };
+
+  const handleSaveStart = (startAtIso: string) => {
+    if (startPending) {
+      return;
+    }
+    setStartPending(true);
+    setStartError(null);
+    updateRunningStartAction(startAtIso)
+      .then((result) => {
+        if (result.ok) {
+          setEditingStart(false);
+          router.refresh();
+        } else {
+          setStartError(T.editStartError);
+        }
+      })
+      .catch(() => setStartError(T.editStartError))
+      .finally(() => setStartPending(false));
+  };
+
   // ---- 昇格導線: フリー実績 → アプリ内予定の作成(P2-5のパネル・Server Actionを再利用) ----
   const [promotionInitial, setPromotionInitial] =
     useState<AppEventPanelValues | null>(null);
@@ -187,10 +226,11 @@ export function TrackView({
       ) : null}
 
       {running ? (
-        <RunningTimerBar
+        <RunningTimerHero
           entry={running}
           onStop={handleStopTimer}
           stopping={timerPending}
+          onEditStart={handleOpenEditStart}
         />
       ) : (
         <FreeTimerBar
@@ -308,6 +348,16 @@ export function TrackView({
           </ul>
         )}
       </div>
+
+      {running && editingStart ? (
+        <EditStartPanel
+          initialStartAt={running.startAt}
+          onSave={handleSaveStart}
+          onClose={handleCloseEditStart}
+          pending={startPending}
+          error={startError}
+        />
+      ) : null}
 
       {promotionInitial ? (
         <AppEventPanel

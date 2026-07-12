@@ -104,6 +104,36 @@ export async function updateTimeEntry(
   return { ok: true };
 }
 
+// 時計ズレ許容: クライアントの「今」がサーバーよりわずかに進んでいても拒否しない(D-4)
+const START_AT_FUTURE_TOLERANCE_MS = 60 * 1000;
+
+/** 実行中エントリ(end_at IS NULL)の開始時刻を変更する。確定済み実績は対象外(D-4) */
+export async function updateRunningStart(
+  client: SupabaseClient,
+  startAtIso: string,
+): Promise<TimerResult> {
+  const { data: userData } = await client.auth.getUser();
+  if (!userData.user) {
+    return { ok: false };
+  }
+  const startAtMs = Date.parse(startAtIso);
+  if (
+    Number.isNaN(startAtMs) ||
+    startAtMs > Date.now() + START_AT_FUTURE_TOLERANCE_MS
+  ) {
+    return { ok: false };
+  }
+  const { data, error } = await client
+    .from("time_entries")
+    .update({ start_at: new Date(startAtMs).toISOString() })
+    .is("end_at", null)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    return { ok: false };
+  }
+  return { ok: true };
+}
+
 /** 確定済み実績を削除する。実行中エントリは対象外 */
 export async function deleteTimeEntry(
   client: SupabaseClient,
