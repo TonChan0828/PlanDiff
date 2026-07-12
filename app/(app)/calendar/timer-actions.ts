@@ -7,6 +7,7 @@ import {
   deleteTimeEntry,
   startTimer,
   stopTimer,
+  updateRunningStart,
   updateTimeEntry,
   type StartTimerInput,
   type TimerResult,
@@ -56,6 +57,23 @@ export async function updateTimeEntryAction(
     redirect("/login");
   }
   const result = await updateTimeEntry(supabase, id, input);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+  }
+  return result;
+}
+
+/** 実行中タイマーの開始時刻を変更する(D-4)。実行中がなければ ok:false */
+export async function updateRunningStartAction(
+  startAtIso: string,
+): Promise<TimerResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");
+  }
+  const result = await updateRunningStart(supabase, startAtIso);
   if (result.ok) {
     revalidatePath("/calendar");
     revalidatePath("/track");

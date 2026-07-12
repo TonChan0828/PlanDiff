@@ -35,4 +35,10 @@ export const TIMER_MESSAGES = {
   delayLabel: (minutes: number) => `+${minutes}分 遅れ`,
   overrunLabel: (minutes: number) => `+${minutes}分 超過`,
   freeBadge: "フリー",
+  // 実行中の開始時刻変更(D-4)。フィールド名は既存のeditStartField(開始時刻)を再利用する
+  runningSinceLabel: (time: string) => `開始 ${time} を変更`,
+  editStartTitle: "開始時刻を変更",
+  editStartRequired: "開始時刻を入力してください",
+  editStartFuture: "開始時刻は現在より後にできません",
+  editStartError: "開始時刻を変更できませんでした",
 } as const;

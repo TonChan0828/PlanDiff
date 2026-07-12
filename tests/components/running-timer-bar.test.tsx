@@ -67,4 +67,29 @@ describe("RunningTimerBar(S5)", () => {
     render(<RunningTimerBar entry={entry} onStop={() => {}} stopping={true} />);
     expect(screen.getByRole("button", { name: "停止" })).toBeDisabled();
   });
+
+  // 仕様書: docs/specs/D-4_計測ヒーローと開始時刻変更.md S6
+  it("D-4 S6: onEditStart付きでは開始時刻ボタンが表示され、タップで呼ばれる", () => {
+    const onEditStart = vi.fn();
+    render(
+      <RunningTimerBar
+        entry={entry}
+        onStop={() => {}}
+        stopping={false}
+        onEditStart={onEditStart}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "開始 09:00 を変更" }));
+    expect(onEditStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("D-4 S6: onEditStartなしでは開始時刻ボタンを表示しない(従来互換)", () => {
+    render(
+      <RunningTimerBar entry={entry} onStop={() => {}} stopping={false} />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "開始 09:00 を変更" }),
+    ).not.toBeInTheDocument();
+  });
 });
