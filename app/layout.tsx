@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { BRAND_COLOR, DARK_BACKGROUND_COLOR } from "@/lib/pwa/theme";
+import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,8 +42,14 @@ export default function RootLayout({
     <html
       lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // data-themeは描画前スクリプト(D-1e)が付与するため、サーバーHTMLとの差分を許容する
+      suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {/* テーマ初期化(D-1e): 描画前にlocalStorageの選択をdata-themeへ反映(FOUC防止) */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

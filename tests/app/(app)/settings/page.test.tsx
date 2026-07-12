@@ -194,4 +194,20 @@ describe("設定ページ", () => {
       screen.getByRole("button", { name: "アカウントを削除" }),
     ).toBeInTheDocument();
   });
+
+  it("D-1-2 S14: 外観セクション(ライト/ダーク/システムの3択)が表示される", async () => {
+    getGoogleRefreshTokenMock.mockResolvedValue({
+      ok: true,
+      refreshToken: null,
+    });
+
+    render(await SettingsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("外観")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ライト" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ダーク" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: "システムに合わせる" }),
+    ).toBeInTheDocument();
+  });
 });

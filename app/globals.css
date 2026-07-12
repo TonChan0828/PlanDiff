@@ -39,8 +39,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* テーマ切替(D-1e): data-theme属性が最優先。属性なしはOS設定に追随する。
+   ダークのトークンはメディアクエリと[data-theme="dark"]の2箇所にあるため、
+   変更時は必ず両方を揃えること */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #0e1116; /* 宵 */
     --surface: #151a23;
     --ink: #e8eaef;
@@ -57,6 +60,29 @@
     --grid: rgba(232, 234, 239, 0.055);
     --grid-hour: rgba(232, 234, 239, 0.12);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0e1116; /* 宵 */
+  --surface: #151a23;
+  --ink: #e8eaef;
+  --ink-muted: #9aa3b2;
+  --line: #262c38;
+  --brand: #4c6ef5;
+  --brand-ink: #ffffff;
+  --plan-fill: rgba(92, 124, 250, 0.15);
+  --plan-border: rgba(92, 124, 250, 0.45);
+  --plan-text: #bac8ff;
+  --interrupt: #e8590c;
+  --danger: #ef4444;
+  --hatch: rgba(255, 138, 80, 0.45);
+  --grid: rgba(232, 234, 239, 0.055);
+  --grid-hour: rgba(232, 234, 239, 0.12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {
