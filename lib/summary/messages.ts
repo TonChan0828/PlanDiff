@@ -15,4 +15,9 @@ export const SUMMARY_MESSAGES = {
   interruptionsEmpty: "割り込み・フリー作業はありません",
   summaryLink: "サマリー",
   backToCalendar: "カレンダーへ戻る",
+  // D-3: diffヒーロー
+  gapHeroToday: "今日のズレ",
+  gapHeroWeek: "今週のズレ",
+  planShort: "計画",
+  actualShort: "実績",
 } as const;

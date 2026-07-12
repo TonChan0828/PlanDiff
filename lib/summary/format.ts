@@ -19,6 +19,20 @@ export function formatSignedDurationMinutes(totalMinutes: number): string {
   return `${sign}${formatDurationMinutes(Math.abs(totalMinutes))}`;
 }
 
+/** 分数を「H:MM」の時計形式にする(D-3。例: 245 → "4:05") */
+export function formatClockMinutes(totalMinutes: number): string {
+  const minutes = Math.round(Math.abs(totalMinutes));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours}:${String(remainder).padStart(2, "0")}`;
+}
+
+/** ズレを符号付きの時計形式にする(D-3。例: "+0:55" / "-1:10" / "±0:00") */
+export function formatSignedClockMinutes(totalMinutes: number): string {
+  const sign = totalMinutes > 0 ? "+" : totalMinutes < 0 ? "-" : "±";
+  return `${sign}${formatClockMinutes(totalMinutes)}`;
+}
+
 /** ズレ%を符号付きで表示する(例: "+50%" / "-50%" / "0%") */
 export function formatSignedPercent(percent: number): string {
   const sign = percent > 0 ? "+" : "";
