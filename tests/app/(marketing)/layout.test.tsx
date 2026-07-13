@@ -22,4 +22,21 @@ describe("(marketing)レイアウトとトップページ", () => {
     const termsLink = screen.getByRole("link", { name: "利用規約" });
     expect(termsLink).toHaveAttribute("href", "/terms");
   });
+
+  // 仕様書: docs/specs/P4-4_料金ページ.md S7(フッターとLPの料金導線)
+  it("S7: フッターに /pricing への「料金」リンクがあり、LPのベータ案内にも料金リンクがある", () => {
+    render(
+      <MarketingLayout>
+        <HomePage />
+      </MarketingLayout>,
+    );
+
+    const footerLink = screen.getByRole("link", { name: "料金" });
+    expect(footerLink).toHaveAttribute("href", "/pricing");
+
+    const betaLink = screen.getByRole("link", {
+      name: "料金(Pro近日公開)を見る",
+    });
+    expect(betaLink).toHaveAttribute("href", "/pricing");
+  });
 });
