@@ -1,7 +1,8 @@
 import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-// service role クライアント。google_tokens の読み書き専用。
+// service role クライアント。RLSを迂回するサーバー専用処理
+// (google_tokens・アカウント削除・pro_interest_events)に限定して使う。
 // "server-only" によりクライアントバンドルへの混入をビルドエラーで防ぐ。
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -87,6 +88,35 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
   } catch (cause) {
     console.error(
       "アカウントの削除に失敗しました:",
+      cause instanceof Error ? cause.name : "unknown",
+    );
+    return false;
+  }
+}
+
+export type ProInterestEventType = "view" | "click";
+
+/**
+ * 料金ページの興味クリック計測イベントを記録する(仕様書P4-4)。
+ * pro_interest_events はポリシーなしRLSのため service role でのみ書き込める。
+ * 成功で true。失敗はエラー種別のみログに残す。
+ */
+export async function recordProInterestEvent(
+  eventType: ProInterestEventType,
+): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("pro_interest_events")
+      .insert({ event_type: eventType });
+    if (error) {
+      console.error("pro_interest_eventsへの記録に失敗しました:", error.code);
+      return false;
+    }
+    return true;
+  } catch (cause) {
+    console.error(
+      "pro_interest_eventsへの記録に失敗しました:",
       cause instanceof Error ? cause.name : "unknown",
     );
     return false;

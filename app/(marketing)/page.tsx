@@ -23,6 +23,7 @@ const BETA_NOTES = [
   "現在ベータ版・無料でご利用いただけます",
   "Googleカレンダー連携は準備中です",
 ] as const;
+const BETA_PRICING_LINK = "料金(Pro近日公開)を見る";
 
 const FEATURES = [
   {
@@ -281,6 +282,12 @@ export default function HomePage() {
         {BETA_NOTES.map((note) => (
           <span key={note}>{note}</span>
         ))}
+        <Link
+          href="/pricing"
+          className="text-brand inline-flex items-center font-semibold underline-offset-4 hover:underline"
+        >
+          {BETA_PRICING_LINK}
+        </Link>
       </div>
 
       <section className="px-6 pt-11 pb-6 text-center">
