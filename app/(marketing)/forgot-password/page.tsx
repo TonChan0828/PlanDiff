@@ -20,14 +20,14 @@ export default async function ForgotPasswordPage({
         <h1 className="text-3xl font-bold tracking-tight">
           {M.forgotPasswordHeading}
         </h1>
-        <p className="max-w-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p className="text-ink-muted max-w-xl text-sm leading-relaxed">
           {M.forgotPasswordDescription}
         </p>
       </div>
       {error === "expired" && (
         <p
           role="alert"
-          className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-md px-4 py-3 text-sm"
         >
           {M.forgotPasswordExpiredLink}
         </p>
@@ -35,7 +35,10 @@ export default async function ForgotPasswordPage({
       <div className="max-w-sm">
         <ForgotPasswordForm />
       </div>
-      <Link href="/login" className="text-sm underline">
+      <Link
+        href="/login"
+        className="inline-flex min-h-11 items-center self-start text-sm underline"
+      >
         {M.loginHeading}
       </Link>
     </div>

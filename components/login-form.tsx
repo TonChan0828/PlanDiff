@@ -73,7 +73,7 @@ export function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={status === "pending"}
-          className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+          className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -84,11 +84,11 @@ export function LoginForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={status === "pending"}
-          className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+          className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
         />
       </label>
       {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-danger text-sm">
           {error}
         </p>
       )}
@@ -97,25 +97,23 @@ export function LoginForm() {
           type="button"
           onClick={handleResend}
           disabled={resendStatus === "pending"}
-          className="text-left text-sm font-medium text-zinc-700 underline disabled:opacity-50 dark:text-zinc-300"
+          className="text-ink inline-flex min-h-11 items-center text-left text-sm font-medium underline disabled:opacity-50"
         >
           {M.resendConfirmation}
         </button>
       )}
       {resendStatus === "sent" && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {M.resendConfirmationSuccess}
-        </p>
+        <p className="text-ink-muted text-sm">{M.resendConfirmationSuccess}</p>
       )}
       {resendStatus === "error" && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-danger text-sm">
           {M.resendConfirmationError}
         </p>
       )}
       <button
         type="submit"
         disabled={status === "pending"}
-        className="inline-flex min-h-11 items-center justify-center rounded-full bg-zinc-900 px-6 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-sm font-bold transition-colors disabled:opacity-50"
       >
         {M.loginButton}
       </button>

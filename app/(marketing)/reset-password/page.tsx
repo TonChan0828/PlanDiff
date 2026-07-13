@@ -21,11 +21,14 @@ export default async function ResetPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight">
             {M.resetPasswordExpiredHeading}
           </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p className="text-ink-muted max-w-xl text-sm leading-relaxed">
             {M.resetPasswordExpiredDescription}
           </p>
         </div>
-        <Link href="/forgot-password" className="text-sm underline">
+        <Link
+          href="/forgot-password"
+          className="inline-flex min-h-11 items-center self-start text-sm underline"
+        >
           {M.backToForgotPassword}
         </Link>
       </div>
@@ -38,7 +41,7 @@ export default async function ResetPasswordPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           {M.resetPasswordHeading}
         </h1>
-        <p className="max-w-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p className="text-ink-muted max-w-xl text-sm leading-relaxed">
           {M.resetPasswordDescription}
         </p>
       </div>

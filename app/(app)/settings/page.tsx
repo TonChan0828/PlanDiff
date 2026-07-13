@@ -59,7 +59,7 @@ export default async function SettingsPage({
       {googleEnabled && connected === "1" && (
         <p
           role="status"
-          className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          className="bg-success/10 text-success rounded-md px-4 py-3 text-sm"
         >
           {M.connectedSuccess}
         </p>
