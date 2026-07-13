@@ -15,10 +15,10 @@ export default function MarketingLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <main className="flex flex-1 flex-col">{children}</main>
-      <footer className="border-t border-zinc-200 dark:border-zinc-800">
+      <footer className="border-line border-t">
         <nav
           aria-label="サイト情報"
-          className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-6 py-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between dark:text-zinc-400"
+          className="text-ink-muted mx-auto flex w-full max-w-3xl flex-col gap-2 px-6 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <ul className="flex flex-wrap items-center gap-x-6">
             {FOOTER_LINKS.map((link) => (

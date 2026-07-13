@@ -35,14 +35,14 @@ export default async function LoginPage({
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-6 px-6 py-16">
       <div className="flex flex-col gap-3">
         <h1 className="text-3xl font-bold tracking-tight">{M.loginHeading}</h1>
-        <p className="max-w-xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p className="text-ink-muted max-w-xl text-sm leading-relaxed">
           {M.loginDescription}
         </p>
       </div>
       {errorMessage && (
         <p
           role="alert"
-          className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          className="bg-danger/10 text-danger rounded-md px-4 py-3 text-sm"
         >
           {errorMessage}
         </p>
@@ -50,7 +50,7 @@ export default async function LoginPage({
       {deleted === "1" && (
         <p
           role="status"
-          className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          className="bg-success/10 text-success rounded-md px-4 py-3 text-sm"
         >
           {M.accountDeleted}
         </p>
@@ -58,7 +58,7 @@ export default async function LoginPage({
       {reset === "success" && (
         <p
           role="status"
-          className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          className="bg-success/10 text-success rounded-md px-4 py-3 text-sm"
         >
           {M.resetPasswordSuccess}
         </p>
@@ -66,11 +66,17 @@ export default async function LoginPage({
       <div className="max-w-sm">
         <LoginForm />
       </div>
-      <div className="flex flex-col gap-1 text-sm">
-        <Link href="/signup" className="underline">
+      <div className="flex flex-col text-sm">
+        <Link
+          href="/signup"
+          className="inline-flex min-h-11 items-center underline"
+        >
           {M.noAccountYet}
         </Link>
-        <Link href="/forgot-password" className="underline">
+        <Link
+          href="/forgot-password"
+          className="inline-flex min-h-11 items-center underline"
+        >
           {M.forgotPasswordLink}
         </Link>
       </div>

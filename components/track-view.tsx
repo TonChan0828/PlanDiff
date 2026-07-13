@@ -293,13 +293,13 @@ export function TrackView({
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-ink-muted text-sm font-semibold">
             {TR.todayHeading}
           </h2>
           <Link
             href="/calendar"
-            className="text-ink-muted hover:text-ink text-xs underline underline-offset-2"
+            className="text-ink-muted hover:text-ink inline-flex min-h-11 items-center text-xs underline underline-offset-2"
           >
             {TR.editHint}
           </Link>

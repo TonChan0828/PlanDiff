@@ -13,10 +13,7 @@ export function LegalLink({
   children: ReactNode;
 }) {
   return (
-    <a
-      href={href}
-      className="underline underline-offset-4 hover:text-zinc-950 dark:hover:text-zinc-50"
-    >
+    <a href={href} className="hover:text-ink underline underline-offset-4">
       {children}
     </a>
   );
@@ -36,7 +33,7 @@ export function LegalArticle({
         {sections.map((section) => (
           <section key={section.heading}>
             <h2 className="text-lg font-semibold">{section.heading}</h2>
-            <div className="mt-2 flex flex-col gap-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+            <div className="text-ink-muted mt-2 flex flex-col gap-2 text-sm leading-relaxed">
               {section.body}
             </div>
           </section>

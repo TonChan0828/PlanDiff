@@ -17,6 +17,7 @@
   --plan-text: #22368f;
   --interrupt: #d9480f; /* 柿(割り込み・ズレ) */
   --danger: #dc2626; /* 紅 */
+  --success: #0f7b4f; /* 常磐(成功通知) */
   --hatch: rgba(217, 72, 15, 0.5); /* ズレの斜線 */
   --grid: rgba(26, 29, 35, 0.05); /* 方眼(15分) */
   --grid-hour: rgba(26, 29, 35, 0.12); /* 方眼(1時間) */
@@ -35,6 +36,7 @@
   --color-plan-text: var(--plan-text);
   --color-interrupt: var(--interrupt);
   --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -56,6 +58,7 @@
     --plan-text: #bac8ff;
     --interrupt: #e8590c;
     --danger: #ef4444;
+    --success: #3dcf8e;
     --hatch: rgba(255, 138, 80, 0.45);
     --grid: rgba(232, 234, 239, 0.055);
     --grid-hour: rgba(232, 234, 239, 0.12);
@@ -76,6 +79,7 @@
   --plan-text: #bac8ff;
   --interrupt: #e8590c;
   --danger: #ef4444;
+  --success: #3dcf8e;
   --hatch: rgba(255, 138, 80, 0.45);
   --grid: rgba(232, 234, 239, 0.055);
   --grid-hour: rgba(232, 234, 239, 0.12);
