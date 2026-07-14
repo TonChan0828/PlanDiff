@@ -9,6 +9,14 @@ import {
   type AppEventInput,
   type AppEventResult,
 } from "@/lib/calendar/app-events";
+import {
+  createRecurringRule,
+  deleteRecurringOccurrence,
+  deleteRecurringRule,
+  updateRecurringRule,
+  type RecurringRuleFormInput,
+  type RecurringRuleResult,
+} from "@/lib/calendar/recurring";
 import { createClient } from "@/lib/supabase/server";
 
 // アプリ内予定のServer Action(P2-5)。認証確認 → lib/calendar/app-events → revalidate。
@@ -56,6 +64,73 @@ export async function deleteAppEventAction(
     redirect("/login");
   }
   const result = await deleteAppEvent(supabase, id);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+  }
+  return result;
+}
+
+// 定期予定(繰り返し予定)のServer Action(P5-1)。同じ認証確認 → ロジック層 → revalidateパターン。
+
+export async function createRecurringRuleAction(
+  input: RecurringRuleFormInput,
+): Promise<RecurringRuleResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");
+  }
+  const result = await createRecurringRule(supabase, input);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+  }
+  return result;
+}
+
+export async function updateRecurringRuleAction(
+  ruleId: string,
+  input: RecurringRuleFormInput,
+): Promise<RecurringRuleResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");
+  }
+  const result = await updateRecurringRule(supabase, ruleId, input);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+  }
+  return result;
+}
+
+export async function deleteRecurringRuleAction(
+  ruleId: string,
+): Promise<RecurringRuleResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");
+  }
+  const result = await deleteRecurringRule(supabase, ruleId);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+  }
+  return result;
+}
+
+export async function deleteRecurringOccurrenceAction(
+  eventId: string,
+): Promise<RecurringRuleResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    redirect("/login");
+  }
+  const result = await deleteRecurringOccurrence(supabase, eventId);
   if (result.ok) {
     revalidatePath("/calendar");
     revalidatePath("/track");

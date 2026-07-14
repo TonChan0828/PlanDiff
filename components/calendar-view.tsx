@@ -19,8 +19,12 @@ import {
 import { ja } from "date-fns/locale";
 import {
   createAppEventAction,
+  createRecurringRuleAction,
   deleteAppEventAction,
+  deleteRecurringOccurrenceAction,
+  deleteRecurringRuleAction,
   updateAppEventAction,
+  updateRecurringRuleAction,
 } from "@/app/(app)/calendar/event-actions";
 import {
   deleteTimeEntryAction,
@@ -32,6 +36,7 @@ import {
 import {
   AppEventPanel,
   type AppEventPanelValues,
+  type RecurringSubmitValues,
 } from "@/components/app-event-panel";
 import {
   EditEntryPanel,
@@ -44,6 +49,11 @@ import {
   GoogleConnectionBanner,
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
+import { RecurringEditChoicePanel } from "@/components/recurring-edit-choice-panel";
+import {
+  RecurringRulePanel,
+  type RecurringRulePanelValues,
+} from "@/components/recurring-rule-panel";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
   layoutDayEvents,
@@ -51,6 +61,11 @@ import {
   type CalendarBlockInput,
 } from "@/lib/calendar/layout";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import {
+  isRecurringEventId,
+  parseRecurringEventId,
+  type RecurringRuleSummary,
+} from "@/lib/calendar/recurring-id";
 import {
   buildCalendarPath,
   parseDateParam,
@@ -110,6 +125,8 @@ interface CalendarViewProps {
   googleConnected?: boolean;
   /** Google連携機能が有効か(凍結フラグ。falseなら同期・更新ボタン・バナーを出さない。P2-5) */
   googleEnabled?: boolean;
+  /** 本人の繰り返し予定ルール一覧(P5-1)。「繰り返し全体」編集モードの初期値に使う */
+  recurringRules?: RecurringRuleSummary[];
 }
 
 export function CalendarView({
@@ -120,6 +137,7 @@ export function CalendarView({
   dateParam,
   googleConnected = true,
   googleEnabled = true,
+  recurringRules = [],
 }: CalendarViewProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -372,7 +390,20 @@ export function CalendarView({
   // ---- アプリ内予定の作成・編集・削除(P2-5): 楽観的更新はせずServer Action成功後にrefresh ----
   type EventPanelState =
     | { mode: "create"; initial: AppEventPanelValues }
-    | { mode: "edit"; eventId: string; initial: AppEventPanelValues };
+    | {
+        mode: "edit";
+        eventId: string;
+        googleEventId: string;
+        initial: AppEventPanelValues;
+      }
+    | {
+        mode: "choice";
+        eventId: string;
+        googleEventId: string;
+        initial: AppEventPanelValues;
+        ruleId: string;
+      }
+    | { mode: "rule-edit"; ruleId: string };
   const [eventPanel, setEventPanel] = useState<EventPanelState | null>(null);
   const [eventPending, setEventPending] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -404,15 +435,50 @@ export function CalendarView({
 
   const handleOpenEditEvent = (event: CalendarViewEvent) => {
     setEventError(null);
+    const initial: AppEventPanelValues = {
+      title: event.title,
+      startAt: event.startAt,
+      endAt: event.endAt,
+    };
+    const parsed = isRecurringEventId(event.googleEventId)
+      ? parseRecurringEventId(event.googleEventId)
+      : null;
+    if (parsed) {
+      setEventPanel({
+        mode: "choice",
+        eventId: event.id,
+        googleEventId: event.googleEventId,
+        initial,
+        ruleId: parsed.ruleId,
+      });
+      return;
+    }
     setEventPanel({
       mode: "edit",
       eventId: event.id,
-      initial: {
-        title: event.title,
-        startAt: event.startAt,
-        endAt: event.endAt,
-      },
+      googleEventId: event.googleEventId,
+      initial,
     });
+  };
+
+  // 定期予定(P5-1): 「この予定のみ」→単発編集モードへ、「繰り返し全体」→ルール編集モードへ
+  const handleChooseOccurrence = () => {
+    if (!eventPanel || eventPanel.mode !== "choice") {
+      return;
+    }
+    setEventPanel({
+      mode: "edit",
+      eventId: eventPanel.eventId,
+      googleEventId: eventPanel.googleEventId,
+      initial: eventPanel.initial,
+    });
+  };
+
+  const handleChooseSeries = () => {
+    if (!eventPanel || eventPanel.mode !== "choice") {
+      return;
+    }
+    setEventPanel({ mode: "rule-edit", ruleId: eventPanel.ruleId });
   };
 
   const handleCloseEventPanel = () => {
@@ -424,7 +490,11 @@ export function CalendarView({
   };
 
   const handleSaveEvent = (values: AppEventPanelValues) => {
-    if (!eventPanel || eventPending) {
+    if (
+      !eventPanel ||
+      eventPending ||
+      (eventPanel.mode !== "create" && eventPanel.mode !== "edit")
+    ) {
       return;
     }
     const failureMessage =
@@ -454,7 +524,11 @@ export function CalendarView({
     }
     setEventPending(true);
     setEventError(null);
-    deleteAppEventAction(eventPanel.eventId)
+    // rec: 予定(この回のみ削除)は例外記録+行削除、それ以外は従来どおりの削除(P5-1)
+    const action = isRecurringEventId(eventPanel.googleEventId)
+      ? deleteRecurringOccurrenceAction(eventPanel.eventId)
+      : deleteAppEventAction(eventPanel.eventId);
+    action
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
@@ -464,6 +538,78 @@ export function CalendarView({
         }
       })
       .catch(() => setEventError(M.eventDeleteError))
+      .finally(() => setEventPending(false));
+  };
+
+  // 定期予定(P5-1): 作成時の繰り返しルール保存
+  const handleSaveRecurringRule = (values: RecurringSubmitValues) => {
+    if (!eventPanel || eventPanel.mode !== "create" || eventPending) {
+      return;
+    }
+    setEventPending(true);
+    setEventError(null);
+    createRecurringRuleAction(values)
+      .then((result) => {
+        if (result.ok) {
+          setEventPanel(null);
+          router.refresh();
+        } else {
+          setEventError(M.recurrenceCreateError);
+        }
+      })
+      .catch(() => setEventError(M.recurrenceCreateError))
+      .finally(() => setEventPending(false));
+  };
+
+  // 定期予定(P5-1): 「繰り返し全体」編集の保存・削除
+  const handleSaveRuleEdit = (values: RecurringRulePanelValues) => {
+    if (!eventPanel || eventPanel.mode !== "rule-edit" || eventPending) {
+      return;
+    }
+    const rule = recurringRules.find((r) => r.id === eventPanel.ruleId);
+    if (!rule) {
+      return;
+    }
+    setEventPending(true);
+    setEventError(null);
+    updateRecurringRuleAction(rule.id, {
+      title: values.title,
+      pattern: values.pattern,
+      weekdays: values.weekdays,
+      startTime: values.startTime,
+      endTime: values.endTime,
+      timezone: rule.timezone,
+      startsOn: rule.startsOn,
+      endsOn: values.endsOn,
+    })
+      .then((result) => {
+        if (result.ok) {
+          setEventPanel(null);
+          router.refresh();
+        } else {
+          setEventError(M.recurrenceUpdateError);
+        }
+      })
+      .catch(() => setEventError(M.recurrenceUpdateError))
+      .finally(() => setEventPending(false));
+  };
+
+  const handleDeleteRule = () => {
+    if (!eventPanel || eventPanel.mode !== "rule-edit" || eventPending) {
+      return;
+    }
+    setEventPending(true);
+    setEventError(null);
+    deleteRecurringRuleAction(eventPanel.ruleId)
+      .then((result) => {
+        if (result.ok) {
+          setEventPanel(null);
+          router.refresh();
+        } else {
+          setEventError(M.recurrenceDeleteError);
+        }
+      })
+      .catch(() => setEventError(M.recurrenceDeleteError))
       .finally(() => setEventPending(false));
   };
 
@@ -752,18 +898,52 @@ export function CalendarView({
         />
       ) : null}
 
-      {eventPanel ? (
+      {eventPanel && eventPanel.mode === "choice" ? (
+        <RecurringEditChoicePanel
+          onChooseOccurrence={handleChooseOccurrence}
+          onChooseSeries={handleChooseSeries}
+          onClose={handleCloseEventPanel}
+        />
+      ) : null}
+
+      {eventPanel &&
+      (eventPanel.mode === "create" || eventPanel.mode === "edit") ? (
         <AppEventPanel
           key={eventPanel.mode === "edit" ? eventPanel.eventId : "create"}
           mode={eventPanel.mode}
           initial={eventPanel.initial}
           onSave={handleSaveEvent}
+          onSaveRecurring={
+            eventPanel.mode === "create" ? handleSaveRecurringRule : undefined
+          }
           onDelete={eventPanel.mode === "edit" ? handleDeleteEvent : undefined}
           onClose={handleCloseEventPanel}
           pending={eventPending}
           error={eventError}
         />
       ) : null}
+
+      {eventPanel && eventPanel.mode === "rule-edit"
+        ? (() => {
+            const rule = recurringRules.find(
+              (candidate) => candidate.id === eventPanel.ruleId,
+            );
+            if (!rule) {
+              return null;
+            }
+            return (
+              <RecurringRulePanel
+                key={rule.id}
+                initial={rule}
+                onSave={handleSaveRuleEdit}
+                onDelete={handleDeleteRule}
+                onClose={handleCloseEventPanel}
+                pending={eventPending}
+                error={eventError}
+              />
+            );
+          })()
+        : null}
 
       {editingEntry ? (
         <EditEntryPanel
@@ -1028,6 +1208,11 @@ function PlanBlock({
             showTime ? "" : "line-clamp-2"
           }`}
         >
+          {isRecurringEventId(block.googleEventId) ? (
+            <span aria-hidden="true" title={M.recurringMarkLabel}>
+              {M.recurringMark}{" "}
+            </span>
+          ) : null}
           {block.title || M.untitled}
         </p>
         {isRunning ? (

@@ -6,6 +6,9 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("@/lib/calendar/events", () => ({ fetchSyncedEvents: vi.fn() }));
+vi.mock("@/lib/calendar/recurring", () => ({
+  materializeRecurringInstances: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/timer/entries", () => ({
   fetchTimeEntries: vi.fn(),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),

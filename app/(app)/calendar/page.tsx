@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import {
+  fetchRecurringRules,
+  materializeRecurringInstances,
+} from "@/lib/calendar/recurring";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
@@ -54,12 +58,18 @@ export default async function CalendarPage({
   const baseDate = parseDateParam(dateParam) ?? new Date();
   // Google連携の凍結中(フラグOFF)はトークンを読まず、同期UIも無効にする(P2-5)
   const googleEnabled = isGoogleIntegrationEnabled();
-  const [events, timeEntries, runningEntry, tokenResult] = await Promise.all([
-    fetchSyncedEvents(supabase, baseDate),
-    fetchTimeEntries(supabase, baseDate),
-    fetchRunningEntry(supabase),
-    googleEnabled ? getGoogleRefreshToken(data.user.id) : Promise.resolve(null),
-  ]);
+  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要があるため直列で実行する(P5-1)
+  await materializeRecurringInstances(supabase, baseDate);
+  const [events, timeEntries, runningEntry, tokenResult, recurringRules] =
+    await Promise.all([
+      fetchSyncedEvents(supabase, baseDate),
+      fetchTimeEntries(supabase, baseDate),
+      fetchRunningEntry(supabase),
+      googleEnabled
+        ? getGoogleRefreshToken(data.user.id)
+        : Promise.resolve(null),
+      fetchRecurringRules(supabase),
+    ]);
   const googleConnected =
     googleEnabled &&
     tokenResult !== null &&
@@ -78,6 +88,7 @@ export default async function CalendarPage({
         dateParam={dateParam}
         googleConnected={googleConnected}
         googleEnabled={googleEnabled}
+        recurringRules={recurringRules}
       />
     </main>
   );

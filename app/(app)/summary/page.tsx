@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { addDays, addWeeks, startOfDay, startOfWeek } from "date-fns";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
+import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { computeGapSummary, type SummaryRange } from "@/lib/summary/aggregate";
 import {
   formatClockMinutes,
@@ -45,6 +46,8 @@ export default async function SummaryPage({
   const now = new Date();
   const range = resolveRange(activeRange, now);
 
+  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要があるため直列で実行する(P5-1)
+  await materializeRecurringInstances(supabase, now);
   const [planEvents, timeEntries, runningEntry] = await Promise.all([
     fetchSyncedEvents(supabase, now),
     fetchTimeEntries(supabase, now),
