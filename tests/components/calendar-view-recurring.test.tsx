@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format, startOfDay } from "date-fns";
 
@@ -139,6 +139,15 @@ describe("繰り返し予定の作成(S13)", () => {
 
     await user.click(screen.getByRole("button", { name: M.eventAdd }));
     await user.type(screen.getByLabelText(M.eventTitleField), "夕会");
+    // 作成パネルの初期時刻は「現在時刻の次の正時から1時間」で実行時刻に依存する
+    // (22時台に実行すると23:00〜翌0:00になり、繰り返しの同日バリデーションで保存が
+    // 弾かれてしまう)ため、同日内の時刻を明示して決定的にする
+    fireEvent.change(screen.getByLabelText(M.eventStartField), {
+      target: { value: format(today, "yyyy-MM-dd'T'10:00") },
+    });
+    fireEvent.change(screen.getByLabelText(M.eventEndField), {
+      target: { value: format(today, "yyyy-MM-dd'T'11:00") },
+    });
     await user.selectOptions(screen.getByLabelText(M.recurrenceField), "daily");
     await user.click(screen.getByRole("button", { name: "保存" }));
 
