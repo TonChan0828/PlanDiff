@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { TrackView } from "@/components/track-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
+import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { createClient } from "@/lib/supabase/server";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 import { TRACK_MESSAGES as TR } from "@/lib/track/messages";
@@ -21,6 +22,8 @@ export default async function TrackPage() {
   }
 
   const baseDate = new Date();
+  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要があるため直列で実行する(P5-1)
+  await materializeRecurringInstances(supabase, baseDate);
   const [events, timeEntries, runningEntry] = await Promise.all([
     fetchSyncedEvents(supabase, baseDate),
     fetchTimeEntries(supabase, baseDate),

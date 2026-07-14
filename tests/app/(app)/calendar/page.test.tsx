@@ -6,6 +6,10 @@ vi.mock("@/lib/supabase/admin", () => ({ getGoogleRefreshToken: vi.fn() }));
 vi.mock("@/lib/calendar/events", () => ({
   fetchSyncedEvents: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("@/lib/calendar/recurring", () => ({
+  materializeRecurringInstances: vi.fn().mockResolvedValue(undefined),
+  fetchRecurringRules: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/lib/timer/entries", () => ({
   fetchTimeEntries: vi.fn().mockResolvedValue([]),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),
