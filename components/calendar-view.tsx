@@ -49,6 +49,7 @@ import {
   GoogleConnectionBanner,
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
+import { PlanSuggestions } from "@/components/plan-suggestions";
 import { RecurringEditChoicePanel } from "@/components/recurring-edit-choice-panel";
 import {
   RecurringRulePanel,
@@ -127,6 +128,8 @@ interface CalendarViewProps {
   googleEnabled?: boolean;
   /** 本人の繰り返し予定ルール一覧(P5-1)。「繰り返し全体」編集モードの初期値に使う */
   recurringRules?: RecurringRuleSummary[];
+  /** 実績からの予定提案(P5-2)の元データ(表示週開始前4週の完了実績) */
+  suggestionEntries?: TimeEntryItem[];
 }
 
 export function CalendarView({
@@ -138,6 +141,7 @@ export function CalendarView({
   googleConnected = true,
   googleEnabled = true,
   recurringRules = [],
+  suggestionEntries = [],
 }: CalendarViewProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -791,6 +795,15 @@ export function CalendarView({
 
       {googleEnabled && connectionStatus !== "connected" ? (
         <GoogleConnectionBanner status={connectionStatus} />
+      ) : null}
+
+      {selectedDate ? (
+        <PlanSuggestions
+          entries={suggestionEntries}
+          events={events}
+          recurringRules={recurringRules}
+          viewDate={toDateParam(selectedDate)}
+        />
       ) : null}
 
       {view === "day" && selectedDate && now ? (

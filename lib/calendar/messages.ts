@@ -72,4 +72,18 @@ export const CALENDAR_MESSAGES = {
     "土",
   ] as readonly string[],
   weekdayAriaLabel: (label: string) => `${label}曜日`,
+  // 実績からの予定提案(P5-2)
+  suggestionHeading: "実績からの提案",
+  suggestionDescription: (
+    weekdayLabel: string,
+    startTime: string,
+    durationLabel: string,
+    count: number,
+  ) =>
+    `毎週${weekdayLabel}曜 ${startTime}頃・約${durationLabel}(直近4週で${count}回)`,
+  suggestionAddThisWeek: "この週に追加",
+  suggestionMakeWeekly: "毎週にする",
+  suggestionDismissLabel: (title: string) => `${title}の提案を閉じる`,
+  suggestionAddError: "予定の追加に失敗しました",
+  suggestionMakeWeeklyError: "繰り返し予定の作成に失敗しました",
 } as const;
