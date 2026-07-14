@@ -12,7 +12,11 @@ import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
+import {
+  fetchRunningEntry,
+  fetchSuggestionSourceEntries,
+  fetchTimeEntries,
+} from "@/lib/timer/entries";
 
 export const metadata: Metadata = {
   title: "カレンダー | PlanDiff",
@@ -60,16 +64,21 @@ export default async function CalendarPage({
   const googleEnabled = isGoogleIntegrationEnabled();
   // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要があるため直列で実行する(P5-1)
   await materializeRecurringInstances(supabase, baseDate);
-  const [events, timeEntries, runningEntry, tokenResult, recurringRules] =
-    await Promise.all([
-      fetchSyncedEvents(supabase, baseDate),
-      fetchTimeEntries(supabase, baseDate),
-      fetchRunningEntry(supabase),
-      googleEnabled
-        ? getGoogleRefreshToken(data.user.id)
-        : Promise.resolve(null),
-      fetchRecurringRules(supabase),
-    ]);
+  const [
+    events,
+    timeEntries,
+    runningEntry,
+    tokenResult,
+    recurringRules,
+    suggestionEntries,
+  ] = await Promise.all([
+    fetchSyncedEvents(supabase, baseDate),
+    fetchTimeEntries(supabase, baseDate),
+    fetchRunningEntry(supabase),
+    googleEnabled ? getGoogleRefreshToken(data.user.id) : Promise.resolve(null),
+    fetchRecurringRules(supabase),
+    fetchSuggestionSourceEntries(supabase, baseDate),
+  ]);
   const googleConnected =
     googleEnabled &&
     tokenResult !== null &&
@@ -89,6 +98,7 @@ export default async function CalendarPage({
         googleConnected={googleConnected}
         googleEnabled={googleEnabled}
         recurringRules={recurringRules}
+        suggestionEntries={suggestionEntries}
       />
     </main>
   );

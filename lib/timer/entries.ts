@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDays, startOfWeek } from "date-fns";
 import { computeSyncRange } from "@/lib/google/sync-range";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
@@ -25,6 +26,39 @@ export async function fetchTimeEntries(
     throw new Error("実績の読み込みに失敗しました");
   }
   // Postgresの「+00:00」表記を「Z」のUTC ISOへ正規化して返す
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    title: row.title as string,
+    googleEventId: (row.google_event_id as string | null) ?? null,
+    startAt: new Date(row.start_at as string).toISOString(),
+    endAt: new Date(row.end_at as string).toISOString(),
+  }));
+}
+
+/**
+ * 実績からの予定提案(P5-2)の元データ。完了済み実績を
+ * 「基準日を含む週の開始 − 4週間 − 1日」〜「週の開始 + 1日」で取得する。
+ * 週境界の厳密なフィルタはクライアントの computeSuggestions がローカルTZで行うため、
+ * ここでの±1日はTZ差を吸収するバッファ(computeSyncRange と同じ考え方)。
+ * 取得失敗時は空配列を返し、提案セクションを出さないだけに留める(カレンダー本体を妨げない)。
+ */
+export async function fetchSuggestionSourceEntries(
+  client: SupabaseClient,
+  baseDate: Date,
+): Promise<TimeEntryItem[]> {
+  const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
+  const timeMin = addDays(weekStart, -29).toISOString();
+  const timeMax = addDays(weekStart, 1).toISOString();
+  const { data, error } = await client
+    .from("time_entries")
+    .select("id, title, google_event_id, start_at, end_at")
+    .not("end_at", "is", null)
+    .gte("start_at", timeMin)
+    .lt("start_at", timeMax)
+    .order("start_at", { ascending: true });
+  if (error) {
+    return [];
+  }
   return (data ?? []).map((row) => ({
     id: row.id as string,
     title: row.title as string,

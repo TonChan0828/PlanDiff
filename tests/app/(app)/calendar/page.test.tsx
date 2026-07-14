@@ -13,6 +13,7 @@ vi.mock("@/lib/calendar/recurring", () => ({
 vi.mock("@/lib/timer/entries", () => ({
   fetchTimeEntries: vi.fn().mockResolvedValue([]),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),
+  fetchSuggestionSourceEntries: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 // CalendarViewは同期fetch等を持つクライアント側の関心のためスタブする(ヘッダー構成の検証が目的)
