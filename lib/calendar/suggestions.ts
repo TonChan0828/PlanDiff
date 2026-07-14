@@ -54,8 +54,9 @@ export interface SuggestionInput {
   timeZone: string;
 }
 
-function addDaysTz(date: TZDate, days: number): TZDate {
-  const next = new TZDate(date);
+// TZDateのコピーコンストラクタはタイムゾーンを引き継がず実行環境のTZになるため、必ず明示して渡す
+function addDaysTz(date: TZDate, days: number, timeZone: string): TZDate {
+  const next = new TZDate(date.getTime(), timeZone);
   next.setDate(next.getDate() + days);
   return next;
 }
@@ -126,15 +127,20 @@ export function computeSuggestions(input: SuggestionInput): PlanSuggestion[] {
   const weekStart = addDaysTz(
     viewDayMidnight,
     -((viewDayMidnight.getDay() + 6) % 7),
+    timeZone,
   );
-  const weekEnd = addDaysTz(weekStart, 7);
+  const weekEnd = addDaysTz(weekStart, 7, timeZone);
 
   // 過去週を表示中は提案しない
   if (weekEnd.getTime() <= now.getTime()) {
     return [];
   }
 
-  const windowStartMs = addDaysTz(weekStart, -LOOKBACK_DAYS).getTime();
+  const windowStartMs = addDaysTz(
+    weekStart,
+    -LOOKBACK_DAYS,
+    timeZone,
+  ).getTime();
   const weekStartMs = weekStart.getTime();
 
   // タイトル×曜日でグループ化(表示週開始前28日間の完了実績のみ)
@@ -213,7 +219,7 @@ export function computeSuggestions(input: SuggestionInput): PlanSuggestion[] {
       continue;
     }
 
-    const proposalDay = addDaysTz(weekStart, (weekday + 6) % 7);
+    const proposalDay = addDaysTz(weekStart, (weekday + 6) % 7, timeZone);
     const proposalDate = formatLocalDate(proposalDay);
     const proposalStart = new TZDate(
       proposalDay.getFullYear(),
