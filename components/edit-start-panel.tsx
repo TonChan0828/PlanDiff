@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 // 実行中タイマーの開始時刻変更パネル(D-4)。フィールドは開始時刻のみ。
 // datetime-local入力は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
@@ -37,6 +38,7 @@ export function EditStartPanel({
     }
     onClose();
   };
+  const dialogRef = useDialogFocus(handleClose);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -60,16 +62,18 @@ export function EditStartPanel({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:px-4"
       onClick={handleClose}
     >
       <form
+        ref={dialogRef as React.RefObject<HTMLFormElement>}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-label={T.editStartTitle}
         onClick={(event) => event.stopPropagation()}
         onSubmit={handleSubmit}
-        className="border-line bg-surface flex w-full max-w-sm flex-col gap-3 rounded-2xl border p-5 shadow-xl"
+        className="border-line bg-surface flex max-h-[90dvh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-t-xl border p-5 shadow-xl sm:rounded-lg"
       >
         <h2 className="text-base font-semibold">{T.editStartTitle}</h2>
         <label className="flex flex-col gap-1 text-sm">

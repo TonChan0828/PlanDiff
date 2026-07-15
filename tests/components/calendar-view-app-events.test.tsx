@@ -147,6 +147,7 @@ describe("アプリ予定の編集導線(S4/S5)", () => {
     const user = userEvent.setup();
     renderView();
 
+    await user.click(screen.getByRole("button", { name: M.contextOpen }));
     await user.click(
       screen.getByRole("button", { name: M.eventEditLabel("設計作業") }),
     );
@@ -159,6 +160,7 @@ describe("アプリ予定の編集導線(S4/S5)", () => {
     const user = userEvent.setup();
     renderView();
 
+    await user.click(screen.getByRole("button", { name: M.contextOpen }));
     expect(
       screen.queryByRole("button", { name: M.eventEditLabel("定例会議") }),
     ).not.toBeInTheDocument();

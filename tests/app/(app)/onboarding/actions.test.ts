@@ -46,6 +46,18 @@ describe("completeOnboardingAction", () => {
     expect(redirect).toHaveBeenCalledWith("/calendar");
   });
 
+  it("開始操作では最初の予定作成パネル付きのカレンダーへ進む", async () => {
+    markOnboardingCompleteMock.mockResolvedValue(true);
+    const formData = new FormData();
+    formData.set("intent", "start");
+
+    await expect(completeOnboardingAction(formData)).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+
+    expect(redirect).toHaveBeenCalledWith("/calendar?create=1");
+  });
+
   it("S8: 保存失敗時は/onboarding?error=save_failedへリダイレクトされる", async () => {
     markOnboardingCompleteMock.mockResolvedValue(false);
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { TZDate } from "@date-fns/tz";
 import {
   createAppEventAction,
@@ -212,7 +213,7 @@ export function PlanSuggestions({
                   onClick={() => hide(suggestion.key)}
                   className="text-ink-muted hover:bg-ink/5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base"
                 >
-                  ×
+                  <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               </div>
               {error ? (

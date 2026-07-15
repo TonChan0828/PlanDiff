@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Wordmark } from "@/components/wordmark";
 
 // LP(D-3 / P4-3)。「予定 vs 実績のギャップ」を主語にし、自動計測ツールと
 // 誤解されない訴求にする(要件定義書 §リスク)。凍結中のGoogle連携は「準備中」と表記。
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     "予定とタイムトラッキングの実績をひとつのタイムラインに重ねて、計画と現実のズレをdiffのように読む。ソフトウェアエンジニアのための見積もり改善ツールです。",
 };
 
-const HERO_TITLE = ["見積もりが、", "当たるようになる。"] as const;
+const HERO_OFFER = "見積もりが、当たるようになる。";
 const HERO_SUB =
   "PlanDiffは、予定とタイムトラッキングの実績をひとつのタイムラインに重ねて、計画と現実のズレをdiffのように読むツールです。ソフトウェアエンジニアの「読み違い」を、数字に変えます。";
 const CTA_SIGNUP = "無料で始める";
@@ -63,22 +64,6 @@ const HATCH_STYLE = {
     "repeating-linear-gradient(135deg, var(--hatch) 0px, var(--hatch) 4px, transparent 4px, transparent 8px)",
 } as const;
 
-function Wordmark({ className = "" }: { className?: string }) {
-  return (
-    <span
-      aria-label="PlanDiff"
-      className={`font-extrabold tracking-tight ${className}`}
-    >
-      <span aria-hidden="true" className="wordmark-plan">
-        Plan
-      </span>
-      <span aria-hidden="true" className="text-brand">
-        Diff
-      </span>
-    </span>
-  );
-}
-
 function CtaButtons({ center = false }: { center?: boolean }) {
   return (
     <div className={`flex flex-wrap gap-2.5 ${center ? "justify-center" : ""}`}>
@@ -101,10 +86,7 @@ function CtaButtons({ center = false }: { center?: boolean }) {
 // オーバーレイのイラスト(装飾)。実アプリの日ビューを簡略化して描く
 function OverlayIllustration() {
   return (
-    <div
-      aria-hidden="true"
-      className="border-line bg-surface w-full max-w-sm rounded-2xl border py-3.5 pr-3.5 pl-11"
-    >
+    <div aria-hidden="true" className="w-full max-w-xl pr-3.5 pl-11">
       <div
         className="border-line/70 relative h-[300px] border-l"
         style={{
@@ -216,29 +198,22 @@ const FEATURE_GLYPHS = {
 export default function HomePage() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-line flex items-center justify-between border-b px-5 py-3.5 sm:px-8">
-        <Wordmark className="text-xl" />
-        <Link
-          href="/login"
-          className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-semibold transition-colors"
-        >
-          {CTA_LOGIN}
-        </Link>
-      </header>
-
-      <section className="mx-auto flex w-full max-w-4xl flex-wrap items-center gap-9 px-6 pt-12 pb-10 sm:pt-16">
-        <div className="min-w-[17rem] flex-1 basis-80">
-          <h1 className="text-[clamp(1.9rem,4.6vw,2.6rem)] leading-snug font-extrabold tracking-tight text-balance">
-            {HERO_TITLE[0]}
-            <br />
-            {HERO_TITLE[1]}
+      <section className="relative mx-auto flex min-h-[43rem] w-full max-w-6xl flex-col overflow-hidden px-6 pt-12 sm:min-h-[38rem] sm:px-8 sm:pt-16">
+        <div className="relative z-10 max-w-2xl">
+          <h1 className="text-[clamp(2.6rem,6vw,4.8rem)] leading-none font-extrabold tracking-tight">
+            <Wordmark display />
           </h1>
+          <h2 className="mt-4 text-[clamp(1.55rem,3vw,2.35rem)] leading-tight font-extrabold text-balance">
+            {HERO_OFFER}
+          </h2>
           <p className="text-ink-muted mt-4 mb-6 max-w-lg text-[15px]">
             {HERO_SUB}
           </p>
           <CtaButtons />
         </div>
-        <OverlayIllustration />
+        <div className="absolute right-3 bottom-4 left-3 flex justify-end sm:right-8 sm:left-auto sm:w-[58%]">
+          <OverlayIllustration />
+        </div>
       </section>
 
       <h2 className="mt-8 mb-5 text-center text-xl font-extrabold tracking-tight">
@@ -246,10 +221,7 @@ export default function HomePage() {
       </h2>
       <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3.5 px-6 sm:grid-cols-3">
         {FEATURES.map((feature) => (
-          <div
-            key={feature.title}
-            className="border-line bg-surface rounded-2xl border p-5"
-          >
+          <div key={feature.title} className="border-line border-t p-5">
             {FEATURE_GLYPHS[feature.glyph]}
             <h3 className="mb-1.5 text-[15px] font-bold">{feature.title}</h3>
             <p className="text-ink-muted text-[13px]">{feature.body}</p>

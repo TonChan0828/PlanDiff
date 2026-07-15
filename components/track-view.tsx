@@ -215,84 +215,90 @@ export function TrackView({
   const todayEntries = now ? filterTodayEntries(timeEntries, now) : [];
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] lg:items-start">
       {timerError ? (
         <p
           role="alert"
-          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
+          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm lg:col-span-2"
         >
           {timerError}
         </p>
       ) : null}
 
-      {running ? (
-        <RunningTimerHero
-          entry={running}
-          onStop={handleStopTimer}
-          stopping={timerPending}
-          onEditStart={handleOpenEditStart}
-        />
-      ) : (
-        <FreeTimerBar
-          onStart={(title) => startTimer(null, title)}
-          pending={timerPending}
-        />
-      )}
+      <div className="flex min-w-0 flex-col gap-6">
+        {running ? (
+          <RunningTimerHero
+            entry={running}
+            onStop={handleStopTimer}
+            stopping={timerPending}
+            onEditStart={handleOpenEditStart}
+          />
+        ) : (
+          <FreeTimerBar
+            onStart={(title) => startTimer(null, title)}
+            pending={timerPending}
+          />
+        )}
 
-      {quickStartEvents.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-ink-muted text-sm font-semibold">
-            {TR.quickStartHeading}
-          </h2>
-          <ul aria-label={TR.quickStartHeading} className="flex flex-col gap-2">
-            {quickStartEvents.map((event) => {
-              const isRunning = running?.googleEventId === event.googleEventId;
-              const isOngoing =
-                now !== null &&
-                parseISO(event.startAt).getTime() <= now.getTime();
-              return (
-                <li key={event.id}>
-                  <button
-                    type="button"
-                    aria-label={
-                      isRunning
-                        ? T.stopLabel(event.title)
-                        : T.startLabel(event.title)
-                    }
-                    aria-pressed={isRunning}
-                    disabled={timerPending}
-                    onClick={() => handleQuickStartTap(event)}
-                    className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border px-4 py-2 text-left transition-colors disabled:opacity-60 ${
-                      isRunning
-                        ? "border-brand bg-plan-fill border-2"
-                        : "border-plan-border bg-plan-fill hover:bg-brand/15"
-                    }`}
-                  >
-                    <span className="min-w-0">
-                      <span className="text-plan-text block truncate text-sm font-medium">
-                        {event.title || M.untitled}
+        {quickStartEvents.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-ink-muted text-sm font-semibold">
+              {TR.quickStartHeading}
+            </h2>
+            <ul
+              aria-label={TR.quickStartHeading}
+              className="flex flex-col gap-2"
+            >
+              {quickStartEvents.map((event) => {
+                const isRunning =
+                  running?.googleEventId === event.googleEventId;
+                const isOngoing =
+                  now !== null &&
+                  parseISO(event.startAt).getTime() <= now.getTime();
+                return (
+                  <li key={event.id}>
+                    <button
+                      type="button"
+                      aria-label={
+                        isRunning
+                          ? T.stopLabel(event.title)
+                          : T.startLabel(event.title)
+                      }
+                      aria-pressed={isRunning}
+                      disabled={timerPending}
+                      onClick={() => handleQuickStartTap(event)}
+                      className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border px-4 py-2 text-left transition-colors disabled:opacity-60 ${
+                        isRunning
+                          ? "border-brand bg-plan-fill border-2"
+                          : "border-plan-border bg-plan-fill hover:bg-brand/15"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="text-plan-text block truncate text-sm font-medium">
+                          {event.title || M.untitled}
+                        </span>
+                        <span className="text-plan-text/80 block font-mono text-xs tabular-nums">
+                          {format(parseISO(event.startAt), "HH:mm")}〜
+                          {format(parseISO(event.endAt), "HH:mm")}
+                        </span>
                       </span>
-                      <span className="text-plan-text/80 block font-mono text-xs tabular-nums">
-                        {format(parseISO(event.startAt), "HH:mm")}〜
-                        {format(parseISO(event.endAt), "HH:mm")}
+                      <span className="text-plan-text shrink-0 text-xs font-semibold">
+                        {isRunning
+                          ? T.recording
+                          : isOngoing
+                            ? TR.ongoingBadge
+                            : null}
                       </span>
-                    </span>
-                    <span className="text-plan-text shrink-0 text-xs font-semibold">
-                      {isRunning
-                        ? T.recording
-                        : isOngoing
-                          ? TR.ongoingBadge
-                          : null}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+      </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-ink-muted text-sm font-semibold">
             {TR.todayHeading}
@@ -305,7 +311,7 @@ export function TrackView({
           </Link>
         </div>
         {hydrated && todayEntries.length === 0 ? (
-          <p className="border-line text-ink-muted rounded-xl border border-dashed px-4 py-6 text-center text-sm">
+          <p className="border-line text-ink-muted rounded-lg border border-dashed px-4 py-6 text-center text-sm">
             {TR.emptyToday}
           </p>
         ) : (
@@ -319,7 +325,7 @@ export function TrackView({
               return (
                 <li
                   key={entry.id}
-                  className="border-line bg-surface flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
+                  className="border-line bg-surface flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">

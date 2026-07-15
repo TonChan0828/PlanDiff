@@ -36,7 +36,7 @@ export function RunningTimerHero({
   return (
     <section
       data-testid="running-timer-hero"
-      className="border-line bg-surface flex flex-col items-center gap-1 rounded-2xl border px-4 pt-4 pb-4"
+      className="border-line bg-surface flex flex-col items-center gap-1 rounded-lg border px-4 pt-4 pb-4"
     >
       <p className="text-ink-muted flex items-center gap-1.5 self-start text-xs font-bold">
         {/* 記録中のドット(柿)。点滅はprefers-reduced-motionで停止する */}

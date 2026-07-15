@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type {
   RecurringPattern,
   RecurringRuleSummary,
 } from "@/lib/calendar/recurring-id";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 // 定期予定(P5-1)の「繰り返し全体」編集パネル。開始日(starts_on)は変更不可。
 // 今日以降の実体化済みインスタンスは保存時に再生成される(過去分は残る。呼び出し元で担保)。
@@ -62,6 +64,7 @@ export function RecurringRulePanel({
     }
     onClose();
   };
+  const dialogRef = useDialogFocus(handleClose);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -103,15 +106,17 @@ export function RecurringRulePanel({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:px-4"
       onClick={handleClose}
     >
       <div
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-label={M.recurringEditChoiceSeries}
         onClick={(event) => event.stopPropagation()}
-        className="border-line bg-surface w-full max-w-sm rounded-2xl border p-5 shadow-xl"
+        className="border-line bg-surface max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-t-xl border p-5 shadow-xl sm:rounded-lg"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">
@@ -124,7 +129,7 @@ export function RecurringRulePanel({
             disabled={pending}
             className="text-ink-muted hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-lg disabled:opacity-50"
           >
-            ×
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
 
@@ -196,7 +201,7 @@ export function RecurringRulePanel({
                       aria-label={M.weekdayAriaLabel(label)}
                       onClick={() => toggleWeekday(day)}
                       disabled={pending}
-                      className={`min-h-9 min-w-9 rounded-full border text-xs font-medium disabled:opacity-50 ${
+                      className={`min-h-11 min-w-11 rounded-full border text-xs font-medium disabled:opacity-50 ${
                         weekdays.includes(day)
                           ? "bg-brand text-brand-ink border-brand"
                           : "border-line"

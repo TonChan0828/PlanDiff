@@ -38,7 +38,7 @@ export default function PricingPage() {
       <p className="text-ink-muted mt-2 text-[15px]">{M.subCopy}</p>
 
       <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <section className="border-line bg-surface rounded-2xl border p-5">
+        <section className="border-line bg-surface rounded-lg border p-5">
           <h2 className="flex items-center gap-2 text-[15px] font-bold">
             {M.freeName}
             <span className="border-line text-ink-muted rounded-full border px-2.5 py-0.5 text-xs font-semibold">
@@ -54,7 +54,7 @@ export default function PricingPage() {
           <FeatureList features={FREE_FEATURES} />
         </section>
 
-        <section className="border-plan-border bg-surface rounded-2xl border-2 p-5">
+        <section className="border-plan-border bg-surface rounded-lg border-2 p-5">
           <h2 className="flex items-center gap-2 text-[15px] font-bold">
             {M.proName}
             <span className="bg-plan-fill text-brand rounded-full px-2.5 py-0.5 text-xs font-bold">

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { X } from "lucide-react";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 // 実績の手動編集パネル(P2-4)。確定済み実績のタイトル・開始/終了時刻の修正、削除を行う。
 // datetime-local入力は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
@@ -63,6 +65,7 @@ export function EditEntryPanel({
     }
     onClose();
   };
+  const dialogRef = useDialogFocus(handleClose);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,15 +94,17 @@ export function EditEntryPanel({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:px-4"
       onClick={handleClose}
     >
       <div
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-label={T.editTitle}
         onClick={(event) => event.stopPropagation()}
-        className="border-line bg-surface w-full max-w-sm rounded-2xl border p-5 shadow-xl"
+        className="border-line bg-surface max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-t-xl border p-5 shadow-xl sm:rounded-lg"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{T.editTitle}</h2>
@@ -110,7 +115,7 @@ export function EditEntryPanel({
             disabled={pending}
             className="text-ink-muted hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-lg disabled:opacity-50"
           >
-            ×
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
 

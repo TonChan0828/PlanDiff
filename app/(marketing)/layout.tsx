@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MarketingHeader } from "@/components/marketing-header";
 
 const FOOTER_LINKS = [
   { href: "/pricing", label: "料金" },
@@ -14,6 +15,7 @@ export default function MarketingLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      <MarketingHeader />
       <main className="flex flex-1 flex-col">{children}</main>
       <footer className="border-line border-t">
         <nav
