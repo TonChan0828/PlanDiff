@@ -12,7 +12,7 @@ export function DeleteAccountSection() {
   const canDelete = confirmText === M.deleteAccountConfirmPhrase;
 
   return (
-    <section className="border-danger/40 bg-surface flex flex-col gap-3 rounded-xl border p-4">
+    <section className="border-danger/40 bg-surface flex flex-col gap-3 rounded-lg border p-4">
       <h2 className="text-danger text-base font-semibold">
         {M.dangerSectionHeading}
       </h2>

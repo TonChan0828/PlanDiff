@@ -11,11 +11,11 @@ export default function Loading() {
       className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12"
     >
       <div className="bg-ink/8 h-8 w-32 animate-pulse rounded-lg" />
-      <div className="bg-ink/8 h-28 w-full animate-pulse rounded-2xl" />
+      <div className="bg-ink/8 h-28 w-full animate-pulse rounded-lg motion-reduce:animate-none" />
       <div className="flex flex-col gap-2">
-        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-xl" />
-        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-xl" />
-        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-xl" />
+        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-lg motion-reduce:animate-none" />
+        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-lg motion-reduce:animate-none" />
+        <div className="bg-ink/8 h-14 w-full animate-pulse rounded-lg motion-reduce:animate-none" />
       </div>
     </main>
   );

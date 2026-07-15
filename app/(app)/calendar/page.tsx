@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 interface CalendarSearchParams {
   view?: string | string[];
   date?: string | string[];
+  create?: string | string[];
 }
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -40,6 +41,7 @@ export default async function CalendarPage({
   const params = await searchParams;
   const viewParam = firstParam(params.view);
   const dateParam = firstParam(params.date);
+  const createParam = firstParam(params.create);
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -86,7 +88,7 @@ export default async function CalendarPage({
     tokenResult.refreshToken !== null;
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-3 pt-3 pb-2 sm:px-6">
+    <main className="flex min-h-0 w-full flex-1 flex-col px-3 pt-3 pb-2 sm:px-5 lg:px-4">
       {/* ワードマーク+ツールバーが見出しを兼ねるため、h1はスクリーンリーダー向けのみ(D-1c) */}
       <h1 className="sr-only">{M.heading}</h1>
       <CalendarView
@@ -95,6 +97,7 @@ export default async function CalendarPage({
         runningEntry={runningEntry}
         viewParam={viewParam}
         dateParam={dateParam}
+        startCreating={createParam === "1"}
         googleConnected={googleConnected}
         googleEnabled={googleEnabled}
         recurringRules={recurringRules}

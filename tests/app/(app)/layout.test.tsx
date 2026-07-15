@@ -36,22 +36,20 @@ describe("(app)レイアウトの共通シェル(S8)", () => {
   it("S8: 認証済みならワードマーク・タブナビ・子コンテンツがすべて描画される", async () => {
     render(await AppLayout({ children: <p>ページ本文</p> }));
 
-    // ワードマーク(AppBar)
-    expect(screen.getByRole("link", { name: "PlanDiff" })).toBeInTheDocument();
-    // 下部タブ(BottomTabBar)4件
-    expect(screen.getByRole("link", { name: "カレンダー" })).toHaveAttribute(
-      "href",
-      "/calendar",
-    );
-    expect(screen.getByRole("link", { name: "計測" })).toHaveAttribute(
+    // モバイルAppBarとPCナビの両方に同じワードマークがある
+    expect(screen.getAllByRole("link", { name: "PlanDiff" })).toHaveLength(2);
+    // モバイル下部タブとPCナビは同じリンク契約を持つ
+    expect(
+      screen.getAllByRole("link", { name: "カレンダー" })[0],
+    ).toHaveAttribute("href", "/calendar");
+    expect(screen.getAllByRole("link", { name: "計測" })[0]).toHaveAttribute(
       "href",
       "/track",
     );
-    expect(screen.getByRole("link", { name: "サマリー" })).toHaveAttribute(
-      "href",
-      "/summary",
-    );
-    expect(screen.getByRole("link", { name: "設定" })).toHaveAttribute(
+    expect(
+      screen.getAllByRole("link", { name: "サマリー" })[0],
+    ).toHaveAttribute("href", "/summary");
+    expect(screen.getAllByRole("link", { name: "設定" })[0]).toHaveAttribute(
       "href",
       "/settings",
     );

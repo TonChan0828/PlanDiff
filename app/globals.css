@@ -21,6 +21,7 @@
   --hatch: rgba(217, 72, 15, 0.5); /* ズレの斜線 */
   --grid: rgba(26, 29, 35, 0.05); /* 方眼(15分) */
   --grid-hour: rgba(26, 29, 35, 0.12); /* 方眼(1時間) */
+  --focus: #2f4acb;
 }
 
 @theme inline {
@@ -62,6 +63,7 @@
     --hatch: rgba(255, 138, 80, 0.45);
     --grid: rgba(232, 234, 239, 0.055);
     --grid-hour: rgba(232, 234, 239, 0.12);
+    --focus: #8da2ff;
   }
 }
 
@@ -83,6 +85,7 @@
   --hatch: rgba(255, 138, 80, 0.45);
   --grid: rgba(232, 234, 239, 0.055);
   --grid-hour: rgba(232, 234, 239, 0.12);
+  --focus: #8da2ff;
 }
 
 :root[data-theme="light"] {
@@ -95,6 +98,15 @@ body {
   /* Geist Sans(next/fontでロード)+日本語フォールバック。時刻・数値は font-mono(Geist Mono) */
   font-family:
     var(--font-geist-sans), "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--plan-border);
 }
 
 /* ワードマーク: Plan=群青のアウトライン文字、Diff=群青の塗り(name itself is a diff) */

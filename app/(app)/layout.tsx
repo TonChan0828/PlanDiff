@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppBar } from "@/components/app-bar";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
+import { DesktopNav } from "@/components/desktop-nav";
 import { createClient } from "@/lib/supabase/server";
 
 // 認証必須グループ。未ログインは /login へリダイレクトする
@@ -22,12 +23,15 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <AppBar />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {children}
+    <div className="flex h-dvh">
+      <DesktopNav />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppBar />
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {children}
+        </div>
+        <BottomTabBar />
       </div>
-      <BottomTabBar />
     </div>
   );
 }

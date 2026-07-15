@@ -5,7 +5,7 @@ import { markOnboardingComplete } from "@/lib/onboarding/complete";
 import { createClient } from "@/lib/supabase/server";
 
 // オンボーディング完了(仕様書P4-1 S5・S8)。「はじめる」「スキップ」共通で呼ぶ
-export async function completeOnboardingAction() {
+export async function completeOnboardingAction(formData?: FormData) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) {
@@ -15,5 +15,7 @@ export async function completeOnboardingAction() {
   if (!ok) {
     redirect("/onboarding?error=save_failed");
   }
-  redirect("/calendar");
+  redirect(
+    formData?.get("intent") === "start" ? "/calendar?create=1" : "/calendar",
+  );
 }

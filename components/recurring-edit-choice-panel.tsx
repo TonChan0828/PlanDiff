@@ -1,6 +1,7 @@
 "use client";
 
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 
 // 定期予定(P5-1)の予定ブロック編集時に「この予定のみ」「繰り返し全体」を選ばせる中間パネル。
 // app-event-panel.tsx(単発編集)/recurring-rule-panel.tsx(全体編集)へ分岐するための選択ステップ。
@@ -16,17 +17,20 @@ export function RecurringEditChoicePanel({
   onChooseSeries,
   onClose,
 }: RecurringEditChoicePanelProps) {
+  const dialogRef = useDialogFocus(onClose);
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:px-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-label={M.recurringEditChoiceTitle}
         onClick={(event) => event.stopPropagation()}
-        className="border-line bg-surface w-full max-w-sm rounded-2xl border p-5 shadow-xl"
+        className="border-line bg-surface max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-t-xl border p-5 shadow-xl sm:rounded-lg"
       >
         <h2 className="mb-4 text-base font-semibold">
           {M.recurringEditChoiceTitle}

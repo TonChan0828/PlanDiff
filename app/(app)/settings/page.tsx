@@ -73,7 +73,7 @@ export default async function SettingsPage({
         </p>
       )}
 
-      <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="text-base font-semibold">{M.accountSectionHeading}</h2>
         <div className="flex flex-col gap-1">
           <span className="text-ink-muted text-xs">{M.emailLabel}</span>
@@ -89,12 +89,12 @@ export default async function SettingsPage({
         </form>
       </section>
 
-      <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="text-base font-semibold">{M.themeSectionHeading}</h2>
         <ThemeSelector />
       </section>
 
-      <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="text-base font-semibold">{M.helpSectionHeading}</h2>
         <Link
           href="/onboarding"
@@ -105,7 +105,7 @@ export default async function SettingsPage({
       </section>
 
       {googleEnabled ? (
-        <section className="border-line bg-surface flex flex-col gap-3 rounded-xl border p-4">
+        <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
           <h2 className="text-base font-semibold">{M.googleSectionHeading}</h2>
           <p className="text-ink-muted text-sm">
             {googleConnected ? M.connected : M.notConnected}

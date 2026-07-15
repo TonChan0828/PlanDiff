@@ -18,6 +18,12 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  PanelRight,
+} from "lucide-react";
+import {
   createAppEventAction,
   createRecurringRuleAction,
   deleteAppEventAction,
@@ -39,6 +45,10 @@ import {
   type RecurringSubmitValues,
 } from "@/components/app-event-panel";
 import {
+  CalendarContextPanel,
+  type CalendarContextTab,
+} from "@/components/calendar-context-panel";
+import {
   EditEntryPanel,
   type EditEntryPanelEntry,
   type EditEntrySaveInput,
@@ -49,7 +59,6 @@ import {
   GoogleConnectionBanner,
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
-import { PlanSuggestions } from "@/components/plan-suggestions";
 import { RecurringEditChoicePanel } from "@/components/recurring-edit-choice-panel";
 import {
   RecurringRulePanel,
@@ -103,6 +112,25 @@ const PLAN_LANE_PERCENT = 55; // 予定レーン(左寄せ)の幅
 const ACTUAL_LANE_PERCENT = 45; // 実績レーン(右寄せ)の幅
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
+function createEventInitial(selectedDate: Date | null): AppEventPanelValues {
+  const current = new Date();
+  const baseDay = selectedDate ?? startOfDay(current);
+  const start = new Date(
+    baseDay.getFullYear(),
+    baseDay.getMonth(),
+    baseDay.getDate(),
+    Math.min(current.getHours() + 1, 22),
+    0,
+    0,
+    0,
+  );
+  return {
+    title: "",
+    startAt: start.toISOString(),
+    endAt: new Date(start.getTime() + 60 * 60 * 1000).toISOString(),
+  };
+}
+
 // SSR(サーバーTZ)とクライアントTZの不一致を避けるため、
 // 「今日」や時刻位置に依存する描画はハイドレーション完了後に行う
 const emptySubscribe = () => () => {};
@@ -130,6 +158,8 @@ interface CalendarViewProps {
   recurringRules?: RecurringRuleSummary[];
   /** 実績からの予定提案(P5-2)の元データ(表示週開始前4週の完了実績) */
   suggestionEntries?: TimeEntryItem[];
+  /** オンボーディング完了直後など、初回描画で予定作成パネルを開く */
+  startCreating?: boolean;
 }
 
 export function CalendarView({
@@ -142,6 +172,7 @@ export function CalendarView({
   googleEnabled = true,
   recurringRules = [],
   suggestionEntries = [],
+  startCreating = false,
 }: CalendarViewProps) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -151,6 +182,8 @@ export function CalendarView({
   const selectedDate =
     parseDateParam(dateParam) ?? (hydrated ? startOfDay(new Date()) : null);
   const now = hydrated ? new Date() : null;
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextTab, setContextTab] = useState<CalendarContextTab>("day");
 
   // ---- 同期(P1-2の挙動を維持): マウント時+表示週の変化+手動リフレッシュ ----
   // 凍結フラグOFF(googleEnabled=false)時は同期を一切行わない(P2-5)
@@ -411,29 +444,25 @@ export function CalendarView({
   const [eventPanel, setEventPanel] = useState<EventPanelState | null>(null);
   const [eventPending, setEventPending] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
+  const autoCreateHandled = useRef(false);
+
+  useEffect(() => {
+    if (!startCreating || !selectedDate || autoCreateHandled.current) {
+      return;
+    }
+    autoCreateHandled.current = true;
+    setEventPanel({
+      mode: "create",
+      initial: createEventInitial(selectedDate),
+    });
+  }, [selectedDate, startCreating]);
 
   // 作成モードの初期値: 選択中の日付で「次の正時から1時間」(例: 14:23 → 15:00〜16:00)
   const handleOpenCreateEvent = () => {
-    const current = new Date();
-    const baseDay = selectedDate ?? startOfDay(current);
-    const start = new Date(
-      baseDay.getFullYear(),
-      baseDay.getMonth(),
-      baseDay.getDate(),
-      current.getHours() + 1,
-      0,
-      0,
-      0,
-    );
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
     setEventError(null);
     setEventPanel({
       mode: "create",
-      initial: {
-        title: "",
-        startAt: start.toISOString(),
-        endAt: end.toISOString(),
-      },
+      initial: createEventInitial(selectedDate),
     });
   };
 
@@ -637,6 +666,16 @@ export function CalendarView({
     });
   };
 
+  const handleEditTimeEntry = (entry: TimeEntryItem) => {
+    setEditError(null);
+    setEditingEntry({
+      id: entry.id,
+      title: entry.title,
+      startAt: entry.startAt,
+      endAt: entry.endAt,
+    });
+  };
+
   const handleCloseEdit = () => {
     if (editPending) {
       return;
@@ -705,201 +744,230 @@ export function CalendarView({
     days.every((day) => layoutDayEvents(events, day).length === 0);
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label={M.navPrev}
-            onClick={() => handleNavigate("prev")}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={handleToday}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors"
-          >
-            {M.navToday}
-          </button>
-          <button
-            type="button"
-            aria-label={M.navNext}
-            onClick={() => handleNavigate("next")}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
-          >
-            ›
-          </button>
-        </div>
-        <p className="font-mono text-sm font-medium tabular-nums">
-          {rangeLabel}
-        </p>
-        <div className="flex items-center gap-1">
-          <div
-            role="group"
-            aria-label="表示切替"
-            className="border-line flex overflow-hidden rounded-lg border"
-          >
-            {(["day", "week"] as const).map((mode) => (
+    <div className="flex min-h-0 flex-1 gap-4">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
               <button
-                key={mode}
                 type="button"
-                aria-pressed={view === mode}
-                onClick={() => handleViewChange(mode)}
-                className={`inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors ${
-                  view === mode ? "bg-brand text-brand-ink" : "hover:bg-ink/5"
-                }`}
+                aria-label={M.navPrev}
+                onClick={() => handleNavigate("prev")}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
               >
-                {mode === "day" ? M.viewDay : M.viewWeek}
+                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={handleToday}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors"
+              >
+                {M.navToday}
+              </button>
+              <button
+                type="button"
+                aria-label={M.navNext}
+                onClick={() => handleNavigate("next")}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
+              >
+                <ChevronRight aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="font-mono text-sm font-medium tabular-nums">
+              {rangeLabel}
+            </p>
           </div>
-          {googleEnabled ? (
+          <div className="flex items-center gap-1">
+            <div
+              role="group"
+              aria-label="表示切替"
+              className="border-line flex overflow-hidden rounded-lg border"
+            >
+              {(["day", "week"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={view === mode}
+                  onClick={() => handleViewChange(mode)}
+                  className={`inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors ${
+                    view === mode ? "bg-brand text-brand-ink" : "hover:bg-ink/5"
+                  }`}
+                >
+                  {mode === "day" ? M.viewDay : M.viewWeek}
+                </button>
+              ))}
+            </div>
+            {googleEnabled ? (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={syncing}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {syncing ? M.syncing : M.refresh}
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={handleRefresh}
-              disabled={syncing}
-              className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
+              aria-label={M.contextOpen}
+              title={M.contextOpen}
+              onClick={() => setContextOpen(true)}
+              className="border-line text-ink-muted hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border lg:hidden"
             >
-              {syncing ? M.syncing : M.refresh}
+              <PanelRight aria-hidden="true" className="h-5 w-5" />
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleOpenCreateEvent}
-            className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 text-sm font-medium transition-colors"
-          >
-            {M.eventAdd}
-          </button>
+            <button
+              type="button"
+              onClick={handleOpenCreateEvent}
+              className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 text-sm font-medium transition-colors"
+            >
+              <CalendarPlus aria-hidden="true" className="mr-1.5 h-4 w-4" />
+              {M.eventAdd}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {errorMessage ? (
-        <p
-          role="alert"
-          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
+        {errorMessage ? (
+          <p
+            role="alert"
+            className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
+          >
+            {errorMessage}
+          </p>
+        ) : null}
+
+        {timerError ? (
+          <p
+            role="alert"
+            className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
+          >
+            {timerError}
+          </p>
+        ) : null}
+
+        {googleEnabled && connectionStatus !== "connected" ? (
+          <GoogleConnectionBanner status={connectionStatus} />
+        ) : null}
+
+        {view === "day" && selectedDate && now ? (
+          <WeekStrip
+            selectedDate={selectedDate}
+            today={now}
+            onSelect={(day) => router.push(buildCalendarPath("day", day))}
+          />
+        ) : null}
+
+        <div
+          ref={scrollRef}
+          className="border-line bg-surface relative min-h-64 flex-1 overflow-auto rounded-lg border"
         >
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {timerError ? (
-        <p
-          role="alert"
-          className="bg-danger/10 text-danger rounded-lg px-4 py-3 text-sm"
-        >
-          {timerError}
-        </p>
-      ) : null}
-
-      {googleEnabled && connectionStatus !== "connected" ? (
-        <GoogleConnectionBanner status={connectionStatus} />
-      ) : null}
-
-      {selectedDate ? (
-        <PlanSuggestions
-          entries={suggestionEntries}
-          events={events}
-          recurringRules={recurringRules}
-          viewDate={toDateParam(selectedDate)}
-        />
-      ) : null}
-
-      {view === "day" && selectedDate && now ? (
-        <WeekStrip
-          selectedDate={selectedDate}
-          today={now}
-          onSelect={(day) => router.push(buildCalendarPath("day", day))}
-        />
-      ) : null}
-
-      {view === "week" && selectedDate ? (
-        <div className="grid grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-px pr-1">
-          <div aria-hidden="true" />
-          {days.map((day) => (
+          {view === "week" && selectedDate ? (
+            <div className="bg-surface sticky top-0 z-20 grid min-w-[52rem] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-px border-b pr-1 xl:min-w-0">
+              <div className="bg-surface sticky left-0" aria-hidden="true" />
+              {days.map((day) => (
+                <div
+                  key={toDateParam(day)}
+                  data-week-day-header
+                  aria-current={now && isSameDay(day, now) ? "date" : undefined}
+                  className={`flex flex-col items-center rounded-md py-1 text-xs ${
+                    now && isSameDay(day, now)
+                      ? "bg-brand text-brand-ink font-semibold"
+                      : "text-ink-muted"
+                  }`}
+                >
+                  <span>{format(day, "E", { locale: ja })}</span>
+                  <span className="font-mono tabular-nums">
+                    {format(day, "d")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {rangeIsEmpty ? (
             <div
-              key={toDateParam(day)}
-              data-week-day-header
-              aria-current={now && isSameDay(day, now) ? "date" : undefined}
-              className={`flex flex-col items-center rounded-md py-1 text-xs ${
-                now && isSameDay(day, now)
-                  ? "bg-brand text-brand-ink font-semibold"
-                  : "text-ink-muted"
+              className={`pointer-events-none sticky left-12 z-10 flex h-0 w-fit flex-col gap-1 ${
+                view === "week" ? "top-14" : "top-3"
               }`}
             >
-              <span>{format(day, "E", { locale: ja })}</span>
-              <span className="font-mono tabular-nums">{format(day, "d")}</span>
+              <p className="text-ink-muted text-sm">{M.empty}</p>
+              <p className="text-ink-muted text-sm">{M.emptyAddHint}</p>
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div
-        ref={scrollRef}
-        className="border-line bg-surface relative min-h-64 flex-1 overflow-y-auto rounded-xl border"
-      >
-        <div
-          className={`grid ${
-            view === "week"
-              ? "grid-cols-[2.5rem_repeat(7,minmax(0,1fr))]"
-              : "grid-cols-[2.5rem_minmax(0,1fr)]"
-          }`}
-          style={{ height: `${24 * HOUR_PX}px` }}
-        >
-          {/* 時間軸 */}
-          <div className="relative" aria-hidden="true">
-            {HOURS.map((hour) => (
-              <span
-                key={hour}
-                className="text-ink-muted absolute right-1 -translate-y-1/2 font-mono text-[10px] tabular-nums"
-                style={{ top: `${hour * HOUR_PX}px` }}
-              >
-                {hour === 0 ? "" : `${hour}:00`}
-              </span>
-            ))}
-          </div>
-          {/* 日列 */}
-          {days.length > 0 ? (
-            days.map((day) => (
-              <DayColumn
-                key={toDateParam(day)}
-                day={day}
-                events={events}
-                actualInputs={actualInputs}
-                runningEventId={running?.googleEventId ?? null}
-                timerPending={timerPending}
-                onBlockTap={handleBlockTap}
-                onEditEvent={handleOpenEditEvent}
-                onEditActual={handleEditActual}
-                now={now}
-                showTime={view === "day"}
-              />
-            ))
-          ) : (
-            <div className="border-line/60 relative border-l">
-              <HourLines />
+          ) : null}
+          <div
+            className={`grid ${
+              view === "week"
+                ? "grid-cols-[2.5rem_repeat(7,minmax(0,1fr))]"
+                : "grid-cols-[2.5rem_minmax(0,1fr)]"
+            } ${view === "week" ? "min-w-[52rem] xl:min-w-0" : ""}`}
+            style={{ height: `${24 * HOUR_PX}px` }}
+          >
+            {/* 時間軸 */}
+            <div
+              className="bg-surface relative sticky left-0 z-10"
+              aria-hidden="true"
+            >
+              {HOURS.map((hour) => (
+                <span
+                  key={hour}
+                  className="text-ink-muted absolute right-1 -translate-y-1/2 font-mono text-[10px] tabular-nums"
+                  style={{ top: `${hour * HOUR_PX}px` }}
+                >
+                  {hour === 0 ? "" : `${hour}:00`}
+                </span>
+              ))}
             </div>
-          )}
-        </div>
-        {rangeIsEmpty ? (
-          <div className="absolute top-3 left-12 flex flex-col gap-1">
-            <p className="text-ink-muted text-sm">{M.empty}</p>
-            <p className="text-ink-muted text-sm">{M.emptyAddHint}</p>
+            {/* 日列 */}
+            {days.length > 0 ? (
+              days.map((day) => (
+                <DayColumn
+                  key={toDateParam(day)}
+                  day={day}
+                  events={events}
+                  actualInputs={actualInputs}
+                  runningEventId={running?.googleEventId ?? null}
+                  timerPending={timerPending}
+                  onBlockTap={handleBlockTap}
+                  onEditActual={handleEditActual}
+                  now={now}
+                  showTime={view === "day"}
+                />
+              ))
+            ) : (
+              <div className="border-line/60 relative border-l">
+                <HourLines />
+              </div>
+            )}
           </div>
-        ) : null}
-      </div>
+        </div>
 
-      {running ? (
-        <RunningTimerBar
-          entry={running}
-          onStop={handleStopTimer}
-          stopping={timerPending}
-          onEditStart={handleOpenEditStart}
+        {running ? (
+          <RunningTimerBar
+            entry={running}
+            onStop={handleStopTimer}
+            stopping={timerPending}
+            onEditStart={handleOpenEditStart}
+          />
+        ) : (
+          <FreeTimerBar onStart={handleStartFreeTimer} pending={timerPending} />
+        )}
+      </section>
+
+      {selectedDate ? (
+        <CalendarContextPanel
+          open={contextOpen}
+          tab={contextTab}
+          selectedDate={selectedDate}
+          events={events}
+          timeEntries={timeEntries}
+          recurringRules={recurringRules}
+          suggestionEntries={suggestionEntries}
+          viewDate={toDateParam(selectedDate)}
+          onTabChange={setContextTab}
+          onClose={() => setContextOpen(false)}
+          onEditEvent={handleOpenEditEvent}
+          onEditEntry={handleEditTimeEntry}
         />
-      ) : (
-        <FreeTimerBar onStart={handleStartFreeTimer} pending={timerPending} />
-      )}
+      ) : null}
 
       {running && editingStart ? (
         <EditStartPanel
@@ -969,7 +1037,7 @@ export function CalendarView({
           error={editError}
         />
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -1046,7 +1114,6 @@ function DayColumn({
   runningEventId,
   timerPending,
   onBlockTap,
-  onEditEvent,
   onEditActual,
   now,
   showTime,
@@ -1057,7 +1124,6 @@ function DayColumn({
   runningEventId: string | null;
   timerPending: boolean;
   onBlockTap: (event: CalendarViewEvent) => void;
-  onEditEvent: (event: CalendarViewEvent) => void;
   onEditActual: (block: ActualBlockInput) => void;
   now: Date | null;
   showTime: boolean;
@@ -1105,7 +1171,6 @@ function DayColumn({
             isRunning={runningEventId === block.googleEventId}
             disabled={timerPending}
             onTap={onBlockTap}
-            onEdit={onEditEvent}
           />
         ))}
       </ul>
@@ -1169,14 +1234,12 @@ function PlanBlock({
   isRunning,
   disabled,
   onTap,
-  onEdit,
 }: {
   block: CalendarBlock<CalendarViewEvent>;
   showTime: boolean;
   isRunning: boolean;
   disabled: boolean;
   onTap: (event: CalendarViewEvent) => void;
-  onEdit: (event: CalendarViewEvent) => void;
 }) {
   const widthPercent = 100 / block.columnCount;
   const timeLabel = `${format(parseISO(block.startAt), "HH:mm")}〜${format(parseISO(block.endAt), "HH:mm")}`;
@@ -1239,17 +1302,6 @@ function PlanBlock({
           </p>
         ) : null}
       </button>
-      {/* アプリ内予定のみ編集導線(P2-5)。本体ボタン(タイマー)とは兄弟要素で重ねる */}
-      {block.source === "app" ? (
-        <button
-          type="button"
-          aria-label={M.eventEditLabel(block.title)}
-          onClick={() => onEdit(viewEvent)}
-          className="bg-surface/90 text-plan-text hover:bg-surface absolute top-0.5 right-0.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs shadow-sm"
-        >
-          ✎
-        </button>
-      ) : null}
     </li>
   );
 }
