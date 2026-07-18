@@ -10,6 +10,7 @@ import {
   formatSignedClockMinutes,
   formatSignedDurationMinutes,
   formatSignedPercent,
+  formatSummaryCounts,
 } from "@/lib/summary/format";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
 import { createClient } from "@/lib/supabase/server";
@@ -130,6 +131,12 @@ export default async function SummaryPage({
                 ? S.gapPercentUnavailable
                 : formatSignedPercent(summary.gapPercent)}
               )
+            </p>
+            <p
+              data-testid="gap-hero-counts"
+              className="text-ink-muted text-center text-xs tabular-nums"
+            >
+              {formatSummaryCounts(summary)}
             </p>
           </section>
         </div>

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addDays, startOfDay, startOfWeek } from "date-fns";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { computeGapSummary } from "@/lib/summary/aggregate";
+import { formatSummaryCounts } from "@/lib/summary/format";
 import { startTimer, stopTimer } from "@/lib/timer/service";
 import { actualBlockInputs } from "@/lib/timer/blocks";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
@@ -189,5 +190,41 @@ describe("ギャップサマリーのデータ取得〜集計(結合)", () => {
     expect(summary.actualTotalMinutes).toBeGreaterThanOrEqual(0);
 
     await stopTimer(userA.client);
+  });
+});
+
+// 仕様書: docs/specs/P5-3_サマリー件数ステータス行.md S8(件数ステータス行)
+describe("件数ステータス行のデータ取得〜集計(結合・P5-3)", () => {
+  it("P5-3 S8: 予定2件・紐づき実績1件・割り込み1件(30分)がステータス行の文言になる", async () => {
+    const planStart = new Date(NOW);
+    planStart.setHours(9, 0, 0, 0);
+    const planEnd = new Date(NOW);
+    planEnd.setHours(10, 0, 0, 0);
+    await seedEvent(userA, "g-1", "設計レビュー", planStart, planEnd);
+
+    const plan2Start = new Date(NOW);
+    plan2Start.setHours(10, 0, 0, 0);
+    const plan2End = new Date(NOW);
+    plan2End.setHours(12, 0, 0, 0);
+    await seedEvent(userA, "g-2", "実装", plan2Start, plan2End);
+
+    await seedEntry(userA, "g-1", "設計レビュー", planStart, planEnd);
+
+    const freeStart = new Date(NOW);
+    freeStart.setHours(20, 0, 0, 0);
+    const freeEnd = new Date(NOW);
+    freeEnd.setHours(20, 30, 0, 0);
+    await seedEntry(userA, null, "障害対応", freeStart, freeEnd);
+
+    const summary = await buildSummary(userA, TODAY_RANGE);
+
+    expect(summary.planCount).toBe(2);
+    expect(summary.startedCount).toBe(1);
+    expect(summary.notStartedCount).toBe(1);
+    expect(summary.interruptionCount).toBe(1);
+    expect(summary.interruptionTotalMinutes).toBe(30);
+    expect(formatSummaryCounts(summary)).toBe(
+      "予定2件・着手1・未着手1・割り込み1件(30分)",
+    );
   });
 });

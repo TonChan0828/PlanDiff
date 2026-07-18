@@ -47,6 +47,11 @@ export interface GapSummary {
   actualTotalMinutes: number;
   gapMinutes: number;
   gapPercent: number | null;
+  planCount: number;
+  startedCount: number;
+  notStartedCount: number;
+  interruptionCount: number;
+  interruptionTotalMinutes: number;
   items: GapSummaryItem[];
   interruptions: InterruptionItem[];
 }
@@ -122,12 +127,21 @@ export function computeGapSummary(
     planTotalMinutes === 0
       ? null
       : Math.round((gapMinutes / planTotalMinutes) * 100);
+  const notStartedCount = items.filter((item) => item.notStarted).length;
 
   return {
     planTotalMinutes,
     actualTotalMinutes,
     gapMinutes,
     gapPercent,
+    planCount: items.length,
+    startedCount: items.length - notStartedCount,
+    notStartedCount,
+    interruptionCount: interruptions.length,
+    interruptionTotalMinutes: interruptions.reduce(
+      (sum, item) => sum + item.actualMinutes,
+      0,
+    ),
     items,
     interruptions,
   };

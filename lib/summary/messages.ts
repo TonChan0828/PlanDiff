@@ -20,4 +20,12 @@ export const SUMMARY_MESSAGES = {
   gapHeroWeek: "今週のズレ",
   planShort: "計画",
   actualShort: "実績",
+  // P5-3: 件数ステータス行
+  countsPlan: "予定",
+  countsUnit: "件",
+  countsStarted: "着手",
+  countsNotStarted: "未着手",
+  countsInterruption: "割り込み",
+  countsInterruptionNone: "割り込みなし",
+  countsSeparator: "・",
 } as const;
