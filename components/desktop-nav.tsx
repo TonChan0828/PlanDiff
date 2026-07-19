@@ -27,7 +27,7 @@ export function DesktopNav() {
         aria-label="PlanDiff"
         className="flex min-h-16 items-center px-5"
       >
-        <Wordmark className="text-xl" />
+        <Wordmark withMark className="text-xl" />
       </Link>
       <nav aria-label="メインナビゲーション" className="px-3 py-2">
         <ul className="flex flex-col gap-1">

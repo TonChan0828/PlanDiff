@@ -26,7 +26,10 @@ import type { QuickStartEvent } from "@/lib/track/quick-start";
 const START_ERROR = "タイマーを開始できませんでした";
 const EMPTY_TODAY = "今日の実績はまだありません";
 
+// 基準時刻は「今日の正午」に固定する。実時刻のままだとUTCのCIが早朝に走った際、
+// subHoursで作る実績が前日に食い込み「今日の実績」から外れて落ちる(時刻依存フレーク)
 const now = new Date();
+now.setHours(12, 0, 0, 0);
 
 function quickEvent(
   id: string,
@@ -81,12 +84,17 @@ function renderView(overrides?: {
 }
 
 beforeEach(() => {
+  // コンポーネント内のnew Date()も正午基準に揃える。shouldAdvanceTimeで実時間に
+  // 追従させ、userEventの内部タイマーが止まらないようにする
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(now);
   vi.clearAllMocks();
   startTimerActionMock.mockResolvedValue({ ok: true });
   stopTimerActionMock.mockResolvedValue({ ok: true });
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 

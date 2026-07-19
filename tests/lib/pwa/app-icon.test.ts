@@ -2,14 +2,14 @@
 // next/ogのImageResponse(Sharp)はjsdomのVMコンテキストだとcross-realmで動かないため。
 import { describe, expect, it } from "vitest";
 
-import { GET } from "@/app/icon-192/route";
+import { generateAppIcon } from "@/lib/pwa/app-icon";
 import { readPngSize } from "../../stubs/png";
 
-// 仕様書: docs/specs/P3-3_PWA対応.md S4(境界値), S6(結合) / docs/specs/D-5_ロゴ作成.md S6
+// 仕様書: docs/specs/D-5_ロゴ作成.md S8
 
-describe("GET /icon-192", () => {
-  it("S4, S6: image/pngで200、実際の画像サイズが192x192(manifestのsizes宣言と一致)", async () => {
-    const response = await GET();
+describe("generateAppIcon", () => {
+  it("S8: 最小適用サイズ(192)でもエラーなくPNGが生成される", async () => {
+    const response = await generateAppIcon(192);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/png");

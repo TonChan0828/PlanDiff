@@ -13,7 +13,7 @@ export function AppBar({ children }: AppBarProps) {
   return (
     <header className="border-line bg-paper flex min-h-12 items-center justify-between gap-3 border-b px-4 lg:hidden">
       <Link href="/calendar" aria-label="PlanDiff" className="text-lg">
-        <Wordmark />
+        <Wordmark withMark />
       </Link>
       {children ? (
         <div className="flex items-center gap-2">{children}</div>

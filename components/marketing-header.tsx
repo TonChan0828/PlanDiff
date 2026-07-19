@@ -11,7 +11,7 @@ export function MarketingHeader() {
   return (
     <header className="border-line flex min-h-16 items-center justify-between border-b px-5 sm:px-8">
       <Link href="/" aria-label="PlanDiff トップ">
-        <Wordmark className="text-xl" />
+        <Wordmark withMark className="text-xl" />
       </Link>
       <Link
         href={onSignup ? "/login" : "/signup"}
