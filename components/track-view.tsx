@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInMinutes, format, parseISO } from "date-fns";
+import { Play } from "lucide-react";
 import {
   startTimerAction,
   stopTimerAction,
@@ -338,16 +339,29 @@ export function TrackView({
                       {linked ? TR.linkedBadge : TR.freeBadge}
                     </p>
                   </div>
-                  {!linked ? (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!linked ? (
+                      <button
+                        type="button"
+                        aria-label={TR.promoteLabel(entry.title)}
+                        onClick={() => handleOpenPromotion(entry)}
+                        className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+                      >
+                        {TR.promote}
+                      </button>
+                    ) : null}
+                    {/* 再計測(P5-4): 元実績のスナップショットで新規タイマーを開始する */}
                     <button
                       type="button"
-                      aria-label={TR.promoteLabel(entry.title)}
-                      onClick={() => handleOpenPromotion(entry)}
-                      className="border-line hover:bg-ink/5 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+                      aria-label={T.restartLabel(entry.title)}
+                      onClick={() =>
+                        startTimer(entry.googleEventId, entry.title)
+                      }
+                      className="border-line text-ink-muted hover:bg-ink/5 inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors"
                     >
-                      {TR.promote}
+                      <Play aria-hidden="true" className="h-4 w-4" />
                     </button>
-                  ) : null}
+                  </div>
                 </li>
               );
             })}

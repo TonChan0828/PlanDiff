@@ -97,6 +97,42 @@ describe("startTimer(S9 / S10)", () => {
   });
 });
 
+// 仕様書: docs/specs/P5-4_実績からの再計測.md S8
+describe("実績からの再計測(P5-4 S8)", () => {
+  it("S8: 実行中ありで再計測すると自動停止のうえ、元実績のgoogleEventId・titleを引き継いだ実行中が1本だけになる", async () => {
+    await clearEntries(userA.client);
+
+    // 元実績(完了済み・予定紐づき)を作る
+    await startTimer(userA.client, {
+      googleEventId: "g-orig",
+      title: "元の作業",
+    });
+    await stopTimer(userA.client);
+    // 別の実行中タイマーがある状態にする
+    await startTimer(userA.client, { googleEventId: null, title: "割り込み" });
+
+    // 再計測 = 元実績のスナップショットで開始
+    const result = await startTimer(userA.client, {
+      googleEventId: "g-orig",
+      title: "元の作業",
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(3);
+
+    // 実行中(end_at IS NULL)は常に1本で、引き継いだ値を持つ
+    const runningRows = rows.filter((row) => row.end_at === null);
+    expect(runningRows).toHaveLength(1);
+    expect(runningRows[0]!.google_event_id).toBe("g-orig");
+    expect(runningRows[0]!.title).toBe("元の作業");
+
+    // 実行中だった割り込みは自動停止されている
+    const interrupted = rows.find((row) => row.title === "割り込み")!;
+    expect(interrupted.end_at).not.toBeNull();
+  });
+});
+
 describe("stopTimer(S11 / S12)", () => {
   it("S11: 停止すると end_at が設定され実績として確定する", async () => {
     await clearEntries(userA.client);

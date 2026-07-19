@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   PanelRight,
+  Play,
 } from "lucide-react";
 import {
   createAppEventAction,
@@ -107,6 +108,9 @@ export type CalendarViewEvent = CalendarBlockInput & {
 };
 
 const HOUR_PX = 56; // 1時間の高さ(375pxの1画面に約8時間)
+// 実績ブロック上の再計測ボタン(P5-4)は、描画高さがこれ未満(30分未満)だと
+// タップ領域を確保できないため表示しない(コンテキストパネルが代替導線)
+const RESTART_MIN_BLOCK_PX = 28;
 const DAY_MINUTES = 24 * 60;
 const PLAN_LANE_PERCENT = 55; // 予定レーン(左寄せ)の幅
 const ACTUAL_LANE_PERCENT = 45; // 実績レーン(右寄せ)の幅
@@ -295,7 +299,11 @@ export function CalendarView({
     setRunning(runningEntry);
   }
 
-  const handleStartTimer = (event: CalendarViewEvent) => {
+  const startTimerOptimistic = (
+    googleEventId: string | null,
+    title: string,
+    optimisticId: string,
+  ) => {
     if (timerPending) {
       return;
     }
@@ -304,12 +312,12 @@ export function CalendarView({
     setTimerPending(true);
     // 楽観的更新(実IDと開始時刻はサーバー確定後に refresh で置き換わる)
     setRunning({
-      id: `optimistic-${event.googleEventId}`,
-      title: event.title,
-      googleEventId: event.googleEventId,
+      id: optimisticId,
+      title,
+      googleEventId,
       startAt: new Date().toISOString(),
     });
-    startTimerAction({ googleEventId: event.googleEventId, title: event.title })
+    startTimerAction({ googleEventId, title })
       .then((result) => {
         if (result.ok) {
           router.refresh();
@@ -323,6 +331,14 @@ export function CalendarView({
         setTimerError(T.startError);
       })
       .finally(() => setTimerPending(false));
+  };
+
+  const handleStartTimer = (event: CalendarViewEvent) => {
+    startTimerOptimistic(
+      event.googleEventId,
+      event.title,
+      `optimistic-${event.googleEventId}`,
+    );
   };
 
   const handleStopTimer = () => {
@@ -350,33 +366,19 @@ export function CalendarView({
   };
 
   const handleStartFreeTimer = (title: string) => {
-    if (timerPending) {
-      return;
-    }
-    const previous = running;
-    setTimerError(null);
-    setTimerPending(true);
-    // 楽観的更新(実IDと開始時刻はサーバー確定後に refresh で置き換わる)
-    setRunning({
-      id: "optimistic-free",
-      title,
-      googleEventId: null,
-      startAt: new Date().toISOString(),
-    });
-    startTimerAction({ googleEventId: null, title })
-      .then((result) => {
-        if (result.ok) {
-          router.refresh();
-        } else {
-          setRunning(previous);
-          setTimerError(T.startError);
-        }
-      })
-      .catch(() => {
-        setRunning(previous);
-        setTimerError(T.startError);
-      })
-      .finally(() => setTimerPending(false));
+    startTimerOptimistic(null, title, "optimistic-free");
+  };
+
+  // 実績からの再計測(P5-4): 元実績のスナップショット(googleEventId・title)で新規開始する
+  const handleRestartEntry = (entry: {
+    googleEventId: string | null;
+    title: string;
+  }) => {
+    startTimerOptimistic(
+      entry.googleEventId,
+      entry.title,
+      "optimistic-restart",
+    );
   };
 
   const handleBlockTap = (event: CalendarViewEvent) => {
@@ -928,6 +930,7 @@ export function CalendarView({
                   timerPending={timerPending}
                   onBlockTap={handleBlockTap}
                   onEditActual={handleEditActual}
+                  onRestartActual={handleRestartEntry}
                   now={now}
                   showTime={view === "day"}
                 />
@@ -966,6 +969,7 @@ export function CalendarView({
           onClose={() => setContextOpen(false)}
           onEditEvent={handleOpenEditEvent}
           onEditEntry={handleEditTimeEntry}
+          onRestartEntry={handleRestartEntry}
         />
       ) : null}
 
@@ -1115,6 +1119,7 @@ function DayColumn({
   timerPending,
   onBlockTap,
   onEditActual,
+  onRestartActual,
   now,
   showTime,
 }: {
@@ -1125,6 +1130,7 @@ function DayColumn({
   timerPending: boolean;
   onBlockTap: (event: CalendarViewEvent) => void;
   onEditActual: (block: ActualBlockInput) => void;
+  onRestartActual: (block: ActualBlockInput) => void;
   now: Date | null;
   showTime: boolean;
 }) {
@@ -1204,6 +1210,7 @@ function DayColumn({
                 gap={gap}
                 showTime={showTime}
                 onEdit={onEditActual}
+                onRestart={onRestartActual}
               />
               {overrunBar ? (
                 <GapStripe testId="gap-overrun" {...overrunBar} />
@@ -1359,11 +1366,13 @@ function ActualBlock({
   gap,
   showTime,
   onEdit,
+  onRestart,
 }: {
   block: CalendarBlock<ActualBlockInput>;
   gap: ActualGapInfo;
   showTime: boolean;
   onEdit: (block: ActualBlockInput) => void;
+  onRestart: (block: ActualBlockInput) => void;
 }) {
   const widthPercent = 100 / block.columnCount;
   const positionStyle = {
@@ -1433,6 +1442,11 @@ function ActualBlock({
     );
   }
 
+  // 再計測(P5-4): ブロック全体は編集ボタンのため、入れ子を避けて兄弟要素として重ねる
+  // heightPercent由来の浮動小数点誤差(30分=27.999...px)を微小イプシロンで吸収する
+  const blockPx = (block.heightPercent / 100) * 24 * HOUR_PX;
+  const showRestart = blockPx >= RESTART_MIN_BLOCK_PX - 0.001;
+
   return (
     <li data-testid="actual-block" className="absolute" style={positionStyle}>
       <button
@@ -1443,6 +1457,16 @@ function ActualBlock({
       >
         {titleNode}
       </button>
+      {showRestart ? (
+        <button
+          type="button"
+          aria-label={T.restartLabel(block.title)}
+          onClick={() => onRestart(block)}
+          className="absolute top-0.5 right-0.5 inline-flex h-6 w-6 items-center justify-center rounded bg-white/25 text-white transition-colors hover:bg-white/40"
+        >
+          <Play aria-hidden="true" className="h-3 w-3" fill="currentColor" />
+        </button>
+      ) : null}
     </li>
   );
 }
