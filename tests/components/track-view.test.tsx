@@ -190,6 +190,76 @@ describe("今日の実績リスト(S7/S8)", () => {
   });
 });
 
+// 仕様書: docs/specs/P5-4_実績からの再計測.md S1/S2/S9/S10
+describe("今日の実績からの再計測(P5-4 S1/S2/S9/S10)", () => {
+  it("S1: 予定紐づき実績の再計測ボタンでgoogleEventId・titleを引き継いで開始され、実行中表示になる", async () => {
+    const user = userEvent.setup();
+    renderView({ timeEntries: [linkedEntry] });
+
+    await user.click(
+      screen.getByRole("button", { name: "設計レビューを再計測" }),
+    );
+
+    expect(startTimerActionMock).toHaveBeenCalledWith({
+      googleEventId: "g-review",
+      title: "設計レビュー",
+    });
+    expect(screen.getByRole("button", { name: "停止" })).toBeInTheDocument();
+  });
+
+  it("S2: フリー実績の再計測はgoogleEventId:nullで開始され、「予定にする」ボタンも残る", async () => {
+    const user = userEvent.setup();
+    renderView({ timeEntries: [freeEntry] });
+
+    await user.click(
+      screen.getByRole("button", { name: "リファクタリングを再計測" }),
+    );
+
+    expect(startTimerActionMock).toHaveBeenCalledWith({
+      googleEventId: null,
+      title: "リファクタリング",
+    });
+    expect(
+      screen.getByRole("button", { name: "リファクタリングを予定にする" }),
+    ).toBeInTheDocument();
+  });
+
+  it("S9: タイトルが空の実績は無題表記の再計測ボタンになり、空タイトルのまま開始される", async () => {
+    const user = userEvent.setup();
+    const untitledEntry: TimeEntryItem = {
+      id: "entry-untitled",
+      title: "",
+      googleEventId: null,
+      startAt: subHours(now, 5).toISOString(),
+      endAt: subHours(now, 4).toISOString(),
+    };
+    renderView({ timeEntries: [untitledEntry] });
+
+    await user.click(
+      screen.getByRole("button", { name: "(タイトルなし)を再計測" }),
+    );
+
+    expect(startTimerActionMock).toHaveBeenCalledWith({
+      googleEventId: null,
+      title: "",
+    });
+  });
+
+  it("S10: pending中に再計測ボタンを連打しても開始処理は1回しか呼ばれない", async () => {
+    const user = userEvent.setup();
+    startTimerActionMock.mockReturnValue(new Promise(() => {}));
+    renderView({ timeEntries: [linkedEntry] });
+
+    const button = screen.getByRole("button", {
+      name: "設計レビューを再計測",
+    });
+    await user.click(button);
+    await user.click(button);
+
+    expect(startTimerActionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("エラー表示(S9)", () => {
   it("S9: タイマー開始が失敗すると日本語のエラーメッセージが表示される", async () => {
     const user = userEvent.setup();

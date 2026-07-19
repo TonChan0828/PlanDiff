@@ -3,11 +3,12 @@
 import { useSyncExternalStore } from "react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarClock, Lightbulb, Pencil, X } from "lucide-react";
+import { CalendarClock, Lightbulb, Pencil, Play, X } from "lucide-react";
 import type { CalendarViewEvent } from "@/components/calendar-view";
 import { PlanSuggestions } from "@/components/plan-suggestions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
+import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { TimeEntryItem } from "@/lib/timer/types";
 
 export type CalendarContextTab = "day" | "suggestions";
@@ -41,6 +42,7 @@ interface CalendarContextPanelProps {
   onClose: () => void;
   onEditEvent: (event: CalendarViewEvent) => void;
   onEditEntry: (entry: TimeEntryItem) => void;
+  onRestartEntry: (entry: TimeEntryItem) => void;
 }
 
 export function CalendarContextPanel({
@@ -56,6 +58,7 @@ export function CalendarContextPanel({
   onClose,
   onEditEvent,
   onEditEntry,
+  onRestartEntry,
 }: CalendarContextPanelProps) {
   const desktop = useSyncExternalStore(
     subscribeDesktop,
@@ -162,6 +165,15 @@ export function CalendarContextPanel({
                         startAt={entry.startAt}
                         endAt={entry.endAt}
                       />
+                      {/* 再計測(P5-4): 元実績のスナップショットで新規タイマーを開始する */}
+                      <button
+                        type="button"
+                        aria-label={T.restartLabel(entry.title)}
+                        onClick={() => onRestartEntry(entry)}
+                        className="border-line text-ink-muted hover:bg-ink/5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border"
+                      >
+                        <Play aria-hidden="true" className="h-4 w-4" />
+                      </button>
                       <EditButton
                         label={`${entry.title || M.untitled}の実績を編集`}
                         onClick={() => onEditEntry(entry)}

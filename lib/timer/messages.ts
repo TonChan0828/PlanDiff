@@ -17,6 +17,9 @@ export const TIMER_MESSAGES = {
   freeStartLabel: "フリータイマーを開始",
   editLabel: (title: string) =>
     `${title || CALENDAR_MESSAGES.untitled}の実績を編集`,
+  // 実績からの再計測(P5-4)。編集(editLabel)と区別できる文言にする
+  restartLabel: (title: string) =>
+    `${title || CALENDAR_MESSAGES.untitled}を再計測`,
   editTitle: "実績を編集",
   editTitleField: "タイトル",
   editStartField: "開始時刻",
