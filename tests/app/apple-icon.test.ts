@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import AppleIcon, { contentType, size } from "@/app/apple-icon";
 import { readPngSize } from "../stubs/png";
 
-// 仕様書: docs/specs/P3-3_PWA対応.md S5
+// 仕様書: docs/specs/P3-3_PWA対応.md S5 / docs/specs/D-5_ロゴ作成.md S7
 
 describe("app/apple-icon.tsx", () => {
   it("S5: sizeとcontentTypeが仕様通り(180x180, image/png)", () => {
