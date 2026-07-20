@@ -7,8 +7,9 @@ export const TRACK_MESSAGES = {
   trackLink: "計測",
   calendarLink: "カレンダー",
   quickStartHeading: "今の予定から開始",
-  todayHeading: "今日の実績",
-  emptyToday: "今日の実績はまだありません",
+  historyHeading: "実績",
+  todayLabel: "今日",
+  emptyEntries: "実績はまだありません",
   editHint: "実績の編集・削除はカレンダーから行えます",
   promote: "予定にする",
   promoteLabel: (title: string) =>
