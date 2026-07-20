@@ -4,9 +4,11 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
+import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
+import { DateTimeStepper } from "@/components/date-time-stepper";
 
 // 実行中タイマーの開始時刻変更パネル(D-4)。フィールドは開始時刻のみ。
-// datetime-local入力は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
+// DateTimeStepper(P5-5)は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
 // 未来時刻はクライアントでも弾く(サーバー側でも+60秒許容つきで再検証する)
 
 interface EditStartPanelProps {
@@ -18,8 +20,6 @@ interface EditStartPanelProps {
   error: string | null;
 }
 
-const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
-
 export function EditStartPanel({
   initialStartAt,
   onSave,
@@ -28,7 +28,7 @@ export function EditStartPanel({
   error,
 }: EditStartPanelProps) {
   const [startLocal, setStartLocal] = useState(() =>
-    format(new Date(initialStartAt), DATETIME_LOCAL_FORMAT),
+    format(new Date(initialStartAt), LOCAL_DATE_TIME_FORMAT),
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -76,19 +76,12 @@ export function EditStartPanel({
         className="border-line bg-surface flex max-h-[90dvh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-t-xl border p-5 shadow-xl sm:rounded-lg"
       >
         <h2 className="text-base font-semibold">{T.editStartTitle}</h2>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-ink-muted text-xs font-semibold">
-            {T.editStartField}
-          </span>
-          <input
-            type="datetime-local"
-            value={startLocal}
-            onChange={(event) => setStartLocal(event.target.value)}
-            disabled={pending}
-            aria-label={T.editStartField}
-            className="border-line bg-surface min-h-11 rounded-lg border px-3 font-mono text-sm tabular-nums disabled:opacity-50"
-          />
-        </label>
+        <DateTimeStepper
+          label={T.editStartField}
+          value={startLocal}
+          onChange={setStartLocal}
+          disabled={pending}
+        />
         {displayedError ? (
           <p role="alert" className="text-danger text-sm">
             {displayedError}

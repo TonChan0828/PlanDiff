@@ -74,7 +74,7 @@ alter table public.synced_events
 新コンポーネント `components/app-event-panel.tsx`(`edit-entry-panel.tsx` のパターンを踏襲):
 
 - モーダルパネル(role="dialog")。作成モード/編集モードを持つ
-- フィールド: タイトル(text)、開始(datetime-local)、終了(datetime-local)。
+- フィールド: タイトル(text)、開始(`DateTimeStepper`。P5-5)、終了(`DateTimeStepper`。P5-5)。
   端末ローカルTZで表示し、保存時にUTC ISOへ変換(P2-4と同じ方式)
 - 作成モードの初期値: 選択中の日付の「次の正時から1時間」(例: 14:23に開くと15:00〜16:00)
 - クライアント側バリデーション(フォーム内エラー表示、Server Actionを呼ばない):
@@ -135,7 +135,7 @@ alter table public.synced_events
 
 ## スコープ外
 
-- 繰り返し予定・終日予定・複数日にまたがる予定の専用UI(datetime-localで日またぎ入力自体は可能)
+- 繰り返し予定・終日予定・複数日にまたがる予定の専用UI(`DateTimeStepper`の日付入力で日またぎ入力自体は可能)
 - 予定のドラッグ&ドロップ移動・リサイズ
 - Googleカレンダーへの書き戻し(v2以降・人間が判断。CLAUDE.md)
 - Google連携コード(API・lib・テスト)の削除(凍結のみ。復活はフラグONで行う)

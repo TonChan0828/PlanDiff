@@ -5,9 +5,11 @@ import { format } from "date-fns";
 import { X } from "lucide-react";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
+import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
+import { DateTimeStepper } from "@/components/date-time-stepper";
 
 // 実績の手動編集パネル(P2-4)。確定済み実績のタイトル・開始/終了時刻の修正、削除を行う。
-// datetime-local入力は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
+// DateTimeStepper(P5-5)は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
 
 export interface EditEntryPanelEntry {
   id: string;
@@ -35,10 +37,8 @@ interface EditEntryPanelProps {
   error: string | null;
 }
 
-const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
-
 function toLocalInputValue(iso: string): string {
-  return format(new Date(iso), DATETIME_LOCAL_FORMAT);
+  return format(new Date(iso), LOCAL_DATE_TIME_FORMAT);
 }
 
 export function EditEntryPanel({
@@ -158,26 +158,18 @@ export function EditEntryPanel({
                 className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span>{T.editStartField}</span>
-              <input
-                type="datetime-local"
-                value={startLocal}
-                onChange={(event) => setStartLocal(event.target.value)}
-                disabled={pending}
-                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span>{T.editEndField}</span>
-              <input
-                type="datetime-local"
-                value={endLocal}
-                onChange={(event) => setEndLocal(event.target.value)}
-                disabled={pending}
-                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-              />
-            </label>
+            <DateTimeStepper
+              label={T.editStartField}
+              value={startLocal}
+              onChange={setStartLocal}
+              disabled={pending}
+            />
+            <DateTimeStepper
+              label={T.editEndField}
+              value={endLocal}
+              onChange={setEndLocal}
+              disabled={pending}
+            />
             {displayedError ? (
               <p role="alert" className="text-danger text-sm">
                 {displayedError}

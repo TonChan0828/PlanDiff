@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EditEntryPanel } from "@/components/edit-entry-panel";
+import {
+  changeDateTimeStepper,
+  expectDateTimeStepperValue,
+} from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/P2-4_実績の手動編集.md S2〜S9
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 
 function isoAt(hour: number, minute = 0): string {
   return new Date(2026, 6, 8, hour, minute).toISOString();
@@ -30,8 +35,8 @@ describe("EditEntryPanel", () => {
     );
 
     expect(screen.getByLabelText("タイトル")).toHaveValue("設計レビュー");
-    expect(screen.getByLabelText("開始時刻")).toHaveValue("2026-07-08T10:00");
-    expect(screen.getByLabelText("終了時刻")).toHaveValue("2026-07-08T11:30");
+    expectDateTimeStepperValue("開始時刻", "2026-07-08T10:00");
+    expectDateTimeStepperValue("終了時刻", "2026-07-08T11:30");
   });
 
   it("S3: タイトルの前後空白はトリムされ、開始/終了はUTCのISOでonSaveが呼ばれる", async () => {
@@ -74,9 +79,7 @@ describe("EditEntryPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("終了時刻"), {
-      target: { value: "2026-07-08T09:00" },
-    });
+    changeDateTimeStepper("終了時刻", "2026-07-08T09:00");
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).not.toHaveBeenCalled();
@@ -99,9 +102,7 @@ describe("EditEntryPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("終了時刻"), {
-      target: { value: "2026-07-08T10:00" },
-    });
+    changeDateTimeStepper("終了時刻", "2026-07-08T10:00");
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).toHaveBeenCalledWith({
@@ -125,9 +126,7 @@ describe("EditEntryPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("開始時刻"), {
-      target: { value: "" },
-    });
+    changeDateTimeStepper("開始時刻", "");
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).not.toHaveBeenCalled();
@@ -176,6 +175,34 @@ describe("EditEntryPanel", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "閉じる" })).toBeDisabled();
+  });
+
+  it("P5-5 S24: 開始時刻の00分で分ステッパーを1戻すと時も-1し、保存でUTC ISOに反映される", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <EditEntryPanel
+        entry={entry}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        pending={false}
+        error={null}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "開始時刻の分を1戻す" }),
+    );
+
+    expectDateTimeStepperValue("開始時刻", "2026-07-08T09:59");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      title: entry.title,
+      startAt: new Date(2026, 6, 8, 9, 59).toISOString(),
+      endAt: entry.endAt,
+    });
   });
 
   it("S9: errorが設定されているとエラーメッセージが表示される", () => {
