@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInMinutes, format, parseISO } from "date-fns";
+import { ja } from "date-fns/locale";
 import { Play } from "lucide-react";
 import {
   startTimerAction,
@@ -28,7 +29,7 @@ import {
   selectQuickStartEvents,
   type QuickStartEvent,
 } from "@/lib/track/quick-start";
-import { filterTodayEntries } from "@/lib/track/today-entries";
+import { groupEntriesByDay } from "@/lib/track/entry-groups";
 
 // 計測画面本体(P2-6)。カレンダーを経由しない計測の実施と当日実績の確認に絞る。
 // タイマー操作はカレンダービュー(P2-2/P2-3)と同じ楽観的更新+Server Actionのパターン。
@@ -213,7 +214,7 @@ export function TrackView({
   };
 
   const quickStartEvents = now ? selectQuickStartEvents(events, now) : [];
-  const todayEntries = now ? filterTodayEntries(timeEntries, now) : [];
+  const entryGroups = now ? groupEntriesByDay(timeEntries, now) : [];
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] lg:items-start">
@@ -299,10 +300,10 @@ export function TrackView({
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-ink-muted text-sm font-semibold">
-            {TR.todayHeading}
+            {TR.historyHeading}
           </h2>
           <Link
             href="/calendar"
@@ -311,61 +312,74 @@ export function TrackView({
             {TR.editHint}
           </Link>
         </div>
-        {hydrated && todayEntries.length === 0 ? (
+        {hydrated && entryGroups.length === 0 ? (
           <p className="border-line text-ink-muted rounded-lg border border-dashed px-4 py-6 text-center text-sm">
-            {TR.emptyToday}
+            {TR.emptyEntries}
           </p>
         ) : (
-          <ul aria-label={TR.todayHeading} className="flex flex-col gap-2">
-            {todayEntries.map((entry) => {
-              const linked = entry.googleEventId !== null;
-              const minutes = differenceInMinutes(
-                parseISO(entry.endAt),
-                parseISO(entry.startAt),
-              );
-              return (
-                <li
-                  key={entry.id}
-                  className="border-line bg-surface flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {entry.title || M.untitled}
-                    </p>
-                    <p className="text-ink-muted font-mono text-xs tabular-nums">
-                      {format(parseISO(entry.startAt), "HH:mm")}〜
-                      {format(parseISO(entry.endAt), "HH:mm")}(
-                      {formatDurationMinutes(minutes)})・
-                      {linked ? TR.linkedBadge : TR.freeBadge}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {!linked ? (
-                      <button
-                        type="button"
-                        aria-label={TR.promoteLabel(entry.title)}
-                        onClick={() => handleOpenPromotion(entry)}
-                        className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+          entryGroups.map((group) => {
+            // 当日は「今日」、過去日は日本語の日付ラベル(例: 7/19(土))
+            const dayLabel = group.isToday
+              ? TR.todayLabel
+              : format(group.date, "M/d(E)", { locale: ja });
+            return (
+              <div key={group.key} className="flex flex-col gap-2">
+                <h3 className="text-ink-muted text-xs font-semibold tabular-nums">
+                  {dayLabel}
+                </h3>
+                <ul aria-label={dayLabel} className="flex flex-col gap-2">
+                  {group.entries.map((entry) => {
+                    const linked = entry.googleEventId !== null;
+                    const minutes = differenceInMinutes(
+                      parseISO(entry.endAt),
+                      parseISO(entry.startAt),
+                    );
+                    return (
+                      <li
+                        key={entry.id}
+                        className="border-line bg-surface flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
                       >
-                        {TR.promote}
-                      </button>
-                    ) : null}
-                    {/* 再計測(P5-4): 元実績のスナップショットで新規タイマーを開始する */}
-                    <button
-                      type="button"
-                      aria-label={T.restartLabel(entry.title)}
-                      onClick={() =>
-                        startTimer(entry.googleEventId, entry.title)
-                      }
-                      className="border-line text-ink-muted hover:bg-ink/5 inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors"
-                    >
-                      <Play aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {entry.title || M.untitled}
+                          </p>
+                          <p className="text-ink-muted font-mono text-xs tabular-nums">
+                            {format(parseISO(entry.startAt), "HH:mm")}〜
+                            {format(parseISO(entry.endAt), "HH:mm")}(
+                            {formatDurationMinutes(minutes)})・
+                            {linked ? TR.linkedBadge : TR.freeBadge}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {!linked ? (
+                            <button
+                              type="button"
+                              aria-label={TR.promoteLabel(entry.title)}
+                              onClick={() => handleOpenPromotion(entry)}
+                              className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+                            >
+                              {TR.promote}
+                            </button>
+                          ) : null}
+                          {/* 再計測(P5-4): 元実績のスナップショットで新規タイマーを開始する */}
+                          <button
+                            type="button"
+                            aria-label={T.restartLabel(entry.title)}
+                            onClick={() =>
+                              startTimer(entry.googleEventId, entry.title)
+                            }
+                            className="border-line text-ink-muted hover:bg-ink/5 inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors"
+                          >
+                            <Play aria-hidden="true" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })
         )}
       </div>
 

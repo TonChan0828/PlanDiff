@@ -24,7 +24,7 @@ import type { QuickStartEvent } from "@/lib/track/quick-start";
 // (S12 昇格→DB作成は tests/integration/track.test.ts)
 
 const START_ERROR = "タイマーを開始できませんでした";
-const EMPTY_TODAY = "今日の実績はまだありません";
+const EMPTY_ENTRIES = "実績はまだありません";
 
 // 基準時刻は「今日の正午」に固定する。実時刻のままだとUTCのCIが早朝に走った際、
 // subHoursで作る実績が前日に食い込み「今日の実績」から外れて落ちる(時刻依存フレーク)
@@ -161,11 +161,11 @@ describe("今の予定から開始(S1連動UI)", () => {
   });
 });
 
-describe("今日の実績リスト(S7/S8)", () => {
+describe("実績リスト(S7/S8/S17)", () => {
   it("S7: 「予定にする」ボタンはフリー実績の行にのみ表示される", () => {
     renderView({ timeEntries: [freeEntry, linkedEntry] });
 
-    const list = screen.getByRole("list", { name: "今日の実績" });
+    const list = screen.getByRole("list", { name: "今日" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
 
@@ -177,10 +177,31 @@ describe("今日の実績リスト(S7/S8)", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("S8: 今日の実績がゼロ件のとき空状態メッセージが表示される", () => {
+  it("S8: 実績がゼロ件のとき空状態メッセージが表示される", () => {
     renderView({ timeEntries: [] });
 
-    expect(screen.getByText(EMPTY_TODAY)).toBeInTheDocument();
+    expect(screen.getByText(EMPTY_ENTRIES)).toBeInTheDocument();
+  });
+
+  it("S17: 今日と過去日の実績が日付見出しごとに分かれ、過去日の実績も表示される", () => {
+    // 昨日正午の実績(TZ差でも前日に収まるよう正午基準)
+    const yesterdayEntry: TimeEntryItem = {
+      id: "entry-yesterday",
+      title: "昨日の調査",
+      googleEventId: null,
+      startAt: subHours(now, 24).toISOString(),
+      endAt: subHours(now, 23).toISOString(),
+    };
+    renderView({ timeEntries: [freeEntry, yesterdayEntry] });
+
+    // 当日グループ「今日」に本日実績
+    const todayList = screen.getByRole("list", { name: "今日" });
+    expect(within(todayList).getByText("リファクタリング")).toBeInTheDocument();
+
+    // 過去日グループにも実績が表示される(見出しは「今日」ではない)
+    expect(screen.getByText("昨日の調査")).toBeInTheDocument();
+    const lists = screen.getAllByRole("list");
+    expect(lists.length).toBeGreaterThanOrEqual(2);
   });
 
   it("S7補: 「予定にする」をタップすると翌日同時刻を初期値にした予定作成ダイアログが開く", async () => {
