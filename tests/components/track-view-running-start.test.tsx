@@ -28,8 +28,13 @@ vi.mock("@/app/(app)/calendar/event-actions", () => ({
 
 import { TrackView } from "@/components/track-view";
 import type { RunningEntry } from "@/lib/timer/types";
+import {
+  changeDateTimeStepper,
+  expectDateTimeStepperValue,
+} from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/D-4_計測ヒーローと開始時刻変更.md S2・S5(計測画面での連携)
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 
 // 実日時に対して過去になるよう固定の過去日時を使う(未来バリデーションを通すため)
 const START = new Date(2026, 6, 7, 9, 0, 0);
@@ -57,9 +62,7 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
     expect(
       screen.getByRole("dialog", { name: "開始時刻を変更" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("開始時刻")).toHaveValue(
-      format(START, "yyyy-MM-dd'T'HH:mm"),
-    );
+    expectDateTimeStepperValue("開始時刻", format(START, "yyyy-MM-dd'T'HH:mm"));
   });
 
   it("S5: 有効な時刻で保存するとActionが呼ばれ、成功でパネルが閉じrefreshされる", async () => {
@@ -71,11 +74,7 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
 
     await user.click(screen.getByRole("button", { name: "開始 09:00 を変更" }));
     const newStart = new Date(2026, 6, 7, 8, 15, 0);
-    await user.clear(screen.getByLabelText("開始時刻"));
-    await user.type(
-      screen.getByLabelText("開始時刻"),
-      format(newStart, "yyyy-MM-dd'T'HH:mm"),
-    );
+    changeDateTimeStepper("開始時刻", format(newStart, "yyyy-MM-dd'T'HH:mm"));
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(updateRunningStartActionMock).toHaveBeenCalledWith(

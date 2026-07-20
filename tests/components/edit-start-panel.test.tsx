@@ -3,8 +3,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { format } from "date-fns";
 
 import { EditStartPanel } from "@/components/edit-start-panel";
+import {
+  changeDateTimeStepper,
+  expectDateTimeStepperValue,
+} from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/D-4_計測ヒーローと開始時刻変更.md S3・S4・S5
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 
 const NOW = new Date(2026, 6, 7, 10, 0, 0);
 const START = new Date(2026, 6, 7, 9, 0, 0);
@@ -39,13 +44,10 @@ describe("EditStartPanel(S3〜S5)", () => {
     const onSave = vi.fn();
     renderPanel({ onSave });
 
-    const input = screen.getByLabelText("開始時刻");
-    expect(input).toHaveValue(format(START, "yyyy-MM-dd'T'HH:mm"));
+    expectDateTimeStepperValue("開始時刻", format(START, "yyyy-MM-dd'T'HH:mm"));
 
     const newStart = new Date(2026, 6, 7, 8, 30, 0);
-    fireEvent.change(input, {
-      target: { value: format(newStart, "yyyy-MM-dd'T'HH:mm") },
-    });
+    changeDateTimeStepper("開始時刻", format(newStart, "yyyy-MM-dd'T'HH:mm"));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSave).toHaveBeenCalledWith(newStart.toISOString());
@@ -56,9 +58,7 @@ describe("EditStartPanel(S3〜S5)", () => {
     renderPanel({ onSave });
 
     const future = new Date(2026, 6, 7, 11, 0, 0);
-    fireEvent.change(screen.getByLabelText("開始時刻"), {
-      target: { value: format(future, "yyyy-MM-dd'T'HH:mm") },
-    });
+    changeDateTimeStepper("開始時刻", format(future, "yyyy-MM-dd'T'HH:mm"));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(
@@ -71,9 +71,7 @@ describe("EditStartPanel(S3〜S5)", () => {
     const onSave = vi.fn();
     renderPanel({ onSave });
 
-    fireEvent.change(screen.getByLabelText("開始時刻"), {
-      target: { value: "" },
-    });
+    changeDateTimeStepper("開始時刻", "");
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     expect(screen.getByText("開始時刻を入力してください")).toBeInTheDocument();
@@ -87,5 +85,18 @@ describe("EditStartPanel(S3〜S5)", () => {
       screen.getByText("開始時刻を変更できませんでした"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
+  it("P5-5 S15: 00分の分ステッパーで下ボタンを押すと時も-1する", () => {
+    renderPanel();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "開始時刻の分を1戻す" }),
+    );
+
+    expectDateTimeStepperValue(
+      "開始時刻",
+      format(new Date(2026, 6, 7, 8, 59, 0), "yyyy-MM-dd'T'HH:mm"),
+    );
   });
 });

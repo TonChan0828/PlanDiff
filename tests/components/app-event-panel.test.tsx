@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format } from "date-fns";
 
 import { AppEventPanel } from "@/components/app-event-panel";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { changeDateTimeStepper } from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/P2-5_アプリ内予定とGoogle連携凍結.md S2 / S3 / S6
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 
 const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
 
@@ -60,18 +62,17 @@ describe("AppEventPanel のバリデーション(S2/S3)", () => {
     const { onSave } = renderPanel({ title: "設計作業" });
 
     // 終了=開始(同時刻)→ エラー
-    fireEvent.change(screen.getByLabelText(M.eventEndField), {
-      target: { value: localValue(START_ISO) },
-    });
+    changeDateTimeStepper(M.eventEndField, localValue(START_ISO));
     await user.click(screen.getByRole("button", { name: "保存" }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(M.eventInvalidRange)).toBeInTheDocument();
 
     // 終了=開始+1分 → 送信される(UTCのISOで渡る)
     const oneMinuteLater = new Date(new Date(START_ISO).getTime() + 60_000);
-    fireEvent.change(screen.getByLabelText(M.eventEndField), {
-      target: { value: format(oneMinuteLater, DATETIME_LOCAL_FORMAT) },
-    });
+    changeDateTimeStepper(
+      M.eventEndField,
+      format(oneMinuteLater, DATETIME_LOCAL_FORMAT),
+    );
     await user.click(screen.getByRole("button", { name: "保存" }));
     expect(onSave).toHaveBeenCalledWith({
       title: "設計作業",

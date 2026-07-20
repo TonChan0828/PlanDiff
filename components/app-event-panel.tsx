@@ -6,9 +6,11 @@ import { X } from "lucide-react";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringPattern } from "@/lib/calendar/recurring-id";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
+import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
+import { DateTimeStepper } from "@/components/date-time-stepper";
 
 // アプリ内予定の作成/編集パネル(P2-5)。edit-entry-panel(P2-4)のUIパターンを踏襲。
-// datetime-local入力は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
+// DateTimeStepper(P5-5)は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
 // 予定は開始 < 終了を厳密に要求する(ゼロ長は不可。実績編集の「以降」とは異なる)。
 // 繰り返し予定(P5-1)の作成は本パネルのcreateモードに統合する(onSaveRecurringが
 // 渡されたときのみ表示。editモードでは表示しない。単発の回の編集は既存のonSaveのまま)。
@@ -49,10 +51,8 @@ interface AppEventPanelProps {
   error: string | null;
 }
 
-const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
-
 function toLocalInputValue(iso: string): string {
-  return format(new Date(iso), DATETIME_LOCAL_FORMAT);
+  return format(new Date(iso), LOCAL_DATE_TIME_FORMAT);
 }
 
 function isSameLocalDay(a: Date, b: Date): boolean {
@@ -234,26 +234,18 @@ export function AppEventPanel({
                 className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span>{M.eventStartField}</span>
-              <input
-                type="datetime-local"
-                value={startLocal}
-                onChange={(event) => setStartLocal(event.target.value)}
-                disabled={pending}
-                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span>{M.eventEndField}</span>
-              <input
-                type="datetime-local"
-                value={endLocal}
-                onChange={(event) => setEndLocal(event.target.value)}
-                disabled={pending}
-                className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-              />
-            </label>
+            <DateTimeStepper
+              label={M.eventStartField}
+              value={startLocal}
+              onChange={setStartLocal}
+              disabled={pending}
+            />
+            <DateTimeStepper
+              label={M.eventEndField}
+              value={endLocal}
+              onChange={setEndLocal}
+              disabled={pending}
+            />
             {showRecurrence ? (
               <>
                 <label className="flex flex-col gap-1 text-sm">

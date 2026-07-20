@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format, startOfDay } from "date-fns";
 
@@ -43,8 +43,10 @@ vi.mock("@/app/(app)/calendar/event-actions", () => ({
 
 import { CalendarView } from "@/components/calendar-view";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { changeDateTimeStepper } from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/P5-1_定期予定.md S13〜S16
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 
 const today = startOfDay(new Date());
 const todayParam = format(today, "yyyy-MM-dd");
@@ -142,12 +144,11 @@ describe("繰り返し予定の作成(S13)", () => {
     // 作成パネルの初期時刻は「現在時刻の次の正時から1時間」で実行時刻に依存する
     // (22時台に実行すると23:00〜翌0:00になり、繰り返しの同日バリデーションで保存が
     // 弾かれてしまう)ため、同日内の時刻を明示して決定的にする
-    fireEvent.change(screen.getByLabelText(M.eventStartField), {
-      target: { value: format(today, "yyyy-MM-dd'T'10:00") },
-    });
-    fireEvent.change(screen.getByLabelText(M.eventEndField), {
-      target: { value: format(today, "yyyy-MM-dd'T'11:00") },
-    });
+    changeDateTimeStepper(
+      M.eventStartField,
+      format(today, "yyyy-MM-dd'T'10:00"),
+    );
+    changeDateTimeStepper(M.eventEndField, format(today, "yyyy-MM-dd'T'11:00"));
     await user.selectOptions(screen.getByLabelText(M.recurrenceField), "daily");
     await user.click(screen.getByRole("button", { name: "保存" }));
 

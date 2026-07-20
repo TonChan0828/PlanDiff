@@ -5,8 +5,10 @@ import { format } from "date-fns";
 
 import { AppEventPanel } from "@/components/app-event-panel";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { changeDateTimeStepper } from "../helpers/date-time-stepper";
 
 // 仕様書: docs/specs/P5-1_定期予定.md S11 / S12 / S13
+// 時刻入力はP5-5でDateTimeStepperに置換(docs/specs/P5-5)
 // createモード限定の繰り返し予定UI(onSaveRecurringが渡されたときのみ表示)
 
 const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
@@ -88,6 +90,22 @@ describe("繰り返しUIのバリデーション(S12)", () => {
 });
 
 describe("繰り返しUIの正常系(S13関連: パネル単体)", () => {
+  it("P5-5 S26: 開始時刻を分ステッパーで00分から1戻すと、onSaveRecurringのstartTimeが時-1で渡る", async () => {
+    const user = userEvent.setup();
+    const { onSaveRecurring } = renderCreatePanel();
+
+    await user.type(screen.getByLabelText(M.eventTitleField), "朝会");
+    await user.click(
+      screen.getByRole("button", { name: "開始時刻の分を1戻す" }),
+    );
+    await user.selectOptions(screen.getByLabelText(M.recurrenceField), "daily");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(onSaveRecurring).toHaveBeenCalledWith(
+      expect.objectContaining({ startTime: "08:59" }),
+    );
+  });
+
   it("毎日を選択して保存すると、onSaveRecurringがpattern='daily'・startsOn・時刻・端末TZで呼ばれる", async () => {
     const user = userEvent.setup();
     const { onSave, onSaveRecurring } = renderCreatePanel();
@@ -131,11 +149,10 @@ describe("繰り返しUIの正常系(S13関連: パネル単体)", () => {
 
     await user.type(screen.getByLabelText(M.eventTitleField), "朝会");
     await user.selectOptions(screen.getByLabelText(M.recurrenceField), "daily");
-    fireEvent.change(screen.getByLabelText(M.eventEndField), {
-      target: {
-        value: format(new Date(2026, 6, 9, 10, 0), DATETIME_LOCAL_FORMAT),
-      },
-    });
+    changeDateTimeStepper(
+      M.eventEndField,
+      format(new Date(2026, 6, 9, 10, 0), DATETIME_LOCAL_FORMAT),
+    );
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     expect(onSaveRecurring).not.toHaveBeenCalled();
