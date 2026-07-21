@@ -1,4 +1,14 @@
-import { addHours, addMinutes, format, isValid, parse } from "date-fns";
+import {
+  addDays,
+  addHours,
+  addMinutes,
+  addMonths,
+  addYears,
+  format,
+  getDaysInMonth,
+  isValid,
+  parse,
+} from "date-fns";
 
 // ローカル日時文字列("yyyy-MM-dd'T'HH:mm")に対する桁跨ぎ計算(P5-5)。
 // DateTimeStepper用。Date の直接演算はせず date-fns 経由で行う。
@@ -86,4 +96,67 @@ export function setLocalDate(value: string, date: string): string {
   const hour = current?.getHours() ?? 0;
   const minute = current?.getMinutes() ?? 0;
   return formatLocalDateTime({ date, hour, minute });
+}
+
+// 5セグメント(年/月/日/時/分)の増減・直接設定(P5-6)。
+// DateTimeStepper の統合セグメント入力から使う。桁跨ぎは date-fns に委譲する。
+
+export type LocalSegment = "year" | "month" | "day" | "hour" | "minute";
+
+// セグメントを ±1。桁跨ぎ連動(分59→時+1、日→月跨ぎ、月→年跨ぎ等)。yearは上位桁なし。
+export function stepLocalSegment(
+  value: string,
+  segment: LocalSegment,
+  delta: 1 | -1,
+): string {
+  const date = toDate(value);
+  if (!date) {
+    return value;
+  }
+  const stepped =
+    segment === "year"
+      ? addYears(date, delta)
+      : segment === "month"
+        ? addMonths(date, delta)
+        : segment === "day"
+          ? addDays(date, delta)
+          : segment === "hour"
+            ? addHours(date, delta)
+            : addMinutes(date, delta);
+  return format(stepped, LOCAL_DATE_TIME_FORMAT);
+}
+
+// セグメントへ数値を設定(直接入力の確定用)。桁は跨がずクランプする。
+export function setLocalSegment(
+  value: string,
+  segment: LocalSegment,
+  n: number,
+): string {
+  const date = toDate(value);
+  if (!date) {
+    return value;
+  }
+  switch (segment) {
+    case "year":
+      date.setFullYear(clamp(n, 1, 9999));
+      break;
+    case "month": {
+      // 月を先に決め、日をその月の末日でクランプする(2月31→28/29)
+      const month = clamp(n, 1, 12) - 1;
+      const probe = new Date(date.getFullYear(), month, 1);
+      const day = clamp(date.getDate(), 1, getDaysInMonth(probe));
+      date.setMonth(month, day);
+      break;
+    }
+    case "day":
+      date.setDate(clamp(n, 1, getDaysInMonth(date)));
+      break;
+    case "hour":
+      date.setHours(clamp(n, 0, 23));
+      break;
+    case "minute":
+      date.setMinutes(clamp(n, 0, 59));
+      break;
+  }
+  return format(date, LOCAL_DATE_TIME_FORMAT);
 }

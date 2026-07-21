@@ -87,16 +87,22 @@ describe("EditStartPanel(S3〜S5)", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
-  it("P5-5 S15: 00分の分ステッパーで下ボタンを押すと時も-1する", () => {
-    renderPanel();
+  it("S32(結合): 分にフォーカスしArrowDownすると時も-1し、保存すると時-1・分59のISOが渡る", () => {
+    const onSave = vi.fn();
+    renderPanel({ onSave });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "開始時刻の分を1戻す" }),
-    );
+    const minute = screen.getByRole("spinbutton", { name: "開始時刻の分" });
+    minute.focus();
+    fireEvent.keyDown(minute, { key: "ArrowDown" });
 
     expectDateTimeStepperValue(
       "開始時刻",
       format(new Date(2026, 6, 7, 8, 59, 0), "yyyy-MM-dd'T'HH:mm"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(onSave).toHaveBeenCalledWith(
+      new Date(2026, 6, 7, 8, 59, 0).toISOString(),
     );
   });
 });
