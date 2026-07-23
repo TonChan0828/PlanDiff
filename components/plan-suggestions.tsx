@@ -139,25 +139,45 @@ export function PlanSuggestions({
     }
   };
 
-  const addThisWeek = (suggestion: PlanSuggestion) =>
-    accept(
-      suggestion,
-      () =>
-        createAppEventAction({
-          title: suggestion.title,
-          startAt: toUtcIso(
-            suggestion.date,
-            suggestion.startTime,
-            resolvedTimeZone,
-          ),
-          endAt: toUtcIso(
-            suggestion.date,
-            suggestion.endTime,
-            resolvedTimeZone,
-          ),
-        }),
-      M.suggestionAddError,
-    );
+  // まとめカードは対象各日ぶん createAppEventAction を呼ぶ。1件でも失敗すれば
+  // 成功分は反映(refresh)しつつカードを残しエラー表示する(部分失敗対応)。
+  const addThisWeek = async (suggestion: PlanSuggestion) => {
+    setPendingKey(suggestion.key);
+    setErrors((prev) => ({ ...prev, [suggestion.key]: "" }));
+    try {
+      const results = await Promise.all(
+        suggestion.dates.map((date) =>
+          createAppEventAction({
+            title: suggestion.title,
+            startAt: toUtcIso(date, suggestion.startTime, resolvedTimeZone),
+            endAt: toUtcIso(date, suggestion.endTime, resolvedTimeZone),
+          })
+            .then((result) => result.ok)
+            .catch(() => false),
+        ),
+      );
+      const anySuccess = results.some((ok) => ok);
+      const anyFailure = results.some((ok) => !ok);
+      if (anySuccess) {
+        router.refresh();
+      }
+      if (anyFailure) {
+        setErrors((prev) => ({
+          ...prev,
+          [suggestion.key]: M.suggestionAddError,
+        }));
+      } else {
+        hide(suggestion.key);
+      }
+    } catch {
+      setErrors((prev) => ({
+        ...prev,
+        [suggestion.key]: M.suggestionAddError,
+      }));
+    } finally {
+      setPendingKey(null);
+    }
+  };
 
   const makeWeekly = (suggestion: PlanSuggestion) =>
     accept(
@@ -165,12 +185,14 @@ export function PlanSuggestions({
       () =>
         createRecurringRuleAction({
           title: suggestion.title,
-          pattern: "weekly",
-          weekdays: [suggestion.weekday],
+          pattern: suggestion.pattern,
+          // weekdays/daily はルール側で全曜日/平日を表すため weekdays は渡さない
+          weekdays:
+            suggestion.pattern === "weekly" ? suggestion.weekdays : null,
           startTime: suggestion.startTime,
           endTime: suggestion.endTime,
           timezone: resolvedTimeZone,
-          startsOn: suggestion.date,
+          startsOn: suggestion.dates[0] ?? "",
           endsOn: null,
         }),
       M.suggestionMakeWeeklyError,
@@ -197,7 +219,11 @@ export function PlanSuggestions({
                   </p>
                   <p className="text-ink-muted text-xs">
                     {M.suggestionDescription(
-                      M.weekdayLabels[suggestion.weekday] ?? "",
+                      M.suggestionPatternLabel(
+                        suggestion.pattern,
+                        suggestion.weekdays,
+                        M.weekdayLabels,
+                      ),
                       suggestion.startTime,
                       formatDurationMinutes(
                         minutesOf(suggestion.endTime) -

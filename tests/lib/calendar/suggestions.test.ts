@@ -102,10 +102,11 @@ describe("computeSuggestions(S1)", () => {
 
     expect(suggestions).toEqual([
       {
-        key: "朝会|2",
+        key: "朝会|weekly|2",
         title: "朝会",
-        weekday: 2,
-        date: "2026-07-14",
+        pattern: "weekly",
+        weekdays: [2],
+        dates: ["2026-07-14"],
         startTime: "10:00", // 中央値 10:02.5 → 15分丸めで 10:00
         endTime: "10:30", // 所要中央値 32.5分 → 30分
         occurrenceCount: 2,
@@ -281,7 +282,7 @@ describe("computeSuggestions(S7)", () => {
       input({ entries: mondayEntries(), viewDate: "2026-07-21" }),
     );
     expect(suggestions).toHaveLength(1);
-    expect(suggestions[0]?.date).toBe("2026-07-20"); // 来週月曜
+    expect(suggestions[0]?.dates).toEqual(["2026-07-20"]); // 来週月曜
   });
 });
 
@@ -395,8 +396,8 @@ describe("computeSuggestions(S11)", () => {
       }),
     );
     expect(suggestions).toHaveLength(1);
-    expect(suggestions[0]?.weekday).toBe(2); // 火曜(JST基準)
-    expect(suggestions[0]?.date).toBe("2026-07-14");
+    expect(suggestions[0]?.weekdays).toEqual([2]); // 火曜(JST基準)
+    expect(suggestions[0]?.dates).toEqual(["2026-07-14"]);
     expect(suggestions[0]?.startTime).toBe("00:30");
   });
 });
@@ -458,5 +459,354 @@ describe("computeSuggestions(S24)", () => {
     );
     // 開始23:45・所要45分 → 終了24:30 で日またぎのため除外
     expect(suggestions).toEqual([]);
+  });
+});
+
+// P5-7 まとめ提案(S25〜S35)。表示週は来週 2026-07-20(月)〜 2026-07-26(日)。
+// 遡り窓は 2026-06-22(月)0:00 JST 〜 2026-07-20(月)0:00 JST。now は既定(07-14)で全日が未来。
+const NEXT_WEEK = "2026-07-21";
+
+describe("computeSuggestions(S25)", () => {
+  it("S25: 月・水・金が同時間帯で各2日以上 → weekly多曜日カード1件に束ねる", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("スタンドアップ", "2026-06-22 09:00", 30), // 月
+          entry("スタンドアップ", "2026-06-29 09:00", 30), // 月
+          entry("スタンドアップ", "2026-06-24 09:00", 30), // 水
+          entry("スタンドアップ", "2026-07-01 09:00", 30), // 水
+          entry("スタンドアップ", "2026-06-26 09:00", 30), // 金
+          entry("スタンドアップ", "2026-07-03 09:00", 30), // 金
+        ],
+      }),
+    );
+    expect(suggestions).toEqual([
+      {
+        key: "スタンドアップ|weekly|1,3,5",
+        title: "スタンドアップ",
+        pattern: "weekly",
+        weekdays: [1, 3, 5],
+        dates: ["2026-07-20", "2026-07-22", "2026-07-24"],
+        startTime: "09:00",
+        endTime: "09:30",
+        occurrenceCount: 6,
+      },
+    ]);
+  });
+});
+
+describe("computeSuggestions(S26)", () => {
+  it("S26: 月〜金すべてが同時間帯 → pattern='weekdays'", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("朝会", "2026-06-22 09:00", 30), // 月
+          entry("朝会", "2026-06-29 09:00", 30),
+          entry("朝会", "2026-06-23 09:00", 30), // 火
+          entry("朝会", "2026-06-30 09:00", 30),
+          entry("朝会", "2026-06-24 09:00", 30), // 水
+          entry("朝会", "2026-07-01 09:00", 30),
+          entry("朝会", "2026-06-25 09:00", 30), // 木
+          entry("朝会", "2026-07-02 09:00", 30),
+          entry("朝会", "2026-06-26 09:00", 30), // 金
+          entry("朝会", "2026-07-03 09:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.pattern).toBe("weekdays");
+    expect(suggestions[0]?.weekdays).toEqual([1, 2, 3, 4, 5]);
+    expect(suggestions[0]?.occurrenceCount).toBe(10);
+    expect(suggestions[0]?.key).toBe("朝会|weekdays|1,2,3,4,5");
+  });
+});
+
+describe("computeSuggestions(S27)", () => {
+  it("S27: 全7曜日が同時間帯 → pattern='daily'", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          // 日
+          entry("運動", "2026-06-28 07:00", 30),
+          entry("運動", "2026-07-05 07:00", 30),
+          // 月
+          entry("運動", "2026-06-22 07:00", 30),
+          entry("運動", "2026-06-29 07:00", 30),
+          // 火
+          entry("運動", "2026-06-23 07:00", 30),
+          entry("運動", "2026-06-30 07:00", 30),
+          // 水
+          entry("運動", "2026-06-24 07:00", 30),
+          entry("運動", "2026-07-01 07:00", 30),
+          // 木
+          entry("運動", "2026-06-25 07:00", 30),
+          entry("運動", "2026-07-02 07:00", 30),
+          // 金
+          entry("運動", "2026-06-26 07:00", 30),
+          entry("運動", "2026-07-03 07:00", 30),
+          // 土
+          entry("運動", "2026-06-27 07:00", 30),
+          entry("運動", "2026-07-04 07:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.pattern).toBe("daily");
+    expect(suggestions[0]?.weekdays).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(suggestions[0]?.occurrenceCount).toBe(14);
+  });
+});
+
+describe("computeSuggestions(S28)", () => {
+  it("S28: 同時間帯が2曜日のみなら束ねず個別weekly2件(閾値3未満)", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("ペア作業", "2026-06-22 09:00", 30), // 月
+          entry("ペア作業", "2026-06-29 09:00", 30),
+          entry("ペア作業", "2026-06-24 09:00", 30), // 水
+          entry("ペア作業", "2026-07-01 09:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(2);
+    expect(suggestions.map((s) => s.pattern)).toEqual(["weekly", "weekly"]);
+    expect(suggestions.map((s) => s.weekdays)).toEqual([[1], [3]]);
+  });
+});
+
+describe("computeSuggestions(S29)", () => {
+  it("S29: 3曜日で差ちょうど60分は束ねる", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("設計", "2026-06-22 09:00", 30), // 月 09:00
+          entry("設計", "2026-06-29 09:00", 30),
+          entry("設計", "2026-06-24 09:00", 30), // 水 09:00
+          entry("設計", "2026-07-01 09:00", 30),
+          entry("設計", "2026-06-26 10:00", 30), // 金 10:00(月と差60分)
+          entry("設計", "2026-07-03 10:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.weekdays).toEqual([1, 3, 5]);
+  });
+
+  it("S29: 差61分で1曜日が外れ、残り2曜日<3で全て個別になる", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("設計", "2026-06-22 09:00", 30), // 月 09:00
+          entry("設計", "2026-06-29 09:00", 30),
+          entry("設計", "2026-06-24 09:00", 30), // 水 09:00
+          entry("設計", "2026-07-01 09:00", 30),
+          entry("設計", "2026-06-26 10:01", 30), // 金 10:01(月と差61分)
+          entry("設計", "2026-07-03 10:01", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(3);
+    expect(suggestions.every((s) => s.pattern === "weekly")).toBe(true);
+    expect(suggestions.every((s) => s.weekdays.length === 1)).toBe(true);
+  });
+});
+
+describe("computeSuggestions(S30)", () => {
+  it("S30: 午前3曜日+午後3曜日の別時間帯は2つの束ねに分かれる", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          // 午前(09:00): 月火水
+          entry("集中", "2026-06-22 09:00", 30),
+          entry("集中", "2026-06-29 09:00", 30),
+          entry("集中", "2026-06-23 09:00", 30),
+          entry("集中", "2026-06-30 09:00", 30),
+          entry("集中", "2026-06-24 09:00", 30),
+          entry("集中", "2026-07-01 09:00", 30),
+          // 午後(14:00): 木金土
+          entry("集中", "2026-06-25 14:00", 30),
+          entry("集中", "2026-07-02 14:00", 30),
+          entry("集中", "2026-06-26 14:00", 30),
+          entry("集中", "2026-07-03 14:00", 30),
+          entry("集中", "2026-06-27 14:00", 30),
+          entry("集中", "2026-07-04 14:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(2);
+    expect(suggestions.map((s) => s.weekdays)).toEqual([
+      [1, 2, 3],
+      [4, 5, 6],
+    ]);
+    expect(suggestions.map((s) => s.startTime)).toEqual(["09:00", "14:00"]);
+  });
+});
+
+describe("computeSuggestions(S31)", () => {
+  const bundleEntries = () => [
+    entry("レビュー", "2026-06-22 09:00", 30), // 月
+    entry("レビュー", "2026-06-29 09:00", 30),
+    entry("レビュー", "2026-06-24 09:00", 30), // 水
+    entry("レビュー", "2026-07-01 09:00", 30),
+    entry("レビュー", "2026-06-26 09:00", 30), // 金
+    entry("レビュー", "2026-07-03 09:00", 30),
+  ];
+
+  it("S31: 束ねの一部曜日が表示週で既存予定なら除外され残りで出る", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: bundleEntries(),
+        events: [event("レビュー", "2026-07-22 15:00")], // 水曜(表示週)
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.weekdays).toEqual([1, 5]); // 水が除外され月・金
+    expect(suggestions[0]?.dates).toEqual(["2026-07-20", "2026-07-24"]);
+    expect(suggestions[0]?.occurrenceCount).toBe(4);
+  });
+
+  it("S31: 全曜日が除外されるとカードは出ない", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: bundleEntries(),
+        events: [
+          event("レビュー", "2026-07-20 15:00"), // 月
+          event("レビュー", "2026-07-22 15:00"), // 水
+          event("レビュー", "2026-07-24 15:00"), // 金
+        ],
+      }),
+    );
+    expect(suggestions).toEqual([]);
+  });
+});
+
+describe("computeSuggestions(S32)", () => {
+  it("S32: 束ねのunion中央値が15分丸め・所要は最低15分", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("巡回", "2026-06-22 09:05", 5), // 月
+          entry("巡回", "2026-06-29 09:05", 5),
+          entry("巡回", "2026-06-24 09:05", 5), // 水
+          entry("巡回", "2026-07-01 09:05", 5),
+          entry("巡回", "2026-06-26 09:05", 5), // 金
+          entry("巡回", "2026-07-03 09:05", 5),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    // 09:05 → 15分丸めで 09:00、所要5分 → 丸め0 → 最低15分
+    expect(suggestions[0]?.startTime).toBe("09:00");
+    expect(suggestions[0]?.endTime).toBe("09:15");
+  });
+});
+
+describe("computeSuggestions(S33)", () => {
+  it("S33: 束ねの丸め後終了が24:00超なら候補ごと除外", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          entry("夜間作業", "2026-06-22 23:40", 40), // 月 → 23:45+45=24:30
+          entry("夜間作業", "2026-06-29 23:40", 40),
+          entry("夜間作業", "2026-06-24 23:40", 40), // 水
+          entry("夜間作業", "2026-07-01 23:40", 40),
+          entry("夜間作業", "2026-06-26 23:40", 40), // 金
+          entry("夜間作業", "2026-07-03 23:40", 40),
+        ],
+      }),
+    );
+    expect(suggestions).toEqual([]);
+  });
+});
+
+describe("computeSuggestions(S34)", () => {
+  const allWeek = () => [
+    entry("運動", "2026-06-28 07:00", 30), // 日
+    entry("運動", "2026-07-05 07:00", 30),
+    entry("運動", "2026-06-22 07:00", 30), // 月
+    entry("運動", "2026-06-29 07:00", 30),
+    entry("運動", "2026-06-23 07:00", 30), // 火
+    entry("運動", "2026-06-30 07:00", 30),
+    entry("運動", "2026-06-24 07:00", 30), // 水
+    entry("運動", "2026-07-01 07:00", 30),
+    entry("運動", "2026-06-25 07:00", 30), // 木
+    entry("運動", "2026-07-02 07:00", 30),
+    entry("運動", "2026-06-26 07:00", 30), // 金
+    entry("運動", "2026-07-03 07:00", 30),
+    entry("運動", "2026-06-27 07:00", 30), // 土
+    entry("運動", "2026-07-04 07:00", 30),
+  ];
+
+  it("S34: dailyルールがあれば毎日束ねは出ない", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: allWeek(),
+        recurringRules: [rule("運動", "daily", null)],
+      }),
+    );
+    expect(suggestions).toEqual([]);
+  });
+
+  it("S34: weekdaysルールなら平日が除外され土日で出る", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: allWeek(),
+        recurringRules: [rule("運動", "weekdays", null)],
+      }),
+    );
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.pattern).toBe("weekly");
+    expect(suggestions[0]?.weekdays).toEqual([0, 6]); // 日・土
+    expect(suggestions[0]?.occurrenceCount).toBe(4);
+  });
+});
+
+describe("computeSuggestions(S35)", () => {
+  it("S35: 束ね(発生日数合計大)が個別より上位・全体最大3件", () => {
+    const suggestions = computeSuggestions(
+      input({
+        viewDate: NEXT_WEEK,
+        entries: [
+          // A: 月〜金 09:00(合計10)
+          entry("A", "2026-06-22 09:00", 30),
+          entry("A", "2026-06-29 09:00", 30),
+          entry("A", "2026-06-23 09:00", 30),
+          entry("A", "2026-06-30 09:00", 30),
+          entry("A", "2026-06-24 09:00", 30),
+          entry("A", "2026-07-01 09:00", 30),
+          entry("A", "2026-06-25 09:00", 30),
+          entry("A", "2026-07-02 09:00", 30),
+          entry("A", "2026-06-26 09:00", 30),
+          entry("A", "2026-07-03 09:00", 30),
+          // B: 土 15:00(2)
+          entry("B", "2026-06-27 15:00", 30),
+          entry("B", "2026-07-04 15:00", 30),
+          // C: 日 16:00(2)
+          entry("C", "2026-06-28 16:00", 30),
+          entry("C", "2026-07-05 16:00", 30),
+          // D: 火 17:00(2)
+          entry("D", "2026-06-23 17:00", 30),
+          entry("D", "2026-06-30 17:00", 30),
+        ],
+      }),
+    );
+    expect(suggestions).toHaveLength(3);
+    expect(suggestions[0]?.title).toBe("A");
+    expect(suggestions[0]?.pattern).toBe("weekdays");
+    expect(suggestions[0]?.occurrenceCount).toBe(10);
   });
 });
