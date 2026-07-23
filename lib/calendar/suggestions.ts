@@ -2,10 +2,11 @@ import { TZDate } from "@date-fns/tz";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
 import type { TimeEntryItem } from "@/lib/timer/types";
 
-// 実績からの予定提案(P5-2)。仕様書: docs/specs/P5-2_実績からの予定提案.md
+// 実績からの予定提案(P5-2 → P5-7で「平日/毎日/複数曜日」まとめに拡張)。
+// 仕様書: docs/specs/P5-7_平日毎日まとめ提案.md / docs/specs/P5-2_実績からの予定提案.md
 // computeSuggestions は純粋関数(DB非依存)。表示週の直前4週間の完了実績から
-// 「同タイトル × 同曜日 × 開始時刻の差が60分以内」の繰り返しを検出し、
-// 過去実績の中央値(15分単位丸め)で日時入りの提案を返す。
+// 「同タイトル × 同曜日 × 開始時刻の差が60分以内」の繰り返しを曜日ごとに検出し、
+// さらに同タイトルで開始時刻が60分以内に揃う3曜日以上を1件のまとめ候補に束ねる。
 // 曜日・時刻の判定はユーザーのローカルタイムゾーンに依存するため、クライアント側で
 // Intl.DateTimeFormat().resolvedOptions().timeZone を渡して実行する(P5-1と同方針)。
 // このモジュールはクライアントからimportされるため "server-only" を付けない。
@@ -17,20 +18,27 @@ const ROUND_UNIT_MINUTES = 15;
 const MIN_DURATION_MINUTES = 15;
 const MAX_SUGGESTIONS = 3;
 const DAY_MINUTES = 24 * 60;
+// 平日/毎日/複数曜日にまとめる最小曜日数(これ未満は個別カード)
+const BUNDLE_MIN_WEEKDAYS = 3;
+const WEEKDAY_SET = [1, 2, 3, 4, 5];
+
+export type SuggestionPattern = "weekly" | "weekdays" | "daily";
 
 export interface PlanSuggestion {
-  /** "タイトル|曜日"。セッション内の非表示管理に使う */
+  /** "タイトル|pattern|曜日群"。セッション内の非表示管理に使う */
   key: string;
   title: string;
-  /** 0=日〜6=土(JSのDate#getDayと一致) */
-  weekday: number;
-  /** 提案日 "YYYY-MM-DD"(表示週の該当日、ローカルTZ) */
-  date: string;
+  /** 定期化の種別(daily / weekdays / 複数or単一曜日のweekly) */
+  pattern: SuggestionPattern;
+  /** 対象曜日(昇順。0=日〜6=土、JSのDate#getDayと一致) */
+  weekdays: number[];
+  /** 表示週内の対象各日 "YYYY-MM-DD"(weekdaysと同順) */
+  dates: string[];
   /** "HH:mm"(ローカルTZ) */
   startTime: string;
   /** "HH:mm"(ローカルTZ) */
   endTime: string;
-  /** 直近4週での発生日数 */
+  /** 対象曜日クラスタの発生日数合計 */
   occurrenceCount: number;
 }
 
@@ -110,6 +118,73 @@ interface ObservedEntry {
   durationMinutes: number;
 }
 
+/** 1曜日ぶんの検出結果(束ね判定の単位) */
+interface WeekdayCandidate {
+  weekday: number;
+  /** 束ね判定に使うクラスタ開始時刻の中央値(未丸め) */
+  startMedian: number;
+  /** 採用クラスタの実績 */
+  occurrences: ObservedEntry[];
+  /** 発生日数 */
+  occurrenceDays: number;
+}
+
+/** 束ね種別を最終曜日集合から決める */
+function decidePattern(weekdays: number[]): SuggestionPattern {
+  const set = new Set(weekdays);
+  if (set.size === 7) {
+    return "daily";
+  }
+  if (set.size === WEEKDAY_SET.length && WEEKDAY_SET.every((w) => set.has(w))) {
+    return "weekdays";
+  }
+  return "weekly";
+}
+
+/**
+ * 同タイトルの曜日候補を、開始時刻が60分以内に揃う3曜日以上でまとめる。
+ * 開始時刻中央値で昇順に並べ、最大の連続ウィンドウ(幅60分以内)を貪欲に切り出す。
+ * ウィンドウが3曜日未満なら、その時点の残りはすべて単一曜日の候補にする。
+ */
+function bundleCandidates(
+  candidates: WeekdayCandidate[],
+): WeekdayCandidate[][] {
+  const groups: WeekdayCandidate[][] = [];
+  let remaining = [...candidates].sort((a, b) => a.startMedian - b.startMedian);
+  while (remaining.length > 0) {
+    let bestStart = 0;
+    let bestLength = 1;
+    for (let i = 0; i < remaining.length; i += 1) {
+      let j = i;
+      while (
+        j + 1 < remaining.length &&
+        (remaining[j + 1]?.startMedian ?? 0) -
+          (remaining[i]?.startMedian ?? 0) <=
+          CLUSTER_WINDOW_MINUTES
+      ) {
+        j += 1;
+      }
+      if (j - i + 1 > bestLength) {
+        bestLength = j - i + 1;
+        bestStart = i;
+      }
+    }
+    if (bestLength >= BUNDLE_MIN_WEEKDAYS) {
+      groups.push(remaining.slice(bestStart, bestStart + bestLength));
+      remaining = [
+        ...remaining.slice(0, bestStart),
+        ...remaining.slice(bestStart + bestLength),
+      ];
+    } else {
+      for (const candidate of remaining) {
+        groups.push([candidate]);
+      }
+      remaining = [];
+    }
+  }
+  return groups;
+}
+
 export function computeSuggestions(input: SuggestionInput): PlanSuggestion[] {
   const { entries, events, recurringRules, viewDate, now, timeZone } = input;
 
@@ -176,8 +251,8 @@ export function computeSuggestions(input: SuggestionInput): PlanSuggestion[] {
     eventDateTitles.add(`${formatLocalDate(local)}|${event.title.trim()}`);
   }
 
-  const candidates: { suggestion: PlanSuggestion; startMs: number }[] = [];
-
+  // 曜日ごとに最良クラスタを求め、タイトル単位に集約
+  const byTitle = new Map<string, WeekdayCandidate[]>();
   for (const { title, weekday, observed } of groups.values()) {
     // 開始時刻順に並べ、幅60分のスライディングウィンドウで発生日数最大のクラスタを取る
     const sorted = [...observed].sort(
@@ -205,58 +280,105 @@ export function computeSuggestions(input: SuggestionInput): PlanSuggestion[] {
     if (bestDays < MIN_OCCURRENCE_DAYS) {
       continue;
     }
-
-    const startMinutes = roundToUnit(median(best.map((o) => o.startMinutes)));
-    const durationMinutes = Math.max(
-      MIN_DURATION_MINUTES,
-      roundToUnit(
-        median([...best.map((o) => o.durationMinutes)].sort((a, b) => a - b)),
-      ),
-    );
-    const endMinutes = startMinutes + durationMinutes;
-    // 日をまたぐ提案は出さない(FR-12の定期予定が日またぎ不可のため)
-    if (endMinutes > DAY_MINUTES) {
-      continue;
-    }
-
-    const proposalDay = addDaysTz(weekStart, (weekday + 6) % 7, timeZone);
-    const proposalDate = formatLocalDate(proposalDay);
-    const proposalStart = new TZDate(
-      proposalDay.getFullYear(),
-      proposalDay.getMonth(),
-      proposalDay.getDate(),
-      Math.floor(startMinutes / 60),
-      startMinutes % 60,
-      0,
-      timeZone,
-    );
-    if (proposalStart.getTime() < now.getTime()) {
-      continue;
-    }
-    if (eventDateTitles.has(`${proposalDate}|${title}`)) {
-      continue;
-    }
-    if (
-      recurringRules.some(
-        (rule) =>
-          rule.title.trim() === title && ruleCoversWeekday(rule, weekday),
-      )
-    ) {
-      continue;
-    }
-
-    candidates.push({
-      startMs: proposalStart.getTime(),
-      suggestion: {
-        key: `${title}|${weekday}`,
-        title,
-        weekday,
-        date: proposalDate,
-        startTime: formatTime(startMinutes),
-        endTime: formatTime(endMinutes),
-        occurrenceCount: bestDays,
-      },
+    // best は開始時刻昇順のため中央値算出にそのまま使える
+    const list = byTitle.get(title) ?? [];
+    list.push({
+      weekday,
+      startMedian: median(best.map((o) => o.startMinutes)),
+      occurrences: best,
+      occurrenceDays: bestDays,
     });
+    byTitle.set(title, list);
+  }
+
+  const candidates: { suggestion: PlanSuggestion; startMs: number }[] = [];
+
+  for (const [title, weekdayCandidates] of byTitle) {
+    for (const group of bundleCandidates(weekdayCandidates)) {
+      // 束ね対象曜日の全実績の union から代表の開始・所要を決める
+      const unionOccurrences = group.flatMap((c) => c.occurrences);
+      const startMinutes = roundToUnit(
+        median(
+          [...unionOccurrences.map((o) => o.startMinutes)].sort(
+            (a, b) => a - b,
+          ),
+        ),
+      );
+      const durationMinutes = Math.max(
+        MIN_DURATION_MINUTES,
+        roundToUnit(
+          median(
+            [...unionOccurrences.map((o) => o.durationMinutes)].sort(
+              (a, b) => a - b,
+            ),
+          ),
+        ),
+      );
+      const endMinutes = startMinutes + durationMinutes;
+      // 日をまたぐ提案は出さない(FR-12の定期予定が日またぎ不可のため)
+      if (endMinutes > DAY_MINUTES) {
+        continue;
+      }
+
+      // 対象各日ごとに除外判定し、残った曜日でカードを作る
+      const daysByWeekday = new Map(
+        group.map((c) => [c.weekday, c.occurrenceDays]),
+      );
+      const weekdaysSorted = group.map((c) => c.weekday).sort((a, b) => a - b);
+      const survivingWeekdays: number[] = [];
+      const survivingDates: string[] = [];
+      let minStartMs = Number.POSITIVE_INFINITY;
+      let occurrenceCount = 0;
+      for (const weekday of weekdaysSorted) {
+        const proposalDay = addDaysTz(weekStart, (weekday + 6) % 7, timeZone);
+        const proposalDate = formatLocalDate(proposalDay);
+        const proposalStart = new TZDate(
+          proposalDay.getFullYear(),
+          proposalDay.getMonth(),
+          proposalDay.getDate(),
+          Math.floor(startMinutes / 60),
+          startMinutes % 60,
+          0,
+          timeZone,
+        );
+        if (proposalStart.getTime() < now.getTime()) {
+          continue;
+        }
+        if (eventDateTitles.has(`${proposalDate}|${title}`)) {
+          continue;
+        }
+        if (
+          recurringRules.some(
+            (rule) =>
+              rule.title.trim() === title && ruleCoversWeekday(rule, weekday),
+          )
+        ) {
+          continue;
+        }
+        survivingWeekdays.push(weekday);
+        survivingDates.push(proposalDate);
+        minStartMs = Math.min(minStartMs, proposalStart.getTime());
+        occurrenceCount += daysByWeekday.get(weekday) ?? 0;
+      }
+      if (survivingWeekdays.length === 0) {
+        continue;
+      }
+
+      const pattern = decidePattern(survivingWeekdays);
+      candidates.push({
+        startMs: minStartMs,
+        suggestion: {
+          key: `${title}|${pattern}|${survivingWeekdays.join(",")}`,
+          title,
+          pattern,
+          weekdays: survivingWeekdays,
+          dates: survivingDates,
+          startTime: formatTime(startMinutes),
+          endTime: formatTime(endMinutes),
+          occurrenceCount,
+        },
+      });
+    }
   }
 
   candidates.sort(

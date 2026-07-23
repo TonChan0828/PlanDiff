@@ -201,3 +201,164 @@ describe("候補0件(S19)", () => {
     expect(screen.queryByText(M.suggestionHeading)).not.toBeInTheDocument();
   });
 });
+
+// P5-7 まとめ提案(S36〜S39)。表示週は来週 2026-07-20(月)〜(now=07-14で全日未来)。
+const NEXT_WEEK = "2026-07-21";
+
+/** 指定曜日それぞれに 09:00・30分×2回 の完了実績を作る(遡り窓 06-22〜07-20 内) */
+function bundleEntries(weekdays: number[], time = "09:00"): TimeEntryItem[] {
+  // 各曜日の遡り窓内の2日(6/22週と6/29週)
+  const firstMonday = "2026-06-22";
+  const items: TimeEntryItem[] = [];
+  for (const weekday of weekdays) {
+    for (const weekOffset of [0, 7]) {
+      const base = new TZDate(2026, 5, 22, 0, 0, 0, TZ); // 6/22(月)
+      const offset = ((weekday + 6) % 7) + weekOffset;
+      const d = new TZDate(base.getTime(), TZ);
+      d.setDate(d.getDate() + offset);
+      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      items.push(entry("集中", `${localDate} ${time}`, 30));
+    }
+  }
+  void firstMonday;
+  return items;
+}
+
+function renderBundle(entries: TimeEntryItem[]) {
+  render(
+    <PlanSuggestions
+      entries={entries}
+      events={[]}
+      recurringRules={[]}
+      viewDate={NEXT_WEEK}
+      now={NOW}
+      timeZone={TZ}
+    />,
+  );
+}
+
+describe("まとめカードの説明文(S36)", () => {
+  it("S36: weekdays束ねは「毎週平日 …」で表示される", () => {
+    renderBundle(bundleEntries([1, 2, 3, 4, 5]));
+    expect(
+      screen.getByText("毎週平日 09:00頃・約30分(直近4週で10回)"),
+    ).toBeInTheDocument();
+  });
+
+  it("S36: daily束ねは「毎日 …」で表示される", () => {
+    renderBundle(bundleEntries([0, 1, 2, 3, 4, 5, 6]));
+    expect(
+      screen.getByText("毎日 09:00頃・約30分(直近4週で14回)"),
+    ).toBeInTheDocument();
+  });
+
+  it("S36: 複数曜日weeklyは「毎週◯・◯・◯曜 …」で表示される", () => {
+    renderBundle(bundleEntries([1, 3, 5]));
+    expect(
+      screen.getByText("毎週月・水・金曜 09:00頃・約30分(直近4週で6回)"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("まとめカードのこの週に追加(S37)", () => {
+  it("S37: dates各日ぶん createAppEventAction が呼ばれ全成功でカードが消える", async () => {
+    const user = userEvent.setup();
+    createAppEventAction.mockResolvedValue({ ok: true });
+    renderBundle(bundleEntries([1, 3, 5]));
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionAddThisWeek }),
+    );
+
+    // 09:00-09:30 JST = 00:00-00:30 UTC。月(07-20)・水(07-22)・金(07-24)
+    expect(createAppEventAction).toHaveBeenCalledTimes(3);
+    expect(createAppEventAction).toHaveBeenCalledWith({
+      title: "集中",
+      startAt: "2026-07-20T00:00:00.000Z",
+      endAt: "2026-07-20T00:30:00.000Z",
+    });
+    expect(createAppEventAction).toHaveBeenCalledWith({
+      title: "集中",
+      startAt: "2026-07-22T00:00:00.000Z",
+      endAt: "2026-07-22T00:30:00.000Z",
+    });
+    expect(createAppEventAction).toHaveBeenCalledWith({
+      title: "集中",
+      startAt: "2026-07-24T00:00:00.000Z",
+      endAt: "2026-07-24T00:30:00.000Z",
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("集中")).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe("まとめカードの部分失敗(S38)", () => {
+  it("S38: 一部の日が失敗するとrefreshは呼ばれカードは残りエラー表示", async () => {
+    const user = userEvent.setup();
+    createAppEventAction
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true });
+    renderBundle(bundleEntries([1, 3, 5]));
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionAddThisWeek }),
+    );
+
+    expect(await screen.findByText(M.suggestionAddError)).toBeInTheDocument();
+    expect(screen.getByText("集中")).toBeInTheDocument();
+    expect(routerMock.refresh).toHaveBeenCalled();
+  });
+});
+
+describe("まとめカードの毎週にする(S39)", () => {
+  it("S39: weekdays束ねは pattern='weekdays'・weekdays=null で呼ばれる", async () => {
+    const user = userEvent.setup();
+    createRecurringRuleAction.mockResolvedValue({ ok: true });
+    renderBundle(bundleEntries([1, 2, 3, 4, 5]));
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionMakeWeekly }),
+    );
+
+    expect(createRecurringRuleAction).toHaveBeenCalledWith({
+      title: "集中",
+      pattern: "weekdays",
+      weekdays: null,
+      startTime: "09:00",
+      endTime: "09:30",
+      timezone: TZ,
+      startsOn: "2026-07-20",
+      endsOn: null,
+    });
+  });
+
+  it("S39: daily束ねは pattern='daily'・weekdays=null で呼ばれる", async () => {
+    const user = userEvent.setup();
+    createRecurringRuleAction.mockResolvedValue({ ok: true });
+    renderBundle(bundleEntries([0, 1, 2, 3, 4, 5, 6]));
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionMakeWeekly }),
+    );
+
+    expect(createRecurringRuleAction).toHaveBeenCalledWith(
+      expect.objectContaining({ pattern: "daily", weekdays: null }),
+    );
+  });
+
+  it("S39: 複数曜日weeklyは pattern='weekly'・weekdays=[観測曜日] で呼ばれる", async () => {
+    const user = userEvent.setup();
+    createRecurringRuleAction.mockResolvedValue({ ok: true });
+    renderBundle(bundleEntries([1, 3, 5]));
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionMakeWeekly }),
+    );
+
+    expect(createRecurringRuleAction).toHaveBeenCalledWith(
+      expect.objectContaining({ pattern: "weekly", weekdays: [1, 3, 5] }),
+    );
+  });
+});

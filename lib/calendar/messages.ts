@@ -82,15 +82,26 @@ export const CALENDAR_MESSAGES = {
     "土",
   ] as readonly string[],
   weekdayAriaLabel: (label: string) => `${label}曜日`,
-  // 実績からの予定提案(P5-2)
+  // 実績からの予定提案(P5-2 / P5-7でまとめ提案に拡張)
   suggestionHeading: "実績からの提案",
+  // pattern別のカード見出しラベル。daily=毎日 / weekdays=毎週平日 / weekly=毎週◯・◯曜
+  suggestionPatternLabel: (
+    pattern: "weekly" | "weekdays" | "daily",
+    weekdays: readonly number[],
+    weekdayLabels: readonly string[],
+  ) =>
+    pattern === "daily"
+      ? "毎日"
+      : pattern === "weekdays"
+        ? "毎週平日"
+        : `毎週${weekdays.map((w) => weekdayLabels[w] ?? "").join("・")}曜`,
   suggestionDescription: (
-    weekdayLabel: string,
+    patternLabel: string,
     startTime: string,
     durationLabel: string,
     count: number,
   ) =>
-    `毎週${weekdayLabel}曜 ${startTime}頃・約${durationLabel}(直近4週で${count}回)`,
+    `${patternLabel} ${startTime}頃・約${durationLabel}(直近4週で${count}回)`,
   suggestionAddThisWeek: "この週に追加",
   suggestionMakeWeekly: "毎週にする",
   suggestionDismissLabel: (title: string) => `${title}の提案を閉じる`,

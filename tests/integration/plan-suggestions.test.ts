@@ -166,6 +166,95 @@ describe("受け入れ: 毎週にする(S22)", () => {
   });
 });
 
+describe("受け入れ: 平日まとめ(S40)", () => {
+  it("S40: weekdays定期ルール作成→実体化で表示週の月〜金に rec: が生える", async () => {
+    const result = await createRecurringRule(userA.client, {
+      title: "朝スタンドアップ",
+      pattern: "weekdays",
+      weekdays: null,
+      startTime: "09:00",
+      endTime: "09:30",
+      timezone: "Asia/Tokyo",
+      startsOn: "2026-06-01",
+      endsOn: null,
+    });
+    expect(result.ok).toBe(true);
+
+    const { data: rules } = await userA.client
+      .from("recurring_rules")
+      .select("id, pattern")
+      .eq("title", "朝スタンドアップ");
+    expect(rules?.[0]?.pattern).toBe("weekdays");
+
+    await materializeRecurringInstances(userA.client, BASE_DATE);
+
+    const { data: instances } = await userA.client
+      .from("synced_events")
+      .select("google_event_id")
+      .like("google_event_id", `${RECURRING_ID_PREFIX}${rules?.[0]?.id}:%`);
+    const dates = (instances ?? []).map((row) =>
+      (row.google_event_id as string).split(":").pop(),
+    );
+    // 表示週 7/6〜7/12 の月〜金
+    for (const d of [
+      "2026-07-06",
+      "2026-07-07",
+      "2026-07-08",
+      "2026-07-09",
+      "2026-07-10",
+    ]) {
+      expect(dates).toContain(d);
+    }
+    // 週末は含まれない
+    expect(dates).not.toContain("2026-07-11"); // 土
+    expect(dates).not.toContain("2026-07-12"); // 日
+  });
+});
+
+describe("受け入れ: 毎日まとめ(S41)", () => {
+  it("S41: daily定期ルール作成→実体化で表示週の全曜日に rec: が生える", async () => {
+    const result = await createRecurringRule(userA.client, {
+      title: "服薬",
+      pattern: "daily",
+      weekdays: null,
+      startTime: "08:00",
+      endTime: "08:15",
+      timezone: "Asia/Tokyo",
+      startsOn: "2026-06-01",
+      endsOn: null,
+    });
+    expect(result.ok).toBe(true);
+
+    const { data: rules } = await userA.client
+      .from("recurring_rules")
+      .select("id, pattern")
+      .eq("title", "服薬");
+    expect(rules?.[0]?.pattern).toBe("daily");
+
+    await materializeRecurringInstances(userA.client, BASE_DATE);
+
+    const { data: instances } = await userA.client
+      .from("synced_events")
+      .select("google_event_id")
+      .like("google_event_id", `${RECURRING_ID_PREFIX}${rules?.[0]?.id}:%`);
+    const dates = (instances ?? []).map((row) =>
+      (row.google_event_id as string).split(":").pop(),
+    );
+    // 表示週 7/6〜7/12 の全曜日(土日含む)
+    for (const d of [
+      "2026-07-06",
+      "2026-07-07",
+      "2026-07-08",
+      "2026-07-09",
+      "2026-07-10",
+      "2026-07-11",
+      "2026-07-12",
+    ]) {
+      expect(dates).toContain(d);
+    }
+  });
+});
+
 describe("RLS(S23)", () => {
   it("S23: 他ユーザーの実績は取得されない", async () => {
     await insertEntry(
