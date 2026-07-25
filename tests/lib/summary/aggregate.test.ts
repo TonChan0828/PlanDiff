@@ -66,6 +66,8 @@ describe("computeGapSummary", () => {
         planMinutes: 60,
         actualMinutes: 60,
         gapMinutes: 0,
+        gapPercent: 0,
+        startDelayMinutes: 0,
         notStarted: false,
       },
     ]);
@@ -170,5 +172,94 @@ describe("computeGapSummary", () => {
       RANGE,
     );
     expect(summary.items[0]?.actualMinutes).toBe(75);
+  });
+});
+
+// 仕様書: docs/specs/P5-8_予定単位のズレと開始遅延.md S1〜S9
+describe("computeGapSummary(P5-8 ズレ%・開始遅延)", () => {
+  function planAt(
+    googleEventId: string,
+    title: string,
+    startHour: number,
+    startMinute: number,
+    endHour: number,
+    endMinute: number,
+  ): SummaryPlanEvent {
+    return {
+      googleEventId,
+      title,
+      startAt: isoAt(7, startHour, startMinute),
+      endAt: isoAt(7, endHour, endMinute),
+    };
+  }
+
+  it("P5-8 S1: 計画60分・実績82分・14分遅れで着手すると gapPercent=37・startDelayMinutes=14", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "設計タスク", 9, 0, 10, 0)],
+      [actual("a-1", "g-1", "設計タスク", 9, 14, 10, 36)],
+      RANGE,
+    );
+    expect(summary.items[0]?.gapPercent).toBe(37);
+    expect(summary.items[0]?.startDelayMinutes).toBe(14);
+  });
+
+  it("P5-8 S2: 計画30分・実績25分・2分遅れで着手すると gapPercent=-17(四捨五入)・startDelayMinutes=2", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "朝会", 9, 0, 9, 30)],
+      [actual("a-1", "g-1", "朝会", 9, 2, 9, 27)],
+      RANGE,
+    );
+    expect(summary.items[0]?.gapPercent).toBe(-17);
+    expect(summary.items[0]?.startDelayMinutes).toBe(2);
+  });
+
+  it("P5-8 S3: 同一予定に実績が複数あるとき開始遅延は最早の実績開始で算出する", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "設計タスク", 10, 0, 12, 0)],
+      [
+        actual("a-1", "g-1", "設計タスク", 10, 20, 10, 40),
+        actual("a-2", "g-1", "設計タスク", 10, 5, 10, 25),
+      ],
+      RANGE,
+    );
+    // 最早は 10:05 なので予定開始10:00に対し +5
+    expect(summary.items[0]?.startDelayMinutes).toBe(5);
+  });
+
+  it("P5-8 S5: 計画0分の予定は gapPercent が null(ゼロ除算にならない)", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "瞬間タスク", 9, 0, 9, 0)],
+      [actual("a-1", "g-1", "瞬間タスク", 9, 0, 9, 20)],
+      RANGE,
+    );
+    expect(summary.items[0]?.gapPercent).toBeNull();
+  });
+
+  it("P5-8 S6: 未着手の予定は startDelayMinutes=null・gapPercent=-100", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "未着手タスク", 9, 0, 10, 0)],
+      [],
+      RANGE,
+    );
+    expect(summary.items[0]?.startDelayMinutes).toBeNull();
+    expect(summary.items[0]?.gapPercent).toBe(-100);
+  });
+
+  it("P5-8 S8: 予定開始より前に着手すると startDelayMinutes は負(早着手)", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "設計タスク", 10, 0, 11, 0)],
+      [actual("a-1", "g-1", "設計タスク", 9, 52, 10, 40)],
+      RANGE,
+    );
+    expect(summary.items[0]?.startDelayMinutes).toBe(-8);
+  });
+
+  it("P5-8 S9: 予定開始と同時刻に着手すると startDelayMinutes=0", () => {
+    const summary = computeGapSummary(
+      [planAt("g-1", "設計タスク", 10, 0, 11, 0)],
+      [actual("a-1", "g-1", "設計タスク", 10, 0, 10, 50)],
+      RANGE,
+    );
+    expect(summary.items[0]?.startDelayMinutes).toBe(0);
   });
 });

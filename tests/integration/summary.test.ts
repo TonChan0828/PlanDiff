@@ -151,6 +151,8 @@ describe("ギャップサマリーのデータ取得〜集計(結合)", () => {
         planMinutes: 60,
         actualMinutes: 0,
         gapMinutes: -60,
+        gapPercent: -100,
+        startDelayMinutes: null,
         notStarted: true,
       },
     ]);
@@ -226,5 +228,28 @@ describe("件数ステータス行のデータ取得〜集計(結合・P5-3)", (
     expect(formatSummaryCounts(summary)).toBe(
       "予定2件・着手1・未着手1・割り込み1件(30分)",
     );
+  });
+});
+
+// 仕様書: docs/specs/P5-8_予定単位のズレと開始遅延.md S11
+describe("予定単位のズレ%・開始遅延のデータ取得〜集計(結合・P5-8)", () => {
+  it("P5-8 S11: 計画60分・実績82分・14分遅れ着手が gapPercent=37・startDelayMinutes=14 で算出される", async () => {
+    const planStart = new Date(NOW);
+    planStart.setHours(9, 0, 0, 0);
+    const planEnd = new Date(NOW);
+    planEnd.setHours(10, 0, 0, 0);
+    await seedEvent(userA, "g-1", "設計タスク", planStart, planEnd);
+
+    const actualStart = new Date(NOW);
+    actualStart.setHours(9, 14, 0, 0);
+    const actualEnd = new Date(NOW);
+    actualEnd.setHours(10, 36, 0, 0);
+    await seedEntry(userA, "g-1", "設計タスク", actualStart, actualEnd);
+
+    const summary = await buildSummary(userA, TODAY_RANGE);
+
+    expect(summary.items).toHaveLength(1);
+    expect(summary.items[0]?.gapPercent).toBe(37);
+    expect(summary.items[0]?.startDelayMinutes).toBe(14);
   });
 });

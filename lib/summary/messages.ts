@@ -28,4 +28,9 @@ export const SUMMARY_MESSAGES = {
   countsInterruption: "割り込み",
   countsInterruptionNone: "割り込みなし",
   countsSeparator: "・",
+  // P5-8: 予定単位の開始遅延
+  startDelayLabel: "着手 予定より",
+  startDelayLate: "遅れ",
+  startDelayEarly: "早い",
+  startDelayOnTime: "着手 予定どおり",
 } as const;
