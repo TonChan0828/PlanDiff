@@ -10,6 +10,7 @@ import {
   formatSignedClockMinutes,
   formatSignedDurationMinutes,
   formatSignedPercent,
+  formatStartDelay,
   formatSummaryCounts,
 } from "@/lib/summary/format";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
@@ -164,14 +165,28 @@ export default async function SummaryPage({
                         / {S.actualTotal}{" "}
                         {formatDurationMinutes(item.actualMinutes)}
                       </p>
+                      {item.startDelayMinutes !== null ? (
+                        <p
+                          data-testid="gap-item-start-delay"
+                          className="text-ink-muted text-xs tabular-nums"
+                        >
+                          {formatStartDelay(item.startDelayMinutes)}
+                        </p>
+                      ) : null}
                     </div>
                     {item.notStarted ? (
                       <span className="bg-ink/8 text-ink-muted shrink-0 rounded-full px-3 py-1 text-xs font-medium">
                         {S.notStarted}
                       </span>
                     ) : (
-                      <span className="shrink-0 font-mono text-sm font-medium tabular-nums">
+                      <span
+                        data-testid="gap-item-gap"
+                        className="shrink-0 text-right font-mono text-sm font-medium tabular-nums"
+                      >
                         {formatSignedDurationMinutes(item.gapMinutes)}
+                        {item.gapPercent !== null
+                          ? ` (${formatSignedPercent(item.gapPercent)})`
+                          : ""}
                       </span>
                     )}
                   </li>

@@ -130,3 +130,39 @@ describe("サマリーのdiffヒーロー(S1〜S4)", () => {
     expect(screen.getByText("今週のズレ")).toBeInTheDocument();
   });
 });
+
+// 仕様書: docs/specs/P5-8_予定単位のズレと開始遅延.md S4・S7
+describe("予定単位のズレ%・開始遅延(P5-8)", () => {
+  it("P5-8 S4: 着手済みの予定にズレ%と開始遅延の文言が表示される", async () => {
+    // 予定10:00〜11:00(60分)、実績10:14〜11:36(82分・14分遅れで着手)
+    fetchTimeEntriesMock.mockResolvedValue([
+      {
+        id: "e-1",
+        title: "API設計",
+        googleEventId: "g-1",
+        startAt: isoAt(10, 14),
+        endAt: isoAt(11, 36),
+      },
+    ]);
+
+    await renderSummary();
+
+    const gap = screen.getByTestId("gap-item-gap");
+    expect(gap).toHaveTextContent("+37%");
+    expect(screen.getByTestId("gap-item-start-delay")).toHaveTextContent(
+      "着手 予定より +14分遅れ",
+    );
+  });
+
+  it("P5-8 S7: 未着手の予定では開始遅延もズレ%も表示されない", async () => {
+    fetchTimeEntriesMock.mockResolvedValue([]);
+
+    await renderSummary();
+
+    expect(screen.getByText("未着手")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("gap-item-start-delay"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("gap-item-gap")).not.toBeInTheDocument();
+  });
+});

@@ -33,6 +33,13 @@ export interface GapSummaryItem {
   planMinutes: number;
   actualMinutes: number;
   gapMinutes: number;
+  /** 予定に対するズレの割合(%)。planMinutes===0 のときは算出不能で null(P5-8) */
+  gapPercent: number | null;
+  /**
+   * 予定開始に対する実着手の遅れ(分)。正=遅れ・負=早着手・0=定刻。
+   * 未着手(actualMinutes===0)のときは null(P5-8)
+   */
+  startDelayMinutes: number | null;
   notStarted: boolean;
 }
 
@@ -81,6 +88,8 @@ export function computeGapSummary(
     plansInRange.map((event) => [event.googleEventId, event]),
   );
   const actualMinutesByEventId = new Map<string, number>();
+  // 予定ごとの「最早の実績開始時刻」(ISO文字列)。開始遅延の算出に使う(P5-8)
+  const earliestActualStartByEventId = new Map<string, string>();
   const interruptions: InterruptionItem[] = [];
 
   for (const entry of actualsInRange) {
@@ -95,22 +104,40 @@ export function computeGapSummary(
       });
       continue;
     }
-    const current = actualMinutesByEventId.get(entry.googleEventId!) ?? 0;
+    const eventId = entry.googleEventId!;
+    const current = actualMinutesByEventId.get(eventId) ?? 0;
     actualMinutesByEventId.set(
-      entry.googleEventId!,
+      eventId,
       current + durationMinutes(entry.startAt, entry.endAt),
     );
+    const earliest = earliestActualStartByEventId.get(eventId);
+    if (earliest === undefined || entry.startAt < earliest) {
+      earliestActualStartByEventId.set(eventId, entry.startAt);
+    }
   }
 
   const items: GapSummaryItem[] = plansInRange.map((event) => {
     const planMinutes = durationMinutes(event.startAt, event.endAt);
     const actualMinutes = actualMinutesByEventId.get(event.googleEventId) ?? 0;
+    const gapMinutes = actualMinutes - planMinutes;
+    const earliestActualStart = earliestActualStartByEventId.get(
+      event.googleEventId,
+    );
     return {
       googleEventId: event.googleEventId,
       title: event.title,
       planMinutes,
       actualMinutes,
-      gapMinutes: actualMinutes - planMinutes,
+      gapMinutes,
+      gapPercent:
+        planMinutes === 0 ? null : Math.round((gapMinutes / planMinutes) * 100),
+      startDelayMinutes:
+        earliestActualStart === undefined
+          ? null
+          : differenceInMinutes(
+              parseISO(earliestActualStart),
+              parseISO(event.startAt),
+            ),
       notStarted: actualMinutes === 0,
     };
   });

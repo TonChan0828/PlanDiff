@@ -41,6 +41,20 @@ export function formatSignedPercent(percent: number): string {
   return `${sign}${percent}%`;
 }
 
+/**
+ * 予定単位の開始遅延を文言化する(P5-8)。
+ * 正(遅れ): "着手 予定より +14分遅れ" / 負(早着手): "着手 予定より 3分早い" / 0: "着手 予定どおり"
+ */
+export function formatStartDelay(delayMinutes: number): string {
+  if (delayMinutes === 0) {
+    return S.startDelayOnTime;
+  }
+  if (delayMinutes > 0) {
+    return `${S.startDelayLabel} ${formatSignedDurationMinutes(delayMinutes)}${S.startDelayLate}`;
+  }
+  return `${S.startDelayLabel} ${formatDurationMinutes(Math.abs(delayMinutes))}${S.startDelayEarly}`;
+}
+
 export interface SummaryCounts {
   planCount: number;
   startedCount: number;
