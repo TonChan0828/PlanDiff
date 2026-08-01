@@ -5,23 +5,23 @@ import { startOfDay } from "date-fns";
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("@/lib/calendar/events", () => ({ fetchSyncedEvents: vi.fn() }));
+vi.mock("@/lib/calendar/events", () => ({ fetchSyncedEventsInRange: vi.fn() }));
 vi.mock("@/lib/calendar/recurring", () => ({
   materializeRecurringInstances: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/timer/entries", () => ({
-  fetchTimeEntries: vi.fn(),
+  fetchTimeEntriesInRange: vi.fn(),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),
 }));
 
-import { fetchSyncedEvents } from "@/lib/calendar/events";
-import { fetchTimeEntries } from "@/lib/timer/entries";
+import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
+import { fetchTimeEntriesInRange } from "@/lib/timer/entries";
 import SummaryPage from "@/app/(app)/summary/page";
 
 // 仕様書: docs/specs/D-3_サマリーヒーローとLP.md S1〜S4(diffヒーロー)
 
-const fetchSyncedEventsMock = vi.mocked(fetchSyncedEvents);
-const fetchTimeEntriesMock = vi.mocked(fetchTimeEntries);
+const fetchSyncedEventsMock = vi.mocked(fetchSyncedEventsInRange);
+const fetchTimeEntriesMock = vi.mocked(fetchTimeEntriesInRange);
 
 const today = startOfDay(new Date());
 

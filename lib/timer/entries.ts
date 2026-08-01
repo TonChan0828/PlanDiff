@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, startOfWeek } from "date-fns";
-import { computeSyncRange } from "@/lib/google/sync-range";
+import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
 // page(Server Component)用の time_entries 読み取りヘルパー(P2-2)。
@@ -13,7 +13,14 @@ export async function fetchTimeEntries(
   client: SupabaseClient,
   baseDate: Date,
 ): Promise<TimeEntryItem[]> {
-  const range = computeSyncRange(baseDate);
+  return fetchTimeEntriesInRange(client, computeSyncRange(baseDate));
+}
+
+/** 任意期間の確定済み実績を取得する(P5-9)。期間と重なる実績を返す */
+export async function fetchTimeEntriesInRange(
+  client: SupabaseClient,
+  range: SyncRange,
+): Promise<TimeEntryItem[]> {
   const { data, error } = await client
     .from("time_entries")
     .select("id, title, google_event_id, start_at, end_at")

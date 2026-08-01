@@ -33,4 +33,18 @@ export const SUMMARY_MESSAGES = {
   startDelayLate: "遅れ",
   startDelayEarly: "早い",
   startDelayOnTime: "着手 予定どおり",
+  // P5-9: 任意期間表示
+  monthTab: "今月",
+  customTab: "カスタム",
+  gapHeroMonth: "今月のズレ",
+  gapHeroCustom: "この期間のズレ",
+  rangeGroupLabel: "集計期間",
+  prevRange: "前の期間",
+  nextRange: "次の期間",
+  customFrom: "開始",
+  customTo: "終了",
+  customSubmit: "表示",
+  rangeTooLong: "期間は最大366日までです。期間を短くして表示し直してください",
+  averageStartDelayLabel: "着手 予定より平均",
+  averageStartDelayOnTime: "着手 平均で予定どおり",
 } as const;

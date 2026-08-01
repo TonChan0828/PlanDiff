@@ -1,10 +1,11 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { computeSyncRange } from "@/lib/google/sync-range";
+import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
 
 // page(Server Component)用の synced_events 読み取りヘルパー(P2-1)。
-// 期間は「基準日を含む週 ± 1週間」(FR-02と同じ)。RLSにより本人の行のみ返る。
+// 期間は既定で「基準日を含む週 ± 1週間」(FR-02と同じ)。RLSにより本人の行のみ返る。
+// サマリーの任意期間表示(P5-9)のために任意期間を渡せる版も用意する。
 
 export interface SyncedEvent {
   id: string;
@@ -23,7 +24,14 @@ export async function fetchSyncedEvents(
   client: SupabaseClient,
   baseDate: Date,
 ): Promise<SyncedEvent[]> {
-  const range = computeSyncRange(baseDate);
+  return fetchSyncedEventsInRange(client, computeSyncRange(baseDate));
+}
+
+/** 任意期間の予定を取得する(P5-9)。期間と重なる予定を返す */
+export async function fetchSyncedEventsInRange(
+  client: SupabaseClient,
+  range: SyncRange,
+): Promise<SyncedEvent[]> {
   const { data, error } = await client
     .from("synced_events")
     .select("id, google_event_id, title, start_at, end_at, source")

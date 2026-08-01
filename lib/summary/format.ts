@@ -1,6 +1,9 @@
 // 分数を「3時間15分」形式の日本語表示に変換する(P3-2)。
 
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
+import type { ResolvedSummaryRange } from "@/lib/summary/range";
 
 export function formatDurationMinutes(totalMinutes: number): string {
   const minutes = Math.round(totalMinutes);
@@ -41,18 +44,56 @@ export function formatSignedPercent(percent: number): string {
   return `${sign}${percent}%`;
 }
 
+function formatDelayWith(
+  label: string,
+  onTimeLabel: string,
+  delayMinutes: number,
+): string {
+  if (delayMinutes === 0) {
+    return onTimeLabel;
+  }
+  if (delayMinutes > 0) {
+    return `${label} ${formatSignedDurationMinutes(delayMinutes)}${S.startDelayLate}`;
+  }
+  return `${label} ${formatDurationMinutes(Math.abs(delayMinutes))}${S.startDelayEarly}`;
+}
+
 /**
  * 予定単位の開始遅延を文言化する(P5-8)。
  * 正(遅れ): "着手 予定より +14分遅れ" / 負(早着手): "着手 予定より 3分早い" / 0: "着手 予定どおり"
  */
 export function formatStartDelay(delayMinutes: number): string {
-  if (delayMinutes === 0) {
-    return S.startDelayOnTime;
+  return formatDelayWith(S.startDelayLabel, S.startDelayOnTime, delayMinutes);
+}
+
+/**
+ * 集約行の平均開始遅延を文言化する(P5-9)。
+ * 例: "着手 予定より平均 +8分遅れ" / "着手 予定より平均 3分早い" / "着手 平均で予定どおり"
+ */
+export function formatAverageStartDelay(delayMinutes: number): string {
+  return formatDelayWith(
+    S.averageStartDelayLabel,
+    S.averageStartDelayOnTime,
+    delayMinutes,
+  );
+}
+
+/**
+ * 期間ラベルを組み立てる(P5-9)。表記は calendar-view と揃える。
+ * today: "2026年8月1日(土)" / week・custom: "2026年7月27日〜8月2日"
+ * (年をまたぐときは末尾にも年を出す) / month: "2026年8月"
+ */
+export function formatRangeLabel(resolved: ResolvedSummaryRange): string {
+  const { key, from, to } = resolved;
+  if (key === "month") {
+    return format(from, "yyyy年M月", { locale: ja });
   }
-  if (delayMinutes > 0) {
-    return `${S.startDelayLabel} ${formatSignedDurationMinutes(delayMinutes)}${S.startDelayLate}`;
+  if (key === "today" || resolved.dayCount === 1) {
+    return format(from, "yyyy年M月d日(E)", { locale: ja });
   }
-  return `${S.startDelayLabel} ${formatDurationMinutes(Math.abs(delayMinutes))}${S.startDelayEarly}`;
+  const tail =
+    from.getFullYear() === to.getFullYear() ? "M月d日" : "yyyy年M月d日";
+  return `${format(from, "yyyy年M月d日", { locale: ja })}〜${format(to, tail, { locale: ja })}`;
 }
 
 export interface SummaryCounts {

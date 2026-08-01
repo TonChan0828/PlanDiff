@@ -2,7 +2,7 @@ import "server-only";
 
 import { TZDate } from "@date-fns/tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { computeSyncRange } from "@/lib/google/sync-range";
+import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
 import {
   RECURRING_ID_PREFIX,
   parseRecurringEventId,
@@ -485,13 +485,17 @@ export async function fetchRecurringRules(
 // --- 実体化(表示範囲の読み込み時に呼ぶ) ---
 
 /**
- * 本人の繰り返しルールを表示範囲(baseDateの週±1週間)に展開し、
+ * 本人の繰り返しルールを表示範囲に展開し、
  * synced_events へ source='app' で冪等insertする(ON CONFLICT DO NOTHING)。
  * 既存行(個別編集済みの回を含む)は一切上書きしない。失敗してもページ全体は落とさない。
+ *
+ * 範囲は既定で「baseDateの週±1週間」。サマリーの任意期間表示(P5-9)では
+ * 選択期間を `range` で明示して渡し、その期間ぶんも実体化する。
  */
 export async function materializeRecurringInstances(
   client: SupabaseClient,
   baseDate: Date,
+  range: SyncRange = computeSyncRange(baseDate),
 ): Promise<void> {
   const { data: userData } = await client.auth.getUser();
   if (!userData.user) {
@@ -523,7 +527,6 @@ export async function materializeRecurringInstances(
     exceptionsByRule.set(ruleId, set);
   }
 
-  const range = computeSyncRange(baseDate);
   const rangeStart = new Date(range.timeMin);
   const rangeEnd = new Date(range.timeMax);
 
