@@ -63,6 +63,28 @@ export interface GapSummary {
   interruptions: InterruptionItem[];
 }
 
+/** 2日以上の期間で同タイトルをまとめた内訳(P5-9) */
+export interface GroupedGapSummaryItem {
+  title: string;
+  /** その期間に含まれる同タイトルの予定件数 */
+  count: number;
+  planMinutes: number;
+  actualMinutes: number;
+  gapMinutes: number;
+  /** 合計値から再計算する。planMinutes===0 のときは算出不能で null */
+  gapPercent: number | null;
+  /** 着手済み(startDelayMinutes が非null)の予定のみの平均。全件未着手なら null */
+  averageStartDelayMinutes: number | null;
+  notStartedCount: number;
+}
+
+/** 2日以上の期間で同タイトルをまとめた割り込み(P5-9) */
+export interface GroupedInterruptionItem {
+  title: string;
+  count: number;
+  actualMinutes: number;
+}
+
 function durationMinutes(startAt: string, endAt: string): number {
   return differenceInMinutes(parseISO(endAt), parseISO(startAt));
 }
@@ -172,4 +194,87 @@ export function computeGapSummary(
     items,
     interruptions,
   };
+}
+
+/**
+ * 予定ごとの内訳を同タイトルでまとめる(P5-9)。
+ * 期間が2日以上のときに使い、単日では従来どおり1予定1行のまま表示する。
+ * 並び順は |ズレ| 降順 → タイトル昇順。
+ */
+export function groupItemsByTitle(
+  items: GapSummaryItem[],
+): GroupedGapSummaryItem[] {
+  const byTitle = new Map<
+    string,
+    GroupedGapSummaryItem & { delaySum: number; delayCount: number }
+  >();
+
+  for (const item of items) {
+    const group = byTitle.get(item.title) ?? {
+      title: item.title,
+      count: 0,
+      planMinutes: 0,
+      actualMinutes: 0,
+      gapMinutes: 0,
+      gapPercent: null,
+      averageStartDelayMinutes: null,
+      notStartedCount: 0,
+      delaySum: 0,
+      delayCount: 0,
+    };
+    group.count += 1;
+    group.planMinutes += item.planMinutes;
+    group.actualMinutes += item.actualMinutes;
+    group.gapMinutes += item.gapMinutes;
+    if (item.notStarted) {
+      group.notStartedCount += 1;
+    }
+    if (item.startDelayMinutes !== null) {
+      group.delaySum += item.startDelayMinutes;
+      group.delayCount += 1;
+    }
+    byTitle.set(item.title, group);
+  }
+
+  return [...byTitle.values()]
+    .map(({ delaySum, delayCount, ...group }) => ({
+      ...group,
+      gapPercent:
+        group.planMinutes === 0
+          ? null
+          : Math.round((group.gapMinutes / group.planMinutes) * 100),
+      averageStartDelayMinutes:
+        delayCount === 0 ? null : Math.round(delaySum / delayCount),
+    }))
+    .sort(
+      (a, b) =>
+        Math.abs(b.gapMinutes) - Math.abs(a.gapMinutes) ||
+        a.title.localeCompare(b.title),
+    );
+}
+
+/**
+ * 割り込み・フリー作業を同タイトルでまとめる(P5-9)。
+ * 並び順は合計時間の降順 → タイトル昇順。
+ */
+export function groupInterruptionsByTitle(
+  interruptions: InterruptionItem[],
+): GroupedInterruptionItem[] {
+  const byTitle = new Map<string, GroupedInterruptionItem>();
+
+  for (const item of interruptions) {
+    const group = byTitle.get(item.title) ?? {
+      title: item.title,
+      count: 0,
+      actualMinutes: 0,
+    };
+    group.count += 1;
+    group.actualMinutes += item.actualMinutes;
+    byTitle.set(item.title, group);
+  }
+
+  return [...byTitle.values()].sort(
+    (a, b) =>
+      b.actualMinutes - a.actualMinutes || a.title.localeCompare(b.title),
+  );
 }
