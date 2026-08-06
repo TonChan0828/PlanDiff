@@ -3,6 +3,7 @@ import Link from "next/link";
 import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { toDateParam } from "@/lib/calendar/view-date";
+import { RowLimitExceededError } from "@/lib/errors/row-limit";
 import {
   computeGapSummary,
   groupInterruptionsByTitle,
@@ -185,33 +186,51 @@ export default async function SummaryPage({
     </div>
   );
 
+  // 集計できない期間は、期間タブ・前後移動を残したまま理由だけを表示する
+  const rangeErrorMain = (message: string) => (
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <h1 className="text-2xl font-bold tracking-tight">{S.heading}</h1>
+      {rangeControls}
+      <p
+        role="alert"
+        data-testid="summary-range-error"
+        className="border-line bg-surface rounded-lg border p-4 text-sm"
+      >
+        {message}
+      </p>
+    </main>
+  );
+
   if (resolved.error === "too-long") {
-    return (
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <h1 className="text-2xl font-bold tracking-tight">{S.heading}</h1>
-        {rangeControls}
-        <p
-          role="alert"
-          data-testid="summary-range-error"
-          className="border-line bg-surface rounded-lg border p-4 text-sm"
-        >
-          {S.rangeTooLong}
-        </p>
-      </main>
-    );
+    return rangeErrorMain(S.rangeTooLong);
   }
 
   const supabase = await createClient();
   const syncRange = toSyncRange(resolved.range);
 
-  // 繰り返し予定の実体化はfetchSyncedEventsInRangeの直前に完了させる必要があるため直列で実行する(P5-1)。
-  // 選択期間ぶんも実体化する(P5-9)
-  await materializeRecurringInstances(supabase, now, syncRange);
-  const [planEvents, timeEntries, runningEntry] = await Promise.all([
-    fetchSyncedEventsInRange(supabase, syncRange),
-    fetchTimeEntriesInRange(supabase, syncRange),
-    fetchRunningEntry(supabase),
-  ]);
+  let loaded: [
+    Awaited<ReturnType<typeof fetchSyncedEventsInRange>>,
+    Awaited<ReturnType<typeof fetchTimeEntriesInRange>>,
+    Awaited<ReturnType<typeof fetchRunningEntry>>,
+  ];
+  try {
+    // 繰り返し予定の実体化はfetchSyncedEventsInRangeの直前に完了させる必要があるため直列で実行する(P5-1)。
+    // 選択期間ぶんも実体化する(P5-9)
+    await materializeRecurringInstances(supabase, now, syncRange);
+    loaded = await Promise.all([
+      fetchSyncedEventsInRange(supabase, syncRange),
+      fetchTimeEntriesInRange(supabase, syncRange),
+      fetchRunningEntry(supabase),
+    ]);
+  } catch (error) {
+    // 行数上限に達した場合は誤った集計値を出さず、理由を日本語で示す(P6-0)。
+    // それ以外のエラーはエラー境界(app/error.tsx)に委ねる
+    if (error instanceof RowLimitExceededError) {
+      return rangeErrorMain(S.rangeTooManyRows);
+    }
+    throw error;
+  }
+  const [planEvents, timeEntries, runningEntry] = loaded;
   const actualInputs = actualBlockInputs(timeEntries, runningEntry, now);
   const summary = computeGapSummary(planEvents, actualInputs, resolved.range);
 

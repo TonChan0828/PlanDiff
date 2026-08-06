@@ -45,6 +45,8 @@ export const SUMMARY_MESSAGES = {
   customTo: "終了",
   customSubmit: "表示",
   rangeTooLong: "期間は最大366日までです。期間を短くして表示し直してください",
+  rangeTooManyRows:
+    "この期間はデータが多すぎて集計できません。期間を短くして表示し直してください",
   averageStartDelayLabel: "着手 予定より平均",
   averageStartDelayOnTime: "着手 平均で予定どおり",
 } as const;
