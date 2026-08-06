@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, startOfWeek } from "date-fns";
 import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
+import { fetchAllPages } from "@/lib/supabase/paged-fetch";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
 // page(Server Component)用の time_entries 読み取りヘルパー(P2-2)。
@@ -21,19 +22,25 @@ export async function fetchTimeEntriesInRange(
   client: SupabaseClient,
   range: SyncRange,
 ): Promise<TimeEntryItem[]> {
-  const { data, error } = await client
-    .from("time_entries")
-    .select("id, title, google_event_id, start_at, end_at")
-    .not("end_at", "is", null)
-    .lt("start_at", range.timeMax)
-    .gt("end_at", range.timeMin)
-    .order("start_at", { ascending: true });
-  if (error) {
-    // 詳細(接続情報等)をユーザー向けに漏らさない
-    throw new Error("実績の読み込みに失敗しました");
-  }
+  // PostgRESTのmax_rowsによる無言の切り捨てを避けるためページングで全件取得する(P6-0)。
+  // 詳細(接続情報等)はユーザー向けに漏らさない
+  const data = await fetchAllPages<Record<string, unknown>>(
+    (from, to) =>
+      client
+        .from("time_entries")
+        .select("id, title, google_event_id, start_at, end_at")
+        .not("end_at", "is", null)
+        .lt("start_at", range.timeMax)
+        .gt("end_at", range.timeMin)
+        .order("start_at", { ascending: true })
+        // start_at が同値の行があるとページ間で重複・欠落が起きるため、
+        // 一意な id を第2ソートキーにして順序を確定させる(P6-0)
+        .order("id", { ascending: true })
+        .range(from, to),
+    "実績の読み込みに失敗しました",
+  );
   // Postgresの「+00:00」表記を「Z」のUTC ISOへ正規化して返す
-  return (data ?? []).map((row) => ({
+  return data.map((row) => ({
     id: row.id as string,
     title: row.title as string,
     googleEventId: (row.google_event_id as string | null) ?? null,
