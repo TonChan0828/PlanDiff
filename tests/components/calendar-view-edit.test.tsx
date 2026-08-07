@@ -115,7 +115,8 @@ describe("実績ブロックタップで編集パネルを開く(S10/S11)", () =
       screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
     );
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("タイトル")).toHaveValue("朝会");
   });
 
@@ -136,7 +137,7 @@ describe("編集パネルの保存(S12/S13)", () => {
     await user.click(
       screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
     );
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
 
     expect(updateTimeEntryActionMock).toHaveBeenCalledWith("entry-1", {
       title: "朝会",
@@ -157,7 +158,7 @@ describe("編集パネルの保存(S12/S13)", () => {
     await user.click(
       screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
     );
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
 
     expect(await screen.findByText(UPDATE_ERROR)).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();

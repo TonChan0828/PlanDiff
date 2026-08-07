@@ -1,7 +1,7 @@
 // 分数を「3時間15分」形式の日本語表示に変換する(P3-2)。
 
 import { format } from "date-fns";
-import { ja } from "date-fns/locale";
+import { jaMinimal as ja } from "@/lib/ui/ja-locale";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
 import type { ResolvedSummaryRange } from "@/lib/summary/range";
 

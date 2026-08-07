@@ -140,7 +140,8 @@ describe("繰り返し予定の作成(S13)", () => {
     renderView();
 
     await user.click(screen.getByRole("button", { name: M.eventAdd }));
-    await user.type(screen.getByLabelText(M.eventTitleField), "夕会");
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    await user.type(await screen.findByLabelText(M.eventTitleField), "夕会");
     // 作成パネルの初期時刻は「現在時刻の次の正時から1時間」で実行時刻に依存する
     // (22時台に実行すると23:00〜翌0:00になり、繰り返しの同日バリデーションで保存が
     // 弾かれてしまう)ため、同日内の時刻を明示して決定的にする
@@ -177,7 +178,7 @@ describe("rec:予定の編集導線(S14/S15)", () => {
     );
 
     expect(
-      screen.getByText(M.recurringEditChoiceOccurrence),
+      await screen.findByText(M.recurringEditChoiceOccurrence),
     ).toBeInTheDocument();
     expect(screen.getByText(M.recurringEditChoiceSeries)).toBeInTheDocument();
   });
@@ -191,10 +192,12 @@ describe("rec:予定の編集導線(S14/S15)", () => {
       screen.getByRole("button", { name: M.eventEditLabel("設計作業") }),
     );
 
+    expect(await screen.findByLabelText(M.eventTitleField)).toHaveValue(
+      "設計作業",
+    );
     expect(
       screen.queryByText(M.recurringEditChoiceOccurrence),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText(M.eventTitleField)).toHaveValue("設計作業");
   });
 
   it("S15: 選択ステップで「繰り返し全体」を選ぶと、ルールの初期値付きで編集モードが開く", async () => {
@@ -205,9 +208,9 @@ describe("rec:予定の編集導線(S14/S15)", () => {
     await user.click(
       screen.getByRole("button", { name: M.eventEditLabel("朝会") }),
     );
-    await user.click(screen.getByText(M.recurringEditChoiceSeries));
+    await user.click(await screen.findByText(M.recurringEditChoiceSeries));
 
-    expect(screen.getByText(M.recurringEditWarning)).toBeInTheDocument();
+    expect(await screen.findByText(M.recurringEditWarning)).toBeInTheDocument();
     expect(screen.getByLabelText(M.eventTitleField)).toHaveValue("朝会");
   });
 

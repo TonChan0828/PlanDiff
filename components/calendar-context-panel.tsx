@@ -1,8 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { format, isSameDay, parseISO } from "date-fns";
-import { ja } from "date-fns/locale";
+import { jaMinimal as ja } from "@/lib/ui/ja-locale";
 import { CalendarClock, Lightbulb, Pencil, Play, X } from "lucide-react";
 import type { CalendarViewEvent } from "@/components/calendar-view";
 import { PlanSuggestions } from "@/components/plan-suggestions";
@@ -13,20 +13,30 @@ import type { TimeEntryItem } from "@/lib/timer/types";
 
 export type CalendarContextTab = "day" | "suggestions";
 
-function subscribeDesktop(callback: () => void) {
+// useSyncExternalStore の getSnapshot はレンダーごとに呼ばれる。
+// 毎回 window.matchMedia() で MediaQueryList を作り直さないようキャッシュする(P6-3)
+const DESKTOP_QUERY = "(min-width: 1024px)";
+let desktopMedia: MediaQueryList | null = null;
+
+function getDesktopMedia(): MediaQueryList | null {
   if (typeof window === "undefined" || !window.matchMedia) {
+    return null;
+  }
+  desktopMedia ??= window.matchMedia(DESKTOP_QUERY);
+  return desktopMedia;
+}
+
+function subscribeDesktop(callback: () => void) {
+  const media = getDesktopMedia();
+  if (!media) {
     return () => {};
   }
-  const media = window.matchMedia("(min-width: 1024px)");
   media.addEventListener("change", callback);
   return () => media.removeEventListener("change", callback);
 }
 
 function getDesktopSnapshot() {
-  return (
-    typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(min-width: 1024px)").matches)
-  );
+  return Boolean(getDesktopMedia()?.matches);
 }
 
 interface CalendarContextPanelProps {
@@ -66,12 +76,22 @@ export function CalendarContextPanel({
     () => false,
   );
   const visible = open || desktop;
-  const dayEvents = events
-    .filter((event) => isSameDay(parseISO(event.startAt), selectedDate))
-    .sort((a, b) => a.startAt.localeCompare(b.startAt));
-  const dayEntries = timeEntries
-    .filter((entry) => isSameDay(parseISO(entry.startAt), selectedDate))
-    .sort((a, b) => a.startAt.localeCompare(b.startAt));
+  // デスクトップでは常時マウントされるため、親の再レンダーのたびに
+  // parseISO + sort が走らないようメモ化する(P6-3)
+  const dayEvents = useMemo(
+    () =>
+      events
+        .filter((event) => isSameDay(parseISO(event.startAt), selectedDate))
+        .sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    [events, selectedDate],
+  );
+  const dayEntries = useMemo(
+    () =>
+      timeEntries
+        .filter((entry) => isSameDay(parseISO(entry.startAt), selectedDate))
+        .sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    [timeEntries, selectedDate],
+  );
 
   return (
     <>

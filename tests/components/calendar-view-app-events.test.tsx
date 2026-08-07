@@ -115,7 +115,8 @@ describe("予定の作成(S1)", () => {
     renderView();
 
     await user.click(screen.getByRole("button", { name: M.eventAdd }));
-    const dialog = screen.getByRole("dialog");
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(M.eventTitleField), "レビュー対応");
@@ -152,7 +153,7 @@ describe("アプリ予定の編集導線(S4/S5)", () => {
       screen.getByRole("button", { name: M.eventEditLabel("設計作業") }),
     );
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText(M.eventTitleField)).toHaveValue("設計作業");
   });
 

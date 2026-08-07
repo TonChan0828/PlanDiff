@@ -9,6 +9,7 @@ const { routerMock } = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => routerMock }));
 
 import { CalendarView } from "@/components/calendar-view";
+import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { computeSyncRange } from "@/lib/google/sync-range";
 
 // 仕様書: docs/specs/P2-1_カレンダービュー.md S7〜S13
@@ -321,5 +322,77 @@ describe("CalendarView 現在時刻ライン(S13)", () => {
 
     expect(screen.queryByTestId("current-time-line")).not.toBeInTheDocument();
     await screen.findByRole("button", { name: "更新" });
+  });
+});
+
+// 仕様書: docs/specs/P6-3_クライアントバンドルとレンダリング.md S9〜S12
+describe("メモ化と遅延ロードの非退行(S9〜S12)", () => {
+  it("S9: 予定が1件もない期間では空メッセージが出る", () => {
+    render(
+      <CalendarView
+        events={[]}
+        googleEnabled={false}
+        dateParam={todayParam}
+        viewParam="day"
+      />,
+    );
+
+    expect(screen.getByText(M.empty)).toBeInTheDocument();
+  });
+
+  it("S10: 予定がある期間では空メッセージが出ない", () => {
+    render(
+      <CalendarView
+        events={todaysEvents}
+        googleEnabled={false}
+        dateParam={todayParam}
+        viewParam="day"
+      />,
+    );
+
+    expect(screen.queryByText(M.empty)).not.toBeInTheDocument();
+    expect(screen.getByText("設計レビュー")).toBeInTheDocument();
+  });
+
+  it("S11: コンテキストパネルを開閉しても予定ブロックの表示が変わらない", async () => {
+    const user = userEvent.setup();
+    render(
+      <CalendarView
+        events={todaysEvents}
+        googleEnabled={false}
+        dateParam={todayParam}
+        viewParam="week"
+      />,
+    );
+
+    const before = screen.getAllByText("設計レビュー").length;
+
+    await user.click(screen.getByRole("button", { name: M.contextOpen }));
+    const during = screen.getAllByText("設計レビュー").length;
+    // 閉じる導線は背景オーバーレイとパネル内ボタンの2つある
+    await user.click(
+      screen.getAllByRole("button", { name: M.contextClose })[0]!,
+    );
+
+    expect(during).toBeGreaterThanOrEqual(before);
+    expect(screen.getAllByText("設計レビュー").length).toBe(before);
+  });
+
+  it("S12: 遅延ロードされた予定作成パネルが開き、フォーカスがパネル内へ移る", async () => {
+    const user = userEvent.setup();
+    render(
+      <CalendarView
+        events={[]}
+        googleEnabled={false}
+        dateParam={todayParam}
+        viewParam="day"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: M.eventAdd }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 });
