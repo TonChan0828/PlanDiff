@@ -86,13 +86,17 @@ describe("fetchSyncedEventsInRange の異常系(S6・S7)", () => {
     );
   });
 
-  it("S7: 期間の絞り込み条件は従来どおり維持される", async () => {
+  it("S7/P6-2 S1: 重なり判定は範囲型の生成列で行う(全履歴スキャンを避ける)", async () => {
     const { client, filters } = createPagedQueryMock(buildEventRows(1));
 
     await fetchSyncedEventsInRange(client, RANGE);
 
-    expect(filters).toContain(`lt:start_at:${RANGE.timeMax}`);
-    expect(filters).toContain(`gt:end_at:${RANGE.timeMin}`);
+    expect(filters).toContain(
+      `overlaps:span:[${RANGE.timeMin},${RANGE.timeMax})`,
+    );
+    // 片側境界しか使えない旧条件は残さない
+    expect(filters).not.toContain(`lt:start_at:${RANGE.timeMax}`);
+    expect(filters).not.toContain(`gt:end_at:${RANGE.timeMin}`);
   });
 
   it("S7: start_at同値でもページ順序が確定するよう id を第2ソートキーにする", async () => {

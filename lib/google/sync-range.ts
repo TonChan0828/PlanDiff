@@ -11,6 +11,15 @@ export interface SyncRange {
   timeMax: string;
 }
 
+/**
+ * 期間を Postgres の tstzrange リテラルへ変換する(P6-2)。
+ * 下端を含み上端を含まない `[min,max)` で、従来の
+ * `start_at < timeMax AND end_at > timeMin` と同じ境界の意味になる。
+ */
+export function toRangeLiteral(range: SyncRange): string {
+  return `[${range.timeMin},${range.timeMax})`;
+}
+
 export function computeSyncRange(displayedDate: Date): SyncRange {
   const weekStart = startOfWeek(displayedDate, { weekStartsOn: 1 });
   return {

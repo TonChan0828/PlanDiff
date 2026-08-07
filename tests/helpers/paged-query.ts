@@ -59,6 +59,10 @@ export function createPagedQueryMock(
       filters.push(`gte:${column}:${String(value)}`);
       return builder;
     }),
+    overlaps: vi.fn((column: string, value: unknown) => {
+      filters.push(`overlaps:${column}:${String(value)}`);
+      return builder;
+    }),
     order: vi.fn((column: string) => {
       orders.push(column);
       return builder;

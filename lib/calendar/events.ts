@@ -1,7 +1,11 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
+import {
+  computeSyncRange,
+  toRangeLiteral,
+  type SyncRange,
+} from "@/lib/google/sync-range";
 import { fetchAllPages } from "@/lib/supabase/paged-fetch";
 
 // page(Server Component)用の synced_events 読み取りヘルパー(P2-1)。
@@ -40,8 +44,9 @@ export async function fetchSyncedEventsInRange(
       client
         .from("synced_events")
         .select("id, google_event_id, title, start_at, end_at, source")
-        .lt("start_at", range.timeMax)
-        .gt("end_at", range.timeMin)
+        // 期間との重なりは範囲型の生成列で判定する。GiSTインデックスが効き、
+        // 履歴全体をスキャンしなくなる(P6-2)
+        .overlaps("span", toRangeLiteral(range))
         .order("start_at", { ascending: true })
         // start_at が同値の行があるとページ間で重複・欠落が起きるため、
         // 一意な id を第2ソートキーにして順序を確定させる(P6-0)
