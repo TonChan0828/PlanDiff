@@ -60,7 +60,7 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
     await user.click(screen.getByRole("button", { name: "開始 09:00 を変更" }));
 
     expect(
-      screen.getByRole("dialog", { name: "開始時刻を変更" }),
+      await screen.findByRole("dialog", { name: "開始時刻を変更" }),
     ).toBeInTheDocument();
     expectDateTimeStepperValue("開始時刻", format(START, "yyyy-MM-dd'T'HH:mm"));
   });
@@ -102,7 +102,7 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
       await screen.findByText("開始時刻を変更できませんでした"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "開始時刻を変更" }),
+      await screen.findByRole("dialog", { name: "開始時刻を変更" }),
     ).toBeInTheDocument();
   });
 });

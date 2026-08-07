@@ -46,6 +46,34 @@ interface WorkItem<T extends CalendarBlockInput> {
   columnCount: number;
 }
 
+/** その日に表示されるかの判定。layoutDayEvents と hasEventOnDay で共有する */
+function intersectsDay(start: Date, end: Date, dayStart: Date, dayEnd: Date) {
+  return (
+    (start < dayEnd && end > dayStart) ||
+    // 開始=終了の予定も、その時刻が日内なら表示する
+    (start.getTime() === end.getTime() && start >= dayStart && start < dayEnd)
+  );
+}
+
+/**
+ * その日に表示されるイベントが1件でもあるかを返す(P6-3)。
+ * 「空メッセージを出すか」の判定だけのために layoutDayEvents を全日ぶん実行して
+ * 結果を捨てていたのを置き換える。判定条件は layoutDayEvents と共有しており、
+ * 「layoutDayEvents(events, day).length > 0」と常に一致する。
+ */
+export function hasEventOnDay(events: CalendarBlockInput[], day: Date) {
+  const dayStart = startOfDay(day);
+  const dayEnd = addDays(dayStart, 1);
+  return events.some((input) =>
+    intersectsDay(
+      parseISO(input.startAt),
+      parseISO(input.endAt),
+      dayStart,
+      dayEnd,
+    ),
+  );
+}
+
 export function layoutDayEvents<T extends CalendarBlockInput>(
   events: T[],
   day: Date,
@@ -57,13 +85,7 @@ export function layoutDayEvents<T extends CalendarBlockInput>(
   for (const input of events) {
     const start = parseISO(input.startAt);
     const end = parseISO(input.endAt);
-    const intersects =
-      (start < dayEnd && end > dayStart) ||
-      // 開始=終了の予定も、その時刻が日内なら表示する
-      (start.getTime() === end.getTime() &&
-        start >= dayStart &&
-        start < dayEnd);
-    if (!intersects) {
+    if (!intersectsDay(start, end, dayStart, dayEnd)) {
       continue;
     }
 

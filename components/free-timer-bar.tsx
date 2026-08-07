@@ -26,7 +26,7 @@ export function FreeTimerBar({ onStart, pending }: FreeTimerBarProps) {
     <form
       data-testid="free-timer-bar"
       onSubmit={handleSubmit}
-      className="border-line bg-surface/95 sticky bottom-2 z-10 flex items-center gap-3 rounded-xl border py-2 pr-2 pl-4 shadow-lg backdrop-blur"
+      className="border-line bg-surface/95 sticky bottom-2 z-10 flex items-center gap-3 rounded-xl border py-2 pr-2 pl-4 shadow-lg"
     >
       <input
         type="text"

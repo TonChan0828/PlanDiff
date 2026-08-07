@@ -165,7 +165,7 @@ describe("コンテキストパネルの再計測ボタン(S6)", () => {
       within(panel).getByRole("button", { name: "メール処理の実績を編集" }),
     );
     expect(
-      screen.getByRole("dialog", { name: "実績を編集" }),
+      await screen.findByRole("dialog", { name: "実績を編集" }),
     ).toBeInTheDocument();
   });
 });

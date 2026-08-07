@@ -3,11 +3,33 @@
 import {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+// 編集系パネルは「開いたときだけ」描画されるため、初回ロードから外す(P6-3)。
+// これらが引きずる DateTimeStepper も同時に遅延化される。
+const AppEventPanel = dynamic(() =>
+  import("@/components/app-event-panel").then((m) => m.AppEventPanel),
+);
+const EditEntryPanel = dynamic(() =>
+  import("@/components/edit-entry-panel").then((m) => m.EditEntryPanel),
+);
+const EditStartPanel = dynamic(() =>
+  import("@/components/edit-start-panel").then((m) => m.EditStartPanel),
+);
+const RecurringEditChoicePanel = dynamic(() =>
+  import("@/components/recurring-edit-choice-panel").then(
+    (m) => m.RecurringEditChoicePanel,
+  ),
+);
+const RecurringRulePanel = dynamic(() =>
+  import("@/components/recurring-rule-panel").then((m) => m.RecurringRulePanel),
+);
 import {
   differenceInMinutes,
   format,
@@ -16,7 +38,7 @@ import {
   startOfDay,
   startOfWeek,
 } from "date-fns";
-import { ja } from "date-fns/locale";
+import { jaMinimal as ja } from "@/lib/ui/ja-locale";
 import {
   CalendarPlus,
   ChevronLeft,
@@ -40,33 +62,27 @@ import {
   updateRunningStartAction,
   updateTimeEntryAction,
 } from "@/app/(app)/calendar/timer-actions";
-import {
-  AppEventPanel,
-  type AppEventPanelValues,
-  type RecurringSubmitValues,
+import type {
+  AppEventPanelValues,
+  RecurringSubmitValues,
 } from "@/components/app-event-panel";
 import {
   CalendarContextPanel,
   type CalendarContextTab,
 } from "@/components/calendar-context-panel";
-import {
-  EditEntryPanel,
-  type EditEntryPanelEntry,
-  type EditEntrySaveInput,
+import type {
+  EditEntryPanelEntry,
+  EditEntrySaveInput,
 } from "@/components/edit-entry-panel";
-import { EditStartPanel } from "@/components/edit-start-panel";
 import { FreeTimerBar } from "@/components/free-timer-bar";
 import {
   GoogleConnectionBanner,
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
-import { RecurringEditChoicePanel } from "@/components/recurring-edit-choice-panel";
-import {
-  RecurringRulePanel,
-  type RecurringRulePanelValues,
-} from "@/components/recurring-rule-panel";
+import type { RecurringRulePanelValues } from "@/components/recurring-rule-panel";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
+  hasEventOnDay,
   layoutDayEvents,
   type CalendarBlock,
   type CalendarBlockInput,
@@ -724,11 +740,18 @@ export function CalendarView({
       .finally(() => setEditPending(false));
   };
 
-  // 実績レーンの入力(確定済み+実行中)。実行中ブロックは現在時刻に依存するためハイドレーション後のみ
-  const actualInputs = actualBlockInputs(
-    timeEntries,
-    now ? running : null,
-    now ?? new Date(0),
+  // 実績レーンの入力(確定済み+実行中)。実行中ブロックは現在時刻に依存するためハイドレーション後のみ。
+  // now をそのまま使うとレンダーのたびに参照が変わり DayColumn のメモ化が効かないため、
+  // 分単位に丸めた値を基準にする(ブロック高さの差は1分未満=1px未満。P6-3)
+  const nowMinuteMs = now ? Math.floor(now.getTime() / 60_000) * 60_000 : null;
+  const actualInputs = useMemo(
+    () =>
+      actualBlockInputs(
+        timeEntries,
+        nowMinuteMs !== null ? running : null,
+        nowMinuteMs !== null ? new Date(nowMinuteMs) : new Date(0),
+      ),
+    [timeEntries, running, nowMinuteMs],
   );
 
   const days = selectedDate
@@ -741,9 +764,10 @@ export function CalendarView({
       ? `${format(days[0]!, "yyyy年M月d日", { locale: ja })}〜${format(days[6]!, "M月d日", { locale: ja })}`
       : format(selectedDate, "yyyy年M月d日(E)", { locale: ja })
     : "";
+  // 判定のためだけに全日ぶんのレイアウト計算を実行して捨てないよう、
+  // 重なり判定だけの軽量版を使う(P6-3)
   const rangeIsEmpty =
-    days.length > 0 &&
-    days.every((day) => layoutDayEvents(events, day).length === 0);
+    days.length > 0 && days.every((day) => !hasEventOnDay(events, day));
 
   return (
     <div className="flex min-h-0 flex-1 gap-4">
@@ -1134,29 +1158,39 @@ function DayColumn({
   now: Date | null;
   showTime: boolean;
 }) {
-  const blocks = layoutDayEvents(events, day);
-  const actualBlocks = layoutDayEvents(actualInputs, day);
+  // レイアウトとズレ計算は parseISO・sort・クラスタリングを含むため、
+  // 親の任意のstate変更(パネル開閉・タブ切替など)で作り直さないようメモ化する(P6-3)。
+  // now には依存させない(現在時刻ラインの位置だけが now を使う)
+  const blocks = useMemo(() => layoutDayEvents(events, day), [events, day]);
+  const actualBlocks = useMemo(
+    () => layoutDayEvents(actualInputs, day),
+    [actualInputs, day],
+  );
+
   const isToday = now ? isSameDay(day, now) : false;
   const nowPercent = now
     ? (differenceInMinutes(now, startOfDay(now)) / DAY_MINUTES) * 100
     : 0;
 
   // ズレ計算(P3-1)。紐づき判定はgoogleEventIdで行い、開始遅延・超過を求める
-  const planByEventId = new Map(
-    blocks.map((block) => [block.googleEventId, block]),
+  const planByEventId = useMemo(
+    () => new Map(blocks.map((block) => [block.googleEventId, block])),
+    [blocks],
   );
-  const gapInputs: ActualGapInput[] = actualBlocks.map((block) => ({
-    id: block.id,
-    googleEventId: block.googleEventId,
-    startAt: block.startAt,
-    endAt: block.endAt,
-  }));
-  const planForGap: PlanEventForGap[] = blocks.map((block) => ({
-    googleEventId: block.googleEventId,
-    startAt: block.startAt,
-    endAt: block.endAt,
-  }));
-  const gaps = computeActualGaps(gapInputs, planForGap);
+  const gaps = useMemo(() => {
+    const gapInputs: ActualGapInput[] = actualBlocks.map((block) => ({
+      id: block.id,
+      googleEventId: block.googleEventId,
+      startAt: block.startAt,
+      endAt: block.endAt,
+    }));
+    const planForGap: PlanEventForGap[] = blocks.map((block) => ({
+      googleEventId: block.googleEventId,
+      startAt: block.startAt,
+      endAt: block.endAt,
+    }));
+    return computeActualGaps(gapInputs, planForGap);
+  }, [actualBlocks, blocks]);
 
   return (
     <div

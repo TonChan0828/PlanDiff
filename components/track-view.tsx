@@ -4,19 +4,24 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInMinutes, format, parseISO } from "date-fns";
-import { ja } from "date-fns/locale";
+import { jaMinimal as ja } from "@/lib/ui/ja-locale";
 import { Play } from "lucide-react";
 import {
   startTimerAction,
   stopTimerAction,
   updateRunningStartAction,
 } from "@/app/(app)/calendar/timer-actions";
+import dynamic from "next/dynamic";
 import { createAppEventAction } from "@/app/(app)/calendar/event-actions";
-import {
-  AppEventPanel,
-  type AppEventPanelValues,
-} from "@/components/app-event-panel";
-import { EditStartPanel } from "@/components/edit-start-panel";
+
+// 編集系パネルは「開いたときだけ」描画されるため、初回ロードから外す(P6-3)
+const AppEventPanel = dynamic(() =>
+  import("@/components/app-event-panel").then((m) => m.AppEventPanel),
+);
+const EditStartPanel = dynamic(() =>
+  import("@/components/edit-start-panel").then((m) => m.EditStartPanel),
+);
+import type { AppEventPanelValues } from "@/components/app-event-panel";
 import { FreeTimerBar } from "@/components/free-timer-bar";
 import { RunningTimerHero } from "@/components/running-timer-hero";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";

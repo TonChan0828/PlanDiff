@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasEventOnDay,
   layoutDayEvents,
   MIN_BLOCK_MINUTES,
   type CalendarBlockInput,
@@ -92,5 +93,51 @@ describe("layoutDayEvents", () => {
     expect(zero).toBeDefined();
     expect(zero!.heightPercent).toBeCloseTo(minHeight);
     expect(zero!.heightPercent).toBeGreaterThan(0);
+  });
+});
+
+// 仕様書: docs/specs/P6-3_クライアントバンドルとレンダリング.md S5〜S8
+describe("hasEventOnDay(S5〜S8)", () => {
+  const day = new Date("2026-08-03T00:00:00+09:00");
+
+  function ev(startAt: string, endAt: string): CalendarBlockInput {
+    return { id: "e", title: "予定", startAt, endAt };
+  }
+
+  it("S5: 表示日と重なるイベントがあれば true", () => {
+    const events = [ev("2026-08-03T00:00:00Z", "2026-08-03T01:00:00Z")];
+
+    expect(hasEventOnDay(events, day)).toBe(true);
+  });
+
+  it("S6: 重ならないイベントだけなら false", () => {
+    const events = [ev("2026-08-10T00:00:00Z", "2026-08-10T01:00:00Z")];
+
+    expect(hasEventOnDay(events, day)).toBe(false);
+  });
+
+  it("S7: 日境界をまたぐイベントは true(layoutDayEvents と一致する)", () => {
+    const events = [ev("2026-08-02T13:00:00Z", "2026-08-02T16:00:00Z")];
+
+    expect(hasEventOnDay(events, day)).toBe(
+      layoutDayEvents(events, day).length > 0,
+    );
+    expect(hasEventOnDay(events, day)).toBe(true);
+  });
+
+  it("S8: イベント0件なら false", () => {
+    expect(hasEventOnDay([], day)).toBe(false);
+  });
+
+  it("S7: ゼロ長イベントでも layoutDayEvents と結果が一致する", () => {
+    const inside = [ev("2026-08-03T02:00:00Z", "2026-08-03T02:00:00Z")];
+    const outside = [ev("2026-08-09T02:00:00Z", "2026-08-09T02:00:00Z")];
+
+    expect(hasEventOnDay(inside, day)).toBe(
+      layoutDayEvents(inside, day).length > 0,
+    );
+    expect(hasEventOnDay(outside, day)).toBe(
+      layoutDayEvents(outside, day).length > 0,
+    );
   });
 });
