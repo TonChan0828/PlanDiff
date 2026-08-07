@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // タイマー操作のコアロジック(P2-2)。Server Actionから呼ぶ。
 // 時刻はすべてサーバー側で決定し、UTCで保存する。
@@ -33,8 +34,8 @@ export async function startTimer(
   client: SupabaseClient,
   input: StartTimerInput,
 ): Promise<TimerResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
 
@@ -45,7 +46,7 @@ export async function startTimer(
       return { ok: false };
     }
     const { error } = await client.from("time_entries").insert({
-      user_id: userData.user.id,
+      user_id: sessionUser.id,
       title: input.title,
       google_event_id: input.googleEventId,
       start_at: nowIso,
@@ -84,8 +85,8 @@ export async function updateTimeEntry(
   id: string,
   input: UpdateTimeEntryInput,
 ): Promise<TimerResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const { data, error } = await client
@@ -112,8 +113,8 @@ export async function updateRunningStart(
   client: SupabaseClient,
   startAtIso: string,
 ): Promise<TimerResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const startAtMs = Date.parse(startAtIso);
@@ -139,8 +140,8 @@ export async function deleteTimeEntry(
   client: SupabaseClient,
   id: string,
 ): Promise<TimerResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const { data, error } = await client

@@ -1,20 +1,33 @@
 import "server-only";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 // service role クライアント。RLSを迂回するサーバー専用処理
 // (google_tokens・アカウント削除・pro_interest_events)に限定して使う。
 // "server-only" によりクライアントバンドルへの混入をビルドエラーで防ぐ。
+// 生成コストを避けるため、プロセス内で1インスタンスを使い回す(P6-1)。
+// service role クライアントはセッションを持たない(persistSession: false)ため、
+// リクエストをまたいで共有しても利用者の文脈が混ざることはない。
+let adminClient: SupabaseClient | null = null;
+
 function createAdminClient() {
+  if (adminClient) {
+    return adminClient;
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // 環境変数が未設定なら従来どおり例外にする(singleton化で握りつぶさない)
   if (!url || !serviceRoleKey) {
     throw new Error(
       "Supabaseの環境変数(NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)が設定されていません",
     );
   }
-  return createSupabaseClient(url, serviceRoleKey, {
+  adminClient = createSupabaseClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  return adminClient;
 }
 
 export type GetGoogleRefreshTokenResult =

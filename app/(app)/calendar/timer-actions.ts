@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 import {
   deleteTimeEntry,
   startTimer,
@@ -21,8 +22,8 @@ export async function startTimerAction(
   input: StartTimerInput,
 ): Promise<TimerResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await startTimer(supabase, input);
@@ -35,8 +36,8 @@ export async function startTimerAction(
 
 export async function stopTimerAction(): Promise<TimerResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await stopTimer(supabase);
@@ -52,8 +53,8 @@ export async function updateTimeEntryAction(
   input: UpdateTimeEntryInput,
 ): Promise<TimerResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await updateTimeEntry(supabase, id, input);
@@ -69,8 +70,8 @@ export async function updateRunningStartAction(
   startAtIso: string,
 ): Promise<TimerResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await updateRunningStart(supabase, startAtIso);
@@ -83,8 +84,8 @@ export async function updateRunningStartAction(
 
 export async function deleteTimeEntryAction(id: string): Promise<TimerResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await deleteTimeEntry(supabase, id);

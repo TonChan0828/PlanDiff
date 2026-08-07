@@ -3,15 +3,16 @@
 import { redirect } from "next/navigation";
 import { markOnboardingComplete } from "@/lib/onboarding/complete";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // オンボーディング完了(仕様書P4-1 S5・S8)。「はじめる」「スキップ」共通で呼ぶ
 export async function completeOnboardingAction(formData?: FormData) {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
-  const ok = await markOnboardingComplete(supabase, data.user.id);
+  const ok = await markOnboardingComplete(supabase, sessionUser.id);
   if (!ok) {
     redirect("/onboarding?error=save_failed");
   }

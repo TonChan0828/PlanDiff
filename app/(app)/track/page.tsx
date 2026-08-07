@@ -3,6 +3,7 @@ import { TrackView } from "@/components/track-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 import { TRACK_MESSAGES as TR } from "@/lib/track/messages";
 
@@ -15,8 +16,8 @@ export const metadata: Metadata = {
 // 「今日」「進行中」の絞り込みはユーザーTZが必要なためクライアント(TrackView)で行う。
 export default async function TrackPage() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     // レイアウトで検証済みのため通常は到達しない
     return null;
   }
