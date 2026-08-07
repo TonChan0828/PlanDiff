@@ -4,6 +4,7 @@ import { AppBar } from "@/components/app-bar";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { DesktopNav } from "@/components/desktop-nav";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // 認証必須グループ。未ログインは /login へリダイレクトする
 // cookies()を呼ぶ前に環境変数チェックで例外を投げるとNext.jsの動的判定より先に
@@ -17,8 +18,9 @@ export default async function AppLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  // getSessionUser は検証失敗も null に畳むため、従来の error 判定と等価
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
 

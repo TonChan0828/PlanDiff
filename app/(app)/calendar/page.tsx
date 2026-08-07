@@ -3,15 +3,13 @@ import { redirect } from "next/navigation";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
-import {
-  fetchRecurringRules,
-  materializeRecurringInstances,
-} from "@/lib/calendar/recurring";
+import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 import {
   fetchRunningEntry,
   fetchSuggestionSourceEntries,
@@ -44,19 +42,10 @@ export default async function CalendarPage({
   const createParam = firstParam(params.create);
 
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     // レイアウトで検証済みのため通常は到達しない
     return null;
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("onboarded_at")
-    .eq("id", data.user.id)
-    .single();
-  if (shouldRedirectToOnboarding(profile)) {
-    redirect("/onboarding");
   }
 
   // dateパラメータ省略時はサーバーTZの「今日」で概算する
@@ -64,23 +53,33 @@ export default async function CalendarPage({
   const baseDate = parseDateParam(dateParam) ?? new Date();
   // Google連携の凍結中(フラグOFF)はトークンを読まず、同期UIも無効にする(P2-5)
   const googleEnabled = isGoogleIntegrationEnabled();
-  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要があるため直列で実行する(P5-1)
-  await materializeRecurringInstances(supabase, baseDate);
-  const [
-    events,
-    timeEntries,
-    runningEntry,
-    tokenResult,
-    recurringRules,
-    suggestionEntries,
-  ] = await Promise.all([
-    fetchSyncedEvents(supabase, baseDate),
-    fetchTimeEntries(supabase, baseDate),
-    fetchRunningEntry(supabase),
-    googleEnabled ? getGoogleRefreshToken(data.user.id) : Promise.resolve(null),
-    fetchRecurringRules(supabase),
-    fetchSuggestionSourceEntries(supabase, baseDate),
+
+  // オンボ判定の profiles 取得は実体化と独立なので並列化する(P6-1)。
+  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要がある(P5-1)ため、
+  // 読み取りの Promise.all より前に置く点は変えない。
+  // redirect() は例外を投げるため Promise.all の中では呼ばず、解決後に判定する
+  const [profileResult, recurringRules] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", sessionUser.id)
+      .single(),
+    materializeRecurringInstances(supabase, baseDate),
   ]);
+  if (shouldRedirectToOnboarding(profileResult.data)) {
+    redirect("/onboarding");
+  }
+
+  const [events, timeEntries, runningEntry, tokenResult, suggestionEntries] =
+    await Promise.all([
+      fetchSyncedEvents(supabase, baseDate),
+      fetchTimeEntries(supabase, baseDate),
+      fetchRunningEntry(supabase),
+      googleEnabled
+        ? getGoogleRefreshToken(sessionUser.id)
+        : Promise.resolve(null),
+      fetchSuggestionSourceEntries(supabase, baseDate),
+    ]);
   const googleConnected =
     googleEnabled &&
     tokenResult !== null &&

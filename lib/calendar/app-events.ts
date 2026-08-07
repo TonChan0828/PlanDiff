@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // アプリ内予定(P2-5)のCRUDロジック。Server Actionから呼ぶ。
 // アプリ予定は synced_events に source='app'・google_event_id='app:<uuid>' で保存し、
@@ -51,8 +52,8 @@ export async function createAppEvent(
   client: SupabaseClient,
   input: AppEventInput,
 ): Promise<AppEventResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const validated = validate(input);
@@ -60,7 +61,7 @@ export async function createAppEvent(
     return { ok: false };
   }
   const { error } = await client.from("synced_events").insert({
-    user_id: userData.user.id,
+    user_id: sessionUser.id,
     source: "app",
     google_event_id: `${APP_EVENT_ID_PREFIX}${crypto.randomUUID()}`,
     title: validated.title,
@@ -75,8 +76,8 @@ export async function updateAppEvent(
   id: string,
   input: AppEventInput,
 ): Promise<AppEventResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const validated = validate(input);
@@ -104,8 +105,8 @@ export async function deleteAppEvent(
   client: SupabaseClient,
   id: string,
 ): Promise<AppEventResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   // 紐づく time_entries は削除しない(サマリー上は割り込み実績扱いになる。仕様書P2-5)

@@ -2,6 +2,7 @@ import "server-only";
 
 import { TZDate } from "@date-fns/tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSessionUser } from "@/lib/supabase/session-user";
 import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
 import {
   RECURRING_ID_PREFIX,
@@ -303,8 +304,8 @@ export async function createRecurringRule(
   client: SupabaseClient,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const validated = validateRecurringRuleInput(input);
@@ -312,7 +313,7 @@ export async function createRecurringRule(
     return { ok: false };
   }
   const { error } = await client.from("recurring_rules").insert({
-    user_id: userData.user.id,
+    user_id: sessionUser.id,
     ...toRuleRow(validated),
   });
   return error ? { ok: false } : { ok: true };
@@ -323,8 +324,8 @@ export async function updateRecurringRule(
   ruleId: string,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const validated = validateRecurringRuleInput(input);
@@ -363,8 +364,8 @@ export async function deleteRecurringRule(
   client: SupabaseClient,
   ruleId: string,
 ): Promise<RecurringRuleResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const { data: ruleRows, error: ruleError } = await client
@@ -398,8 +399,8 @@ export async function deleteRecurringOccurrence(
   client: SupabaseClient,
   eventId: string,
 ): Promise<RecurringRuleResult> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
     return { ok: false };
   }
   const { data: rows, error: selectError } = await client
@@ -423,7 +424,7 @@ export async function deleteRecurringOccurrence(
     .from("recurring_exceptions")
     .insert({
       rule_id: parsed.ruleId,
-      user_id: userData.user.id,
+      user_id: sessionUser.id,
       occurrence_date: parsed.occurrenceDate,
     });
   if (insertError && insertError.code !== "23505") {
@@ -456,7 +457,25 @@ interface RecurringRuleRow {
   ends_on: string | null;
 }
 
-/** 本人の繰り返しルール一覧をUI表示用の形(HH:mmに正規化)で返す */
+/** DBの行をUI表示用の形(HH:mmに正規化)へ変換する */
+function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
+  return {
+    id: rule.id,
+    title: rule.title,
+    pattern: rule.pattern,
+    weekdays: rule.weekdays,
+    startTime: rule.start_time.slice(0, 5),
+    endTime: rule.end_time.slice(0, 5),
+    timezone: rule.timezone,
+    startsOn: rule.starts_on,
+    endsOn: rule.ends_on,
+  };
+}
+
+/**
+ * 本人の繰り返しルール一覧をUI表示用の形(HH:mmに正規化)で返す。
+ * `/calendar` では materializeRecurringInstances の戻り値を使うため呼ばない(P6-1)。
+ */
 export async function fetchRecurringRules(
   client: SupabaseClient,
 ): Promise<RecurringRuleSummary[]> {
@@ -469,17 +488,14 @@ export async function fetchRecurringRules(
   if (error || !data) {
     return [];
   }
-  return (data as unknown as RecurringRuleRow[]).map((rule) => ({
-    id: rule.id,
-    title: rule.title,
-    pattern: rule.pattern,
-    weekdays: rule.weekdays,
-    startTime: rule.start_time.slice(0, 5),
-    endTime: rule.end_time.slice(0, 5),
-    timezone: rule.timezone,
-    startsOn: rule.starts_on,
-    endsOn: rule.ends_on,
-  }));
+  return (data as unknown as RecurringRuleRow[]).map(toRuleSummary);
+}
+
+/** UTCのISO文字列を "yyyy-MM-dd"(UTC日付)へ。例外の期間フィルタ用 */
+function toUtcDateString(iso: string, dayOffset: number): string {
+  const date = new Date(iso);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
 }
 
 // --- 実体化(表示範囲の読み込み時に呼ぶ) ---
@@ -491,33 +507,43 @@ export async function fetchRecurringRules(
  *
  * 範囲は既定で「baseDateの週±1週間」。サマリーの任意期間表示(P5-9)では
  * 選択期間を `range` で明示して渡し、その期間ぶんも実体化する。
+ *
+ * 読み取ったルール一覧を返す(P6-1)。`/calendar` はこれを使うことで
+ * fetchRecurringRules の重複クエリを避ける。
  */
 export async function materializeRecurringInstances(
   client: SupabaseClient,
   baseDate: Date,
   range: SyncRange = computeSyncRange(baseDate),
-): Promise<void> {
-  const { data: userData } = await client.auth.getUser();
-  if (!userData.user) {
-    return;
+): Promise<RecurringRuleSummary[]> {
+  const sessionUser = await getSessionUser(client);
+  if (!sessionUser) {
+    return [];
   }
 
   const { data: rules, error: rulesError } = await client
     .from("recurring_rules")
     .select(
       "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on",
-    );
+    )
+    // fetchRecurringRules と同じ並びにして、呼び出し側が戻り値をそのまま使えるようにする
+    .order("created_at", { ascending: true });
   if (rulesError || !rules || rules.length === 0) {
-    return;
+    return [];
   }
 
   const ruleRows = rules as unknown as RecurringRuleRow[];
   const ruleIds = ruleRows.map((rule) => rule.id);
+  const summaries = ruleRows.map(toRuleSummary);
 
+  // 例外は全期間ではなく実体化範囲だけを取る(P6-1)。UNIQUE(rule_id, occurrence_date)が効く。
+  // occurrence_date はルールのタイムゾーンの日付なので、UTC範囲との差を吸収するため前後1日を足す
   const { data: exceptions } = await client
     .from("recurring_exceptions")
     .select("rule_id, occurrence_date")
-    .in("rule_id", ruleIds);
+    .in("rule_id", ruleIds)
+    .gte("occurrence_date", toUtcDateString(range.timeMin, -1))
+    .lte("occurrence_date", toUtcDateString(range.timeMax, 1));
 
   const exceptionsByRule = new Map<string, Set<string>>();
   for (const exception of exceptions ?? []) {
@@ -556,7 +582,7 @@ export async function materializeRecurringInstances(
         continue;
       }
       rows.push({
-        user_id: userData.user.id,
+        user_id: sessionUser.id,
         source: "app",
         google_event_id: `${RECURRING_ID_PREFIX}${rule.id}:${occurrence.occurrenceDate}`,
         title: rule.title,
@@ -567,7 +593,7 @@ export async function materializeRecurringInstances(
   }
 
   if (rows.length === 0) {
-    return;
+    return summaries;
   }
 
   const { error: upsertError } = await client
@@ -580,4 +606,5 @@ export async function materializeRecurringInstances(
     // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
     console.error("繰り返し予定の実体化に失敗しました", upsertError);
   }
+  return summaries;
 }

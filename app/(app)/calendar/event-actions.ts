@@ -18,6 +18,7 @@ import {
   type RecurringRuleResult,
 } from "@/lib/calendar/recurring";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // アプリ内予定のServer Action(P2-5)。認証確認 → lib/calendar/app-events → revalidate。
 // timer-actions.ts と同じパターン。DB書き込みはユーザー本人のRLSクライアントのみ。
@@ -26,8 +27,8 @@ export async function createAppEventAction(
   input: AppEventInput,
 ): Promise<AppEventResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await createAppEvent(supabase, input);
@@ -43,8 +44,8 @@ export async function updateAppEventAction(
   input: AppEventInput,
 ): Promise<AppEventResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await updateAppEvent(supabase, id, input);
@@ -59,8 +60,8 @@ export async function deleteAppEventAction(
   id: string,
 ): Promise<AppEventResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await deleteAppEvent(supabase, id);
@@ -77,8 +78,8 @@ export async function createRecurringRuleAction(
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await createRecurringRule(supabase, input);
@@ -94,8 +95,8 @@ export async function updateRecurringRuleAction(
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await updateRecurringRule(supabase, ruleId, input);
@@ -110,8 +111,8 @@ export async function deleteRecurringRuleAction(
   ruleId: string,
 ): Promise<RecurringRuleResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await deleteRecurringRule(supabase, ruleId);
@@ -126,8 +127,8 @@ export async function deleteRecurringOccurrenceAction(
   eventId: string,
 ): Promise<RecurringRuleResult> {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
   const result = await deleteRecurringOccurrence(supabase, eventId);

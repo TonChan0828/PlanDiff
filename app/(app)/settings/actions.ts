@@ -6,16 +6,17 @@ import {
   deleteUserAccount,
 } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 // Googleカレンダー連携の解除(仕様書P1-3 S22)。google_tokensの行のみ削除し、
 // アカウント(profiles/auth.users)には影響しない。
 export async function disconnectGoogleAction() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
-  await deleteGoogleRefreshToken(data.user.id);
+  await deleteGoogleRefreshToken(sessionUser.id);
   redirect("/settings");
 }
 
@@ -23,11 +24,11 @@ export async function disconnectGoogleAction() {
 // 全テーブルの行が消える。失敗時はセッションを維持したまま設定画面へ戻す(再試行可能にする)
 export async function deleteAccountAction() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     redirect("/login");
   }
-  const deleted = await deleteUserAccount(data.user.id);
+  const deleted = await deleteUserAccount(sessionUser.id);
   if (!deleted) {
     redirect("/settings?error=account_delete_failed");
   }

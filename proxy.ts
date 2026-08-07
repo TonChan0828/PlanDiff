@@ -37,8 +37,11 @@ export async function proxy(request: NextRequest) {
   return supabaseResponse;
 }
 
+// マーケティングの静的ページ(/ /pricing /privacy /terms)は認証に関係しないため除外する。
+// 除外しないと、LP等を開くたびにSupabase Authへの往復が1回入ってから配信される(P6-1)。
+// 認証が絡むページ(/login /signup /reset-password /forgot-password)と /api は除外しない。
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|pricing$|privacy$|terms$|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

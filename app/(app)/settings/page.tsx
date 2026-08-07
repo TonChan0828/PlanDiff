@@ -8,6 +8,7 @@ import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { SETTINGS_MESSAGES as M } from "@/lib/settings/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session-user";
 
 export const metadata: Metadata = {
   title: "設定 | PlanDiff",
@@ -33,24 +34,27 @@ export default async function SettingsPage({
   searchParams: Promise<{ connected?: string; error?: string }>;
 }) {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) {
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
     // レイアウトで検証済みのため通常は到達しない
     return null;
   }
 
-  const { connected, error } = await searchParams;
   // Google連携の凍結中(フラグOFF)は連携セクションを出さず、トークンも読まない(P2-5)
   const googleEnabled = isGoogleIntegrationEnabled();
+  // searchParams の解決とトークン取得は互いに独立なので並列化する(P6-1)
+  const [{ connected, error }, tokenResult] = await Promise.all([
+    searchParams,
+    googleEnabled
+      ? getGoogleRefreshToken(sessionUser.id)
+      : Promise.resolve(null),
+  ]);
   const errorMessage = error
     ? (GENERAL_ERROR_MESSAGES[error] ??
       (googleEnabled ? (GOOGLE_ERROR_MESSAGES[error] ?? null) : null))
     : null;
-  let googleConnected = false;
-  if (googleEnabled) {
-    const tokenResult = await getGoogleRefreshToken(data.user.id);
-    googleConnected = tokenResult.ok && tokenResult.refreshToken !== null;
-  }
+  const googleConnected =
+    tokenResult !== null && tokenResult.ok && tokenResult.refreshToken !== null;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -77,7 +81,7 @@ export default async function SettingsPage({
         <h2 className="text-base font-semibold">{M.accountSectionHeading}</h2>
         <div className="flex flex-col gap-1">
           <span className="text-ink-muted text-xs">{M.emailLabel}</span>
-          <p className="text-sm">{data.user.email}</p>
+          <p className="text-sm">{sessionUser.email}</p>
         </div>
         <form action={signOutAction}>
           <button
