@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { addDays, isAfter, isValid, parseISO } from "date-fns";
 import { fetchPrimaryEvents } from "@/lib/google/calendar";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
+import { toRangeLiteral } from "@/lib/google/sync-range";
 import { refreshAccessToken } from "@/lib/google/token";
 import {
   deleteGoogleRefreshToken,
@@ -114,15 +115,14 @@ export async function POST(request: NextRequest) {
   }
 
   // 期間内でGoogle側から消えた予定をキャッシュから削除する(期間外の行は触らない)。
-  // 期間との重なり判定は start_at < timeMax AND end_at > timeMin。
+  // 期間との重なりは範囲型の生成列で判定する(P6-2)。
   // source='google' のみが対象: アプリ内予定(source='app')はGoogleレスポンスに
   // 存在しないため、フィルタしないと同期のたびに削除されてしまう(P2-5)
   const { data: cachedRows, error: cachedError } = await supabase
     .from("synced_events")
     .select("id, google_event_id")
     .eq("source", "google")
-    .lt("start_at", range.timeMax)
-    .gt("end_at", range.timeMin);
+    .overlaps("span", toRangeLiteral(range));
   if (cachedError) {
     console.error("synced_eventsの読み取りに失敗しました:", cachedError.code);
     return NextResponse.json({ error: "sync_failed" }, { status: 500 });
@@ -147,8 +147,7 @@ export async function POST(request: NextRequest) {
   const { data: rows, error: selectError } = await supabase
     .from("synced_events")
     .select("id, google_event_id, title, start_at, end_at")
-    .lt("start_at", range.timeMax)
-    .gt("end_at", range.timeMin)
+    .overlaps("span", toRangeLiteral(range))
     .order("start_at", { ascending: true });
   if (selectError) {
     console.error("synced_eventsの読み取りに失敗しました:", selectError.code);

@@ -91,8 +91,19 @@ describe("fetchTimeEntriesInRange の異常系(S13・S14)", () => {
     await fetchTimeEntriesInRange(client, RANGE);
 
     expect(filters).toContain("not:end_at:is:null");
-    expect(filters).toContain(`lt:start_at:${RANGE.timeMax}`);
-    expect(filters).toContain(`gt:end_at:${RANGE.timeMin}`);
+  });
+
+  it("S14/P6-2 S2: 重なり判定は範囲型の生成列で行い、実行中の除外は維持される", async () => {
+    const { client, filters } = createPagedQueryMock(buildEntryRows(1));
+
+    await fetchTimeEntriesInRange(client, RANGE);
+
+    expect(filters).toContain(
+      `overlaps:span:[${RANGE.timeMin},${RANGE.timeMax})`,
+    );
+    expect(filters).toContain("not:end_at:is:null");
+    expect(filters).not.toContain(`lt:start_at:${RANGE.timeMax}`);
+    expect(filters).not.toContain(`gt:end_at:${RANGE.timeMin}`);
   });
 
   it("S14: start_at同値でもページ順序が確定するよう id を第2ソートキーにする", async () => {
