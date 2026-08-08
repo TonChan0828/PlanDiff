@@ -139,6 +139,7 @@ time_entries   … 実績記録(title, start_at, end_at, google_event_id nullabl
 - `google_tokens` テーブルは **クライアントから一切アクセス不可**(SELECTポリシーも付けない)。service role経由のサーバー処理のみで読み書きする
 - 実行中タイマーは1本: `time_entries` に `end_at IS NULL` の partial unique index(user_id単位)で保証する。アプリ側のチェックだけに頼らない
 - **テーブルを追加したら `authenticated` への `grant` をマイグレーションに明示する**(P6-5)。既定権限を止めたため自動では付かない。付け忘れるとPostgRESTから権限エラーになる
+- 同様に、`public` に関数(RPC等)を追加して `authenticated` から呼ぶ場合は `grant execute` を明示する(P6-5)。自前の関数は原則 `private` スキーマに置く
 - **`anon` にはテーブル権限を与えない**(P6-5)。未認証で `public` のテーブルに触る経路は存在しない。RLSに加えてGRANTでも塞ぐのが本リポジトリの方針
 - ポリシーは `to authenticated` を明示する(P6-2)。未認証リクエストでポリシー評価自体をスキップできる
 

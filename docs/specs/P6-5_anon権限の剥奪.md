@@ -118,6 +118,35 @@ alter default privileges for role postgres in schema public revoke all on sequen
 (マイグレーション適用前後で `pg_default_acl` を実測して確認済み)。
 service role が既存テーブルに対して持つ権限は個別 GRANT 由来のため影響を受けない。
 
+### 5-D: 関数(ROUTINES)の既定権限も止める(追補・2026-08-08 承認)
+
+本番適用後の `supabase db diff --linked` による検証で、**ROUTINES の既定権限が残っている**ことが判明した。
+
+```
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON ROUTINES TO anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated;
+```
+
+5-C が TABLES と SEQUENCES しか対象にしていなかったための取りこぼし。
+
+```sql
+alter default privileges for role postgres in schema public revoke all on routines from anon;
+alter default privileges for role postgres in schema public revoke all on routines from authenticated;
+```
+
+**現時点で実害はない**。自前の関数はすべて `private` スキーマにあり、`anon`/`authenticated` に
+USAGE を与えていないため到達できない。`public` にあるのは `btree_gist` 拡張の関数(P6-2 で追加)と、
+本番の `rls_auto_enable()`(Supabase管理のイベントトリガ関数)だけ。
+それでも「新規オブジェクトに自動で権限が付かないようにする」という P6-5 の趣旨に合わせて塞ぐ。
+
+**既存の関数は触らない**(拡張所有 / Supabase管理のため)。`service_role` の既定も残す。
+
+**副作用**: 今後 `public` に関数(RPC等)を追加して `authenticated` から呼ぶ場合は、
+`grant execute` をマイグレーションに明示する必要がある。
+
+**ローカルと本番の差**: ローカルの `postgres` 所有 ROUTINES 既定はもともと `{postgres=X/postgres}` で
+anon を含まないため、このマイグレーションはローカルでは実質no-op(冪等)。本番でのみ効果がある。
+
 ## スコープ外
 
 - **Supabase が管理するオブジェクト**(`pg_net` 拡張、`ensure_rls` イベントトリガ、
@@ -147,6 +176,8 @@ service role が既存テーブルに対して持つ権限は個別 GRANT 由来
 - **S7 [結合] 非退行**: Given 未認証(anonキー)のクライアント
   When `synced_events` を読む Then 権限エラーまたは0件で、他人のデータが返らない
 - **S8 [結合] 非退行**: Given service role When `google_tokens` を読み書きする Then 従来どおり成功する
+- **S9 [結合]**: Given 5-D 適用後 When `postgres` 所有の既定権限を確認する
+  Then テーブル・シーケンス・**関数**のいずれにも `anon` / `authenticated` が含まれない
 
 ### 既存テストの非退行
 
