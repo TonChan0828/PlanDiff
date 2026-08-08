@@ -97,47 +97,64 @@ describe("layoutDayEvents", () => {
 });
 
 // 仕様書: docs/specs/P6-3_クライアントバンドルとレンダリング.md S5〜S8
+// 日付はローカルTZで構築する(UTC固定のISO文字列で書くとCIのUTC実行で結果が変わる)
 describe("hasEventOnDay(S5〜S8)", () => {
-  const day = new Date("2026-08-03T00:00:00+09:00");
+  /** ローカルTZの 2026-07-07 h:m からISO文字列を作る */
+  function localIso(dayOfMonth: number, hour: number, minute = 0): string {
+    return new Date(2026, 6, dayOfMonth, hour, minute).toISOString();
+  }
 
   function ev(startAt: string, endAt: string): CalendarBlockInput {
     return { id: "e", title: "予定", startAt, endAt };
   }
 
   it("S5: 表示日と重なるイベントがあれば true", () => {
-    const events = [ev("2026-08-03T00:00:00Z", "2026-08-03T01:00:00Z")];
+    const events = [ev(localIso(7, 9), localIso(7, 10))];
 
-    expect(hasEventOnDay(events, day)).toBe(true);
+    expect(hasEventOnDay(events, DAY)).toBe(true);
   });
 
   it("S6: 重ならないイベントだけなら false", () => {
-    const events = [ev("2026-08-10T00:00:00Z", "2026-08-10T01:00:00Z")];
+    const events = [ev(localIso(14, 9), localIso(14, 10))];
 
-    expect(hasEventOnDay(events, day)).toBe(false);
+    expect(hasEventOnDay(events, DAY)).toBe(false);
   });
 
   it("S7: 日境界をまたぐイベントは true(layoutDayEvents と一致する)", () => {
-    const events = [ev("2026-08-02T13:00:00Z", "2026-08-02T16:00:00Z")];
+    // 前日23:00〜当日01:00
+    const events = [ev(localIso(6, 23), localIso(7, 1))];
 
-    expect(hasEventOnDay(events, day)).toBe(
-      layoutDayEvents(events, day).length > 0,
+    expect(hasEventOnDay(events, DAY)).toBe(
+      layoutDayEvents(events, DAY).length > 0,
     );
-    expect(hasEventOnDay(events, day)).toBe(true);
+    expect(hasEventOnDay(events, DAY)).toBe(true);
   });
 
   it("S8: イベント0件なら false", () => {
-    expect(hasEventOnDay([], day)).toBe(false);
+    expect(hasEventOnDay([], DAY)).toBe(false);
   });
 
   it("S7: ゼロ長イベントでも layoutDayEvents と結果が一致する", () => {
-    const inside = [ev("2026-08-03T02:00:00Z", "2026-08-03T02:00:00Z")];
-    const outside = [ev("2026-08-09T02:00:00Z", "2026-08-09T02:00:00Z")];
+    const inside = [ev(localIso(7, 11), localIso(7, 11))];
+    const outside = [ev(localIso(13, 11), localIso(13, 11))];
 
-    expect(hasEventOnDay(inside, day)).toBe(
-      layoutDayEvents(inside, day).length > 0,
+    expect(hasEventOnDay(inside, DAY)).toBe(
+      layoutDayEvents(inside, DAY).length > 0,
     );
-    expect(hasEventOnDay(outside, day)).toBe(
-      layoutDayEvents(outside, day).length > 0,
+    expect(hasEventOnDay(outside, DAY)).toBe(
+      layoutDayEvents(outside, DAY).length > 0,
+    );
+  });
+
+  it("S5: 日の境界ちょうど(当日0:00開始 / 当日24:00終了)も layoutDayEvents と一致する", () => {
+    const atMidnight = [ev(localIso(7, 0), localIso(7, 1))];
+    const endsAtMidnight = [ev(localIso(6, 22), localIso(7, 0))];
+
+    expect(hasEventOnDay(atMidnight, DAY)).toBe(
+      layoutDayEvents(atMidnight, DAY).length > 0,
+    );
+    expect(hasEventOnDay(endsAtMidnight, DAY)).toBe(
+      layoutDayEvents(endsAtMidnight, DAY).length > 0,
     );
   });
 });
