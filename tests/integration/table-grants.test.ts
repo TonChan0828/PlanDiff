@@ -113,6 +113,29 @@ describe("テーブル権限の最小化(S1〜S4)", () => {
       await sql.end();
     }
   });
+
+  it("S9: postgres 所有の既定権限は関数(ROUTINES)にも anon / authenticated を含まない", async () => {
+    // P6-5 本体は TABLES/SEQUENCES のみを止めていた。本番検証で ROUTINES の
+    // 既定権限が残っていることが分かったため追補で塞いだ(5-D)
+    const sql = createDbSql();
+    try {
+      const rows = await sql`
+        select d.defaclobjtype::text as objtype, d.defaclacl::text as acl
+        from pg_default_acl d
+        join pg_namespace n on n.oid = d.defaclnamespace
+        where n.nspname = 'public'
+          and pg_get_userbyid(d.defaclrole) = 'postgres'
+      `;
+      // r=テーブル / S=シーケンス / f=関数 のいずれにも anon / authenticated を含まない
+      for (const row of rows) {
+        expect(row.acl as string).not.toContain("anon=");
+        expect(row.acl as string).not.toContain("authenticated=");
+      }
+      expect(rows.map((r) => r.objtype).sort()).toContain("f");
+    } finally {
+      await sql.end();
+    }
+  });
 });
 
 describe("権限の付け直しで既存機能が壊れていないこと(S5〜S8)", () => {
