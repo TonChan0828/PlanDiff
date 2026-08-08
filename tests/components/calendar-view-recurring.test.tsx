@@ -222,9 +222,11 @@ describe("rec:予定の編集導線(S14/S15)", () => {
     await user.click(
       screen.getByRole("button", { name: M.eventEditLabel("朝会") }),
     );
-    await user.click(screen.getByText(M.recurringEditChoiceOccurrence));
+    // 選択ステップも遅延ロードされるため解決を待つ(P6-3)
+    await user.click(await screen.findByText(M.recurringEditChoiceOccurrence));
 
-    expect(screen.getByLabelText(M.eventTitleField)).toHaveValue("朝会");
+    // 単発編集パネルも遅延ロードされるため解決を待つ(P6-3)
+    expect(await screen.findByLabelText(M.eventTitleField)).toHaveValue("朝会");
     await user.click(screen.getByRole("button", { name: "削除" }));
     await user.click(
       screen.getByRole("button", { name: M.eventDeleteConfirmYes }),

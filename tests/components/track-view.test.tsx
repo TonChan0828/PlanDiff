@@ -212,7 +212,8 @@ describe("実績リスト(S7/S8/S17)", () => {
       screen.getByRole("button", { name: "リファクタリングを予定にする" }),
     );
 
-    const dialog = screen.getByRole("dialog", { name: "予定を追加" });
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    const dialog = await screen.findByRole("dialog", { name: "予定を追加" });
     expect(
       within(dialog).getByRole("textbox", { name: "タイトル" }),
     ).toHaveValue("リファクタリング");

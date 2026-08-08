@@ -173,7 +173,8 @@ describe("編集パネルの削除(S14/S15)", () => {
     await user.click(
       screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
     );
-    await user.click(screen.getByRole("button", { name: "削除" }));
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    await user.click(await screen.findByRole("button", { name: "削除" }));
     await user.click(screen.getByRole("button", { name: "削除する" }));
 
     expect(deleteTimeEntryActionMock).toHaveBeenCalledWith("entry-1");
@@ -191,7 +192,8 @@ describe("編集パネルの削除(S14/S15)", () => {
     await user.click(
       screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
     );
-    await user.click(screen.getByRole("button", { name: "削除" }));
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    await user.click(await screen.findByRole("button", { name: "削除" }));
     await user.click(screen.getByRole("button", { name: "削除する" }));
 
     expect(await screen.findByText(DELETE_ERROR)).toBeInTheDocument();

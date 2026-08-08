@@ -73,6 +73,8 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "開始 09:00 を変更" }));
+    // パネルは next/dynamic で遅延ロードされるため解決を待つ(P6-3)
+    await screen.findByRole("dialog", { name: "開始時刻を変更" });
     const newStart = new Date(2026, 6, 7, 8, 15, 0);
     changeDateTimeStepper("開始時刻", format(newStart, "yyyy-MM-dd'T'HH:mm"));
     await user.click(screen.getByRole("button", { name: "保存" }));
@@ -96,7 +98,7 @@ describe("計測画面の開始時刻変更(S2 / S5)", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "開始 09:00 を変更" }));
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.click(await screen.findByRole("button", { name: "保存" }));
 
     expect(
       await screen.findByText("開始時刻を変更できませんでした"),
