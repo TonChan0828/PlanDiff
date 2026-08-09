@@ -49,4 +49,12 @@ export const SUMMARY_MESSAGES = {
     "この期間はデータが多すぎて集計できません。期間を短くして表示し直してください",
   averageStartDelayLabel: "着手 予定より平均",
   averageStartDelayOnTime: "着手 平均で予定どおり",
+  // P7-1: 日別ズレグラフ
+  dailyChartHeading: "日別のズレ",
+  dailyChartOver: "超過",
+  dailyChartUnder: "不足",
+  dailyChartMaxOver: "最大超過",
+  dailyChartMaxUnder: "最大不足",
+  dailyChartNoGap: "ズレのある日はありません",
+  dailyChartExtremeSeparator: "・",
 } as const;

@@ -85,11 +85,16 @@ export interface GroupedInterruptionItem {
   actualMinutes: number;
 }
 
-function durationMinutes(startAt: string, endAt: string): number {
+/** 開始・終了のISO文字列から継続分数を出す。グラフ集計(P7-1)と共用する */
+export function durationMinutes(startAt: string, endAt: string): number {
   return differenceInMinutes(parseISO(endAt), parseISO(startAt));
 }
 
-function inRange(startAt: string, range: SummaryRange): boolean {
+/**
+ * 「開始時刻が集計期間 [start, end) 内にあるか」を判定する。
+ * 集計対象の定義そのものなので、グラフ集計(P7-1)もこれを共用して規則のズレを防ぐ。
+ */
+export function isStartInRange(startAt: string, range: SummaryRange): boolean {
   const start = parseISO(startAt);
   return start >= range.start && start < range.end;
 }
@@ -100,10 +105,10 @@ export function computeGapSummary(
   range: SummaryRange,
 ): GapSummary {
   const plansInRange = planEvents.filter((event) =>
-    inRange(event.startAt, range),
+    isStartInRange(event.startAt, range),
   );
   const actualsInRange = actualEntries.filter((entry) =>
-    inRange(entry.startAt, range),
+    isStartInRange(entry.startAt, range),
   );
 
   const planByEventId = new Map(
