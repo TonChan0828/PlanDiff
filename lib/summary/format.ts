@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import { jaMinimal as ja } from "@/lib/ui/ja-locale";
+import type { DailyGapPoint } from "@/lib/summary/chart";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
 import type { ResolvedSummaryRange } from "@/lib/summary/range";
 
@@ -94,6 +95,99 @@ export function formatRangeLabel(resolved: ResolvedSummaryRange): string {
   const tail =
     from.getFullYear() === to.getFullYear() ? "M月d日" : "yyyy年M月d日";
   return `${format(from, "yyyy年M月d日", { locale: ja })}〜${format(to, tail, { locale: ja })}`;
+}
+
+// P7-1: 日別ズレグラフの文言。日付整形は曜日トークン(E)を含まないため
+// ロケール引数を取らない(P6-3で最小化した jaMinimal に依存させない)
+
+/** X軸の日ラベル(例: "8/3") */
+export function formatChartDayLabel(date: Date): string {
+  return format(date, "M/d");
+}
+
+/** 棒の <title>(例: "8月3日 +1時間20分(計画 2時間 / 実績 3時間20分)") */
+export function formatDailyGapPointTitle(point: DailyGapPoint): string {
+  const gap =
+    point.gapMinutes === 0
+      ? `±${formatDurationMinutes(0)}`
+      : formatSignedDurationMinutes(point.gapMinutes);
+  return (
+    `${format(point.date, "M月d日")} ${gap}` +
+    `(${S.planShort} ${formatDurationMinutes(point.planMinutes)}` +
+    ` / ${S.actualShort} ${formatDurationMinutes(point.actualMinutes)})`
+  );
+}
+
+/** ズレが最大の超過日・不足日を取り出す。該当なしは null */
+function findExtremes(points: DailyGapPoint[]): {
+  over: DailyGapPoint | null;
+  under: DailyGapPoint | null;
+} {
+  let over: DailyGapPoint | null = null;
+  let under: DailyGapPoint | null = null;
+  for (const point of points) {
+    if (point.gapMinutes > 0 && (!over || point.gapMinutes > over.gapMinutes)) {
+      over = point;
+    }
+    if (
+      point.gapMinutes < 0 &&
+      (!under || point.gapMinutes < under.gapMinutes)
+    ) {
+      under = point;
+    }
+  }
+  return { over, under };
+}
+
+/**
+ * グラフ全体の要約 aria-label(P7-1)。
+ * 366日ぶんのデータテーブルは作らず、この要約と可視の極値行で代替する。
+ */
+export function formatDailyGapChartLabel(
+  points: DailyGapPoint[],
+  rangeLabel: string,
+): string {
+  const head = `${S.dailyChartHeading}(${rangeLabel})。`;
+  const { over, under } = findExtremes(points);
+  if (!over && !under) {
+    return `${head}${S.dailyChartNoGap}`;
+  }
+  const parts: string[] = [];
+  if (over) {
+    parts.push(
+      `${S.dailyChartMaxOver} ${format(over.date, "M月d日")} ${formatSignedDurationMinutes(over.gapMinutes)}`,
+    );
+  }
+  if (under) {
+    parts.push(
+      `${S.dailyChartMaxUnder} ${format(under.date, "M月d日")} ${formatSignedDurationMinutes(under.gapMinutes)}`,
+    );
+  }
+  return `${head}${parts.join("、")}`;
+}
+
+/**
+ * グラフ直下に出す極値行(P7-1。例: "最大超過 8/6 +1:20・最大不足 8/9 -2:10")。
+ * 日数が多いと全日にラベルを振れないため、これが「値を直接読める」手段になる。
+ * ズレのある日が1つもなければ null(行を描かない)。
+ */
+export function formatDailyGapExtremes(points: DailyGapPoint[]): string | null {
+  const { over, under } = findExtremes(points);
+  if (!over && !under) {
+    return null;
+  }
+  const parts: string[] = [];
+  if (over) {
+    parts.push(
+      `${S.dailyChartMaxOver} ${formatChartDayLabel(over.date)} ${formatSignedClockMinutes(over.gapMinutes)}`,
+    );
+  }
+  if (under) {
+    parts.push(
+      `${S.dailyChartMaxUnder} ${formatChartDayLabel(under.date)} ${formatSignedClockMinutes(under.gapMinutes)}`,
+    );
+  }
+  return parts.join(S.dailyChartExtremeSeparator);
 }
 
 export interface SummaryCounts {

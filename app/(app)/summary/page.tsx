@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SummaryDailyGapChart } from "@/components/summary-daily-gap-chart";
 import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { toDateParam } from "@/lib/calendar/view-date";
@@ -9,6 +10,7 @@ import {
   groupInterruptionsByTitle,
   groupItemsByTitle,
 } from "@/lib/summary/aggregate";
+import { computeDailyGapSeries } from "@/lib/summary/chart";
 import {
   formatAverageStartDelay,
   formatClockMinutes,
@@ -234,6 +236,13 @@ export default async function SummaryPage({
   const actualInputs = actualBlockInputs(timeEntries, runningEntry, now);
   const summary = computeGapSummary(planEvents, actualInputs, resolved.range);
 
+  // 日別のズレは2日以上の期間でのみ出す(単日だと棒1本になり、
+  // diffヒーローと同じ数字の重複表示にしかならないため。P7-1)
+  const showDailyChart = resolved.dayCount >= 2;
+  const dailyPoints = showDailyChart
+    ? computeDailyGapSeries(planEvents, actualInputs, resolved.range)
+    : [];
+
   // 2日以上の期間は同タイトルで集約する(1予定1行だと数百行になるため。P5-9)
   const isGrouped = resolved.dayCount > 1;
   const groupedItems = isGrouped ? groupItemsByTitle(summary.items) : [];
@@ -299,6 +308,13 @@ export default async function SummaryPage({
         </div>
 
         <div className="flex min-w-0 flex-col gap-8">
+          {showDailyChart ? (
+            <SummaryDailyGapChart
+              points={dailyPoints}
+              rangeLabel={formatRangeLabel(resolved)}
+            />
+          ) : null}
+
           <section className="flex flex-col gap-2">
             <h2 className="text-ink-muted text-sm font-semibold">
               {S.itemsHeading}
