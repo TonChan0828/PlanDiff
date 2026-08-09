@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SummaryActualBreakdown } from "@/components/summary-actual-breakdown";
 import { SummaryDailyGapChart } from "@/components/summary-daily-gap-chart";
 import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
@@ -10,7 +11,10 @@ import {
   groupInterruptionsByTitle,
   groupItemsByTitle,
 } from "@/lib/summary/aggregate";
-import { computeDailyGapSeries } from "@/lib/summary/chart";
+import {
+  computeActualBreakdown,
+  computeDailyGapSeries,
+} from "@/lib/summary/chart";
 import {
   formatAverageStartDelay,
   formatClockMinutes,
@@ -243,6 +247,12 @@ export default async function SummaryPage({
     ? computeDailyGapSeries(planEvents, actualInputs, resolved.range)
     : [];
 
+  // 時間の内訳は期間の長さによらず出す(単日でも「今日の時間の使い道」として意味を持つ。P7-2)
+  const breakdown = computeActualBreakdown(
+    summary.items,
+    summary.interruptions,
+  );
+
   // 2日以上の期間は同タイトルで集約する(1予定1行だと数百行になるため。P5-9)
   const isGrouped = resolved.dayCount > 1;
   const groupedItems = isGrouped ? groupItemsByTitle(summary.items) : [];
@@ -314,6 +324,8 @@ export default async function SummaryPage({
               rangeLabel={formatRangeLabel(resolved)}
             />
           ) : null}
+
+          <SummaryActualBreakdown breakdown={breakdown} />
 
           <section className="flex flex-col gap-2">
             <h2 className="text-ink-muted text-sm font-semibold">

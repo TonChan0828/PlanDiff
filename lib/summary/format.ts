@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { jaMinimal as ja } from "@/lib/ui/ja-locale";
-import type { DailyGapPoint } from "@/lib/summary/chart";
+import type { ActualBreakdownRow, DailyGapPoint } from "@/lib/summary/chart";
 import { SUMMARY_MESSAGES as S } from "@/lib/summary/messages";
 import type { ResolvedSummaryRange } from "@/lib/summary/range";
 
@@ -188,6 +188,32 @@ export function formatDailyGapExtremes(points: DailyGapPoint[]): string | null {
     );
   }
   return parts.join(S.dailyChartExtremeSeparator);
+}
+
+// P7-2: 時間の内訳グラフの文言
+
+/**
+ * 内訳行の種別テキスト(P7-2)。色以外の手がかりとして常に表示する。
+ * 例: "予定 15分・割り込み 30分" / "予定 4時間50分" / "割り込み 45分"
+ */
+export function formatBreakdownKinds(row: ActualBreakdownRow): string {
+  const parts: string[] = [];
+  if (row.plannedMinutes > 0) {
+    parts.push(
+      `${S.breakdownPlanned} ${formatDurationMinutes(row.plannedMinutes)}`,
+    );
+  }
+  if (row.unplannedMinutes > 0) {
+    parts.push(
+      `${S.breakdownUnplanned} ${formatDurationMinutes(row.unplannedMinutes)}`,
+    );
+  }
+  return parts.join(S.countsSeparator);
+}
+
+/** 丸め行のタイトル(P7-2。例: "その他(4件)") */
+export function formatBreakdownOtherTitle(count: number): string {
+  return `${S.breakdownOther}(${count}${S.countsUnit})`;
 }
 
 export interface SummaryCounts {

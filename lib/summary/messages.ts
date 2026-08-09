@@ -57,4 +57,12 @@ export const SUMMARY_MESSAGES = {
   dailyChartMaxUnder: "最大不足",
   dailyChartNoGap: "ズレのある日はありません",
   dailyChartExtremeSeparator: "・",
+  // P7-2: 時間の内訳グラフ
+  breakdownHeading: "時間の内訳",
+  breakdownEmpty: "この期間の実績はありません",
+  breakdownPlanned: "予定",
+  breakdownUnplanned: "割り込み",
+  breakdownLegendPlanned: "予定に紐づく実績",
+  breakdownLegendUnplanned: "割り込み・フリー",
+  breakdownOther: "その他",
 } as const;

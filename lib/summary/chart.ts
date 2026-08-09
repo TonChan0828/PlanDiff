@@ -2,6 +2,8 @@ import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import {
   durationMinutes,
   isStartInRange,
+  type GapSummaryItem,
+  type InterruptionItem,
   type SummaryActualEntry,
   type SummaryPlanEvent,
   type SummaryRange,
@@ -85,4 +87,131 @@ export function computeDailyGapSeries(
   }
 
   return points;
+}
+
+// 時間の内訳(横棒グラフ)の集計(P7-2)。仕様書: docs/specs/P7-2_サマリーの時間内訳グラフ.md
+//
+// 生データは不要で、computeGapSummary の出力(items / interruptions)から導出する。
+
+/** 横棒グラフ1行ぶん */
+export interface ActualBreakdownRow {
+  /** isOther のときは空文字。表示文言は format 側で組み立てる */
+  title: string;
+  /** plannedMinutes + unplannedMinutes */
+  actualMinutes: number;
+  /** 予定に紐づく実績(群青) */
+  plannedMinutes: number;
+  /** 割り込み・フリー作業(柿) */
+  unplannedMinutes: number;
+  /** 通常行は畳んだ予定+割り込みの件数、isOther 行は畳んだタイトル数 */
+  count: number;
+  isOther: boolean;
+}
+
+export interface ActualBreakdown {
+  rows: ActualBreakdownRow[];
+  /** 全行の合計。丸め込みの前後で不変 */
+  totalMinutes: number;
+  /** 棒の正規化に使う。丸め込み後の rows の最大値 */
+  maxMinutes: number;
+  /** 畳まれたタイトル数。0 なら丸めなし */
+  otherCount: number;
+}
+
+/** 「その他」に畳むまでに表示する行数の上限 */
+export const BREAKDOWN_TOP_N = 8;
+
+/**
+ * 実績時間を作業タイトル別に集約する(P7-2)。
+ * 同名の予定と割り込みは1行に統合し、行内で内訳(planned / unplanned)を保持する。
+ * 未着手(actualMinutes === 0)の予定は「時間の内訳」の趣旨に合わないため含めない。
+ */
+export function computeActualBreakdown(
+  items: GapSummaryItem[],
+  interruptions: InterruptionItem[],
+  options?: { limit?: number },
+): ActualBreakdown {
+  const limit = options?.limit ?? BREAKDOWN_TOP_N;
+  const byTitle = new Map<string, ActualBreakdownRow>();
+
+  const rowFor = (title: string): ActualBreakdownRow => {
+    const existing = byTitle.get(title);
+    if (existing) {
+      return existing;
+    }
+    const created: ActualBreakdownRow = {
+      title,
+      actualMinutes: 0,
+      plannedMinutes: 0,
+      unplannedMinutes: 0,
+      count: 0,
+      isOther: false,
+    };
+    byTitle.set(title, created);
+    return created;
+  };
+
+  for (const item of items) {
+    if (item.actualMinutes <= 0) continue;
+    const row = rowFor(item.title);
+    row.plannedMinutes += item.actualMinutes;
+    row.actualMinutes += item.actualMinutes;
+    row.count += 1;
+  }
+
+  for (const item of interruptions) {
+    if (item.actualMinutes <= 0) continue;
+    const row = rowFor(item.title);
+    row.unplannedMinutes += item.actualMinutes;
+    row.actualMinutes += item.actualMinutes;
+    row.count += 1;
+  }
+
+  const sorted = [...byTitle.values()].sort(
+    (a, b) =>
+      b.actualMinutes - a.actualMinutes || a.title.localeCompare(b.title),
+  );
+  const totalMinutes = sorted.reduce((sum, row) => sum + row.actualMinutes, 0);
+
+  // 畳む対象が1件しかないときは丸めない(「その他(1件)」は情報の劣化でしかない)
+  const rows =
+    sorted.length > limit + 1 ? foldTail(sorted, limit) : [...sorted];
+  const otherCount = rows.at(-1)?.isOther ? (rows.at(-1)?.count ?? 0) : 0;
+
+  return {
+    rows,
+    totalMinutes,
+    // 「その他」が最大になることがあるため、必ず丸め込み後の行から取る。
+    // 丸め込み前の値を使うと棒の幅が100%を超える
+    maxMinutes: rows.reduce((max, row) => Math.max(max, row.actualMinutes), 0),
+    otherCount,
+  };
+}
+
+/** 上位 limit 件を残し、残りを「その他」1行に畳む。「その他」は常に末尾 */
+function foldTail(
+  sorted: ActualBreakdownRow[],
+  limit: number,
+): ActualBreakdownRow[] {
+  const head = sorted.slice(0, limit);
+  const tail = sorted.slice(limit);
+  const other = tail.reduce<ActualBreakdownRow>(
+    (acc, row) => ({
+      ...acc,
+      actualMinutes: acc.actualMinutes + row.actualMinutes,
+      plannedMinutes: acc.plannedMinutes + row.plannedMinutes,
+      unplannedMinutes: acc.unplannedMinutes + row.unplannedMinutes,
+      // 畳んだ「タイトル数」。行内の件数ではない
+      count: acc.count + 1,
+    }),
+    {
+      title: "",
+      actualMinutes: 0,
+      plannedMinutes: 0,
+      unplannedMinutes: 0,
+      count: 0,
+      isOther: true,
+    },
+  );
+  return [...head, other];
 }

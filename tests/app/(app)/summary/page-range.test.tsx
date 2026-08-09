@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { addDays, startOfDay } from "date-fns";
 import { toDateParam } from "@/lib/calendar/view-date";
 
@@ -140,7 +140,13 @@ describe("内訳の表示切替(S36〜S39)", () => {
     await renderSummary({ range: "today", date: toDateParam(today) });
 
     expect(screen.queryAllByTestId("gap-grouped-item")).toHaveLength(0);
-    expect(screen.getAllByText("レビュー")).toHaveLength(2);
+    // 「時間の内訳」(P7-2)にも同じタイトルが出るため、対象セクションに絞って数える
+    const itemsSection = screen
+      .getByRole("heading", { name: "予定ごとの内訳" })
+      .closest("section");
+    expect(
+      within(itemsSection as HTMLElement).getAllByText("レビュー"),
+    ).toHaveLength(2);
   });
 
   it("S37: 複数日の期間では同タイトルが1行に集約され、件数と平均開始遅延が出る", async () => {
