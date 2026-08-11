@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInMinutes, format, parseISO } from "date-fns";
@@ -26,6 +26,7 @@ import { FreeTimerBar } from "@/components/free-timer-bar";
 import { RunningTimerHero } from "@/components/running-timer-hero";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import { formatDurationMinutes } from "@/lib/summary/format";
+import { useNowMinuteMs } from "@/lib/time/use-now-minute";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 import { TRACK_MESSAGES as TR } from "@/lib/track/messages";
@@ -39,17 +40,6 @@ import { groupEntriesByDay } from "@/lib/track/entry-groups";
 // 計測画面本体(P2-6)。カレンダーを経由しない計測の実施と当日実績の確認に絞る。
 // タイマー操作はカレンダービュー(P2-2/P2-3)と同じ楽観的更新+Server Actionのパターン。
 // フリー実績の「予定にする」昇格導線でコアループ(計画→記録→ギャップ)へ還流させる(FR-11)。
-
-// SSR(サーバーTZ)とクライアントTZの不一致を避けるため、
-// 「今日」「進行中」の判定を含む描画はハイドレーション完了後に行う
-const emptySubscribe = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-}
 
 interface TrackViewProps {
   /** 表示範囲(今日を含む週±1週間)の予定。抽出はクライアントで行う */
@@ -66,8 +56,17 @@ export function TrackView({
   runningEntry,
 }: TrackViewProps) {
   const router = useRouter();
-  const hydrated = useHydrated();
-  const now = hydrated ? new Date() : null;
+
+  // 分単位の現在時刻を購読する(P8-2)。SSR時はnullで、
+  // 「今日」「進行中」の判定を含む描画はハイドレーション完了後に行う
+  // (SSRのサーバーTZとクライアントTZの不一致を避けるため)。
+  // データ取得範囲(表示週±1週間)はサーバー側で広く取っているため、
+  // 日付が変わってもこの値の更新だけで正しく絞り込める(router.refreshは不要)
+  const nowMinuteMs = useNowMinuteMs();
+  const now = useMemo(
+    () => (nowMinuteMs === null ? null : new Date(nowMinuteMs)),
+    [nowMinuteMs],
+  );
 
   // ---- タイマー: 楽観的更新+Server Action。失敗時はロールバック(P2-2と同パターン) ----
   const [running, setRunning] = useState<RunningEntry | null>(runningEntry);
@@ -317,7 +316,7 @@ export function TrackView({
             {TR.editHint}
           </Link>
         </div>
-        {hydrated && entryGroups.length === 0 ? (
+        {now !== null && entryGroups.length === 0 ? (
           <p className="border-line text-ink-muted rounded-lg border border-dashed px-4 py-6 text-center text-sm">
             {TR.emptyEntries}
           </p>

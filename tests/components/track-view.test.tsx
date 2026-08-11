@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addHours, subHours, subMinutes } from "date-fns";
 
@@ -301,5 +301,79 @@ describe("エラー表示(S9)", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(START_ERROR);
+  });
+});
+
+// 仕様書: docs/specs/P8-2_計測画面の日付またぎ.md S18〜S20
+// R-1: 日時はすべてローカルTZで構築する(ISO文字列で固定しない)
+describe("日付またぎ(S18〜S20)", () => {
+  // 2026-08-11(火) 23:59:30 — 0時まで30秒
+  const LATE_NIGHT = new Date(2026, 7, 11, 23, 59, 30);
+
+  beforeEach(() => {
+    vi.setSystemTime(LATE_NIGHT);
+  });
+
+  it("S18: 0時をまたぐと新しい当日分の実績が「未来日」扱いで除外されなくなる", () => {
+    // 日付が変わった直後(0:00:30)の実績。0時をまたぐ前は「未来日」として除外される
+    const newDayEntry: TimeEntryItem = {
+      id: "entry-new-day",
+      title: "深夜作業",
+      googleEventId: null,
+      startAt: new Date(2026, 7, 12, 0, 0, 30).toISOString(),
+      endAt: new Date(2026, 7, 12, 0, 30, 0).toISOString(),
+    };
+    renderView({ timeEntries: [newDayEntry] });
+
+    expect(screen.queryByText("深夜作業")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(31_000);
+    });
+
+    const todayList = screen.getByRole("list", { name: "今日" });
+    expect(within(todayList).getByText("深夜作業")).toBeInTheDocument();
+  });
+
+  it("S19: 0時をまたぐと新しい当日の予定が「今の予定から開始」候補に入る", () => {
+    const newDayEvent = quickEvent(
+      "new-day",
+      "設計会議",
+      new Date(2026, 7, 12, 0, 5, 0),
+      new Date(2026, 7, 12, 1, 0, 0),
+    );
+    renderView({ events: [newDayEvent] });
+
+    expect(screen.queryByText("今の予定から開始")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(31_000);
+    });
+
+    expect(
+      screen.getByRole("button", { name: "設計会議のタイマーを開始" }),
+    ).toBeInTheDocument();
+  });
+
+  it("S20: 0時をまたいで終了時刻を過ぎた予定は「進行中」候補から外れる", () => {
+    // 前日22:00に始まり、日付が変わった2分後(0:02)に終わる予定
+    const crossingEvent = quickEvent(
+      "crossing",
+      "夜間監視",
+      new Date(2026, 7, 11, 22, 0, 0),
+      new Date(2026, 7, 12, 0, 2, 0),
+    );
+    renderView({ events: [crossingEvent] });
+
+    expect(
+      screen.getByRole("button", { name: "夜間監視のタイマーを開始" }),
+    ).toBeInTheDocument();
+
+    // 23:59:30 から 00:05:30 まで進める(終了時刻00:02を過ぎる)
+    act(() => {
+      vi.advanceTimersByTime(6 * 60_000);
+    });
+
+    expect(screen.queryByText("今の予定から開始")).not.toBeInTheDocument();
   });
 });
