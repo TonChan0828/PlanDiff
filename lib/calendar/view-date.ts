@@ -1,6 +1,7 @@
 import {
   addDays,
   format,
+  isSameDay,
   isValid,
   parse,
   startOfDay,
@@ -66,6 +67,21 @@ export function shiftDate(
   return addDays(date, direction === "next" ? step : -step);
 }
 
-export function buildCalendarPath(view: CalendarViewMode, date: Date): string {
+/**
+ * カレンダーのURLを組み立てる。
+ *
+ * 「dateパラメータは今日以外を見ているときだけ持つ」という不変条件を守る(P8-1)。
+ * 今日にdateを付けてしまうと、深夜0時をまたいでもURLが前日を指し続け、
+ * 表示が翌日へ自動追従できなくなるため。
+ * today が null(ハイドレーション前)のときは判定できないので常に付ける。
+ */
+export function buildCalendarPath(
+  view: CalendarViewMode,
+  date: Date,
+  today: Date | null,
+): string {
+  if (today && isSameDay(date, today)) {
+    return `/calendar?view=${view}`;
+  }
   return `/calendar?view=${view}&date=${toDateParam(date)}`;
 }

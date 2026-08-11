@@ -33,9 +33,58 @@ describe("weekDaysOf / shiftDate(S5)", () => {
   });
 
   it("S5: buildCalendarPath は view と date を含むURLを組み立てる", () => {
-    expect(buildCalendarPath("week", new Date(2026, 6, 8))).toBe(
+    expect(buildCalendarPath("week", new Date(2026, 6, 8), null)).toBe(
       "/calendar?view=week&date=2026-07-08",
     );
+  });
+});
+
+// 仕様書: docs/specs/P8-1_日付またぎの自動反映.md S8〜S11
+// 「URLのdateは今日以外を見ているときだけ持つ」不変条件
+describe("buildCalendarPath と今日(S8〜S11)", () => {
+  it("S8: 表示日が今日と同じ暦日なら date を含めない", () => {
+    const today = new Date(2026, 7, 11, 15, 30);
+    expect(buildCalendarPath("day", new Date(2026, 7, 11), today)).toBe(
+      "/calendar?view=day",
+    );
+    expect(buildCalendarPath("week", new Date(2026, 7, 11), today)).toBe(
+      "/calendar?view=week",
+    );
+  });
+
+  it("S9: 表示日が今日と別の暦日なら date を含める", () => {
+    const today = new Date(2026, 7, 11, 15, 30);
+    expect(buildCalendarPath("day", new Date(2026, 7, 10), today)).toBe(
+      "/calendar?view=day&date=2026-08-10",
+    );
+    expect(buildCalendarPath("day", new Date(2026, 7, 12), today)).toBe(
+      "/calendar?view=day&date=2026-08-12",
+    );
+  });
+
+  it("S10: today が null(ハイドレーション前)なら常に date を含める", () => {
+    expect(buildCalendarPath("day", new Date(2026, 7, 11), null)).toBe(
+      "/calendar?view=day&date=2026-08-11",
+    );
+  });
+
+  it("S11: 同じ暦日なら時刻が違っても date を含めない(境界値)", () => {
+    // 23:00 の「今日」と 00:00 の表示日。時刻差で別日と誤判定しないこと
+    expect(
+      buildCalendarPath(
+        "day",
+        new Date(2026, 7, 11, 0, 0),
+        new Date(2026, 7, 11, 23, 0),
+      ),
+    ).toBe("/calendar?view=day");
+    // 1分違いでも暦日が違えば date を含める
+    expect(
+      buildCalendarPath(
+        "day",
+        new Date(2026, 7, 11, 23, 59),
+        new Date(2026, 7, 12, 0, 0),
+      ),
+    ).toBe("/calendar?view=day&date=2026-08-11");
   });
 });
 

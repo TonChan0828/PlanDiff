@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -102,6 +95,7 @@ import {
   type CalendarViewMode,
 } from "@/lib/calendar/view-date";
 import { computeSyncRange } from "@/lib/google/sync-range";
+import { useNowMinuteMs } from "@/lib/time/use-now-minute";
 import { actualBlockInputs, type ActualBlockInput } from "@/lib/timer/blocks";
 import {
   computeActualGaps,
@@ -151,17 +145,6 @@ function createEventInitial(selectedDate: Date | null): AppEventPanelValues {
   };
 }
 
-// SSR(サーバーTZ)とクライアントTZの不一致を避けるため、
-// 「今日」や時刻位置に依存する描画はハイドレーション完了後に行う
-const emptySubscribe = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-}
-
 interface CalendarViewProps {
   events: CalendarViewEvent[];
   /** 表示範囲内の確定済み実績 */
@@ -195,13 +178,21 @@ export function CalendarView({
   startCreating = false,
 }: CalendarViewProps) {
   const router = useRouter();
-  const hydrated = useHydrated();
+
+  // 分単位の現在時刻を購読する(P8-1)。SSR時はnullで、
+  // 「今日」や時刻位置に依存する描画はハイドレーション完了後に行う
+  // (SSRのサーバーTZとクライアントTZの不一致を避けるため)
+  const nowMinuteMs = useNowMinuteMs();
+  const now = useMemo(
+    () => (nowMinuteMs === null ? null : new Date(nowMinuteMs)),
+    [nowMinuteMs],
+  );
+  const today = useMemo(() => (now ? startOfDay(now) : null), [now]);
 
   const view: CalendarViewMode = viewParam === "week" ? "week" : "day";
-  // dateパラメータが妥当ならTZに依存せず確定する。省略・不正時はクライアントの「今日」
-  const selectedDate =
-    parseDateParam(dateParam) ?? (hydrated ? startOfDay(new Date()) : null);
-  const now = hydrated ? new Date() : null;
+  // dateパラメータが妥当ならTZに依存せず確定する。省略・不正時はクライアントの「今日」。
+  // 「dateなし=今日を見ている」ため、0時をまたぐと自動的に翌日へ切り替わる(P8-1)
+  const selectedDate = parseDateParam(dateParam) ?? today;
   const [contextOpen, setContextOpen] = useState(false);
   const [contextTab, setContextTab] = useState<CalendarContextTab>("day");
 
@@ -270,6 +261,27 @@ export function CalendarView({
     };
   }, [router, weekKey, syncNonce, googleEnabled]);
 
+  // ---- 日付またぎ(P8-1): 表示日が翌日へ動いたらサーバーデータを取り直す ----
+  // props の events / timeEntries は前日基準の取得結果のまま。同一週内の日跨ぎでは
+  // 上の同期effect(weekKey依存)が走らないため、ここで1日1回だけ refresh する
+  const todayKey = today ? toDateParam(today) : null;
+  const lastTodayKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (todayKey === null) {
+      return;
+    }
+    // 初回の null → 値 はハイドレーションなので取り直さない
+    if (lastTodayKey.current === null) {
+      lastTodayKey.current = todayKey;
+      return;
+    }
+    if (lastTodayKey.current === todayKey) {
+      return;
+    }
+    lastTodayKey.current = todayKey;
+    router.refresh();
+  }, [todayKey, router]);
+
   // ---- 初期スクロール: 8:00付近(今日で現在時刻が8時以降なら現在時刻−1時間) ----
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -285,16 +297,20 @@ export function CalendarView({
   const handleNavigate = (direction: "prev" | "next") => {
     if (selectedDate) {
       router.push(
-        buildCalendarPath(view, shiftDate(view, selectedDate, direction)),
+        buildCalendarPath(
+          view,
+          shiftDate(view, selectedDate, direction),
+          today,
+        ),
       );
     }
   };
   const handleToday = () => {
-    router.push(buildCalendarPath(view, new Date()));
+    router.push(buildCalendarPath(view, today ?? new Date(), today));
   };
   const handleViewChange = (mode: CalendarViewMode) => {
     if (selectedDate) {
-      router.push(buildCalendarPath(mode, selectedDate));
+      router.push(buildCalendarPath(mode, selectedDate, today));
     }
   };
   const handleRefresh = () => {
@@ -741,9 +757,8 @@ export function CalendarView({
   };
 
   // 実績レーンの入力(確定済み+実行中)。実行中ブロックは現在時刻に依存するためハイドレーション後のみ。
-  // now をそのまま使うとレンダーのたびに参照が変わり DayColumn のメモ化が効かないため、
-  // 分単位に丸めた値を基準にする(ブロック高さの差は1分未満=1px未満。P6-3)
-  const nowMinuteMs = now ? Math.floor(now.getTime() / 60_000) * 60_000 : null;
+  // 基準は useNowMinuteMs が返す分単位の値。Date をそのまま使うとレンダーのたびに参照が変わり
+  // DayColumn のメモ化が効かないため(ブロック高さの差は1分未満=1px未満。P6-3)
   const actualInputs = useMemo(
     () =>
       actualBlockInputs(
@@ -879,7 +894,9 @@ export function CalendarView({
           <WeekStrip
             selectedDate={selectedDate}
             today={now}
-            onSelect={(day) => router.push(buildCalendarPath("day", day))}
+            onSelect={(day) =>
+              router.push(buildCalendarPath("day", day, today))
+            }
           />
         ) : null}
 

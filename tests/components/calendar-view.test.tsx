@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { addDays, format, startOfDay } from "date-fns";
 
@@ -137,9 +143,8 @@ describe("CalendarView 週ビュー(S8)", () => {
     render(<CalendarView events={[]} viewParam="day" dateParam={todayParam} />);
 
     await user.click(screen.getByRole("button", { name: "週" }));
-    expect(routerMock.push).toHaveBeenCalledWith(
-      `/calendar?view=week&date=${todayParam}`,
-    );
+    // P8-1: 今日を表示中はURLにdateを持たせない
+    expect(routerMock.push).toHaveBeenCalledWith("/calendar?view=week");
   });
 });
 
@@ -172,9 +177,8 @@ describe("CalendarView ナビゲーション(S9 / S10)", () => {
     render(<CalendarView events={[]} viewParam="day" dateParam={past} />);
 
     await user.click(screen.getByRole("button", { name: "今日" }));
-    expect(routerMock.push).toHaveBeenCalledWith(
-      `/calendar?view=day&date=${todayParam}`,
-    );
+    // P8-1: 今日はdateパラメータを持たせず、日付またぎで自動追従させる
+    expect(routerMock.push).toHaveBeenCalledWith("/calendar?view=day");
   });
 
   it("S10: 週が変わったときだけ新しい期間で再同期される", async () => {
@@ -322,6 +326,126 @@ describe("CalendarView 現在時刻ライン(S13)", () => {
 
     expect(screen.queryByTestId("current-time-line")).not.toBeInTheDocument();
     await screen.findByRole("button", { name: "更新" });
+  });
+});
+
+// 仕様書: docs/specs/P8-1_日付またぎの自動反映.md S12〜S18
+// R-1: 日時はすべてローカルTZで構築する(ISO文字列で固定しない)
+describe("CalendarView 日付またぎ(S12〜S18)", () => {
+  // 2026-08-11(火) 23:59:30 — 0時まで30秒
+  const LATE_NIGHT = new Date(2026, 7, 11, 23, 59, 30);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(LATE_NIGHT);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  /** 0時を通過させる(分境界タイマーの発火まで進める) */
+  function passMidnight() {
+    act(() => {
+      vi.advanceTimersByTime(31_000);
+    });
+  }
+
+  it("S12: dateパラメータなしで0時をまたぐと表示日が翌日になる", () => {
+    const { container } = render(
+      <CalendarView events={[]} viewParam="day" googleEnabled={false} />,
+    );
+
+    expect(screen.getByText("2026年8月11日(火)")).toBeInTheDocument();
+    expect(container.querySelector('[aria-current="date"]')).toHaveAttribute(
+      "aria-label",
+      "8月11日(火)",
+    );
+
+    passMidnight();
+
+    expect(screen.getByText("2026年8月12日(水)")).toBeInTheDocument();
+    expect(container.querySelector('[aria-current="date"]')).toHaveAttribute(
+      "aria-label",
+      "8月12日(水)",
+    );
+  });
+
+  it("S13: dateパラメータで明示的に開いた日は0時をまたいでも変わらない", () => {
+    render(
+      <CalendarView
+        events={[]}
+        viewParam="day"
+        dateParam="2026-08-10"
+        googleEnabled={false}
+      />,
+    );
+
+    expect(screen.getByText("2026年8月10日(月)")).toBeInTheDocument();
+
+    passMidnight();
+
+    expect(screen.getByText("2026年8月10日(月)")).toBeInTheDocument();
+    expect(screen.queryByText("2026年8月11日(火)")).not.toBeInTheDocument();
+  });
+
+  it("S14: 今日を表示中の「今日」ボタンは date なしのURLへ遷移する", () => {
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "今日" }));
+
+    expect(routerMock.push).toHaveBeenCalledWith("/calendar?view=day");
+  });
+
+  it("S15: 「前へ」は今日以外の日なので date 付きのURLへ遷移する", () => {
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "前へ" }));
+
+    expect(routerMock.push).toHaveBeenCalledWith(
+      "/calendar?view=day&date=2026-08-10",
+    );
+  });
+
+  it("S16: 現在時刻ラインの位置とラベルが1分ごとに更新される", () => {
+    vi.setSystemTime(new Date(2026, 7, 11, 10, 30, 0));
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    const line = screen.getByTestId("current-time-line");
+    expect(line).toHaveTextContent("10:30");
+    // 10:30 = 630分 / 1440分 = 43.75%
+    expect(line).toHaveStyle({ top: "43.75%" });
+
+    act(() => {
+      vi.advanceTimersByTime(61_000);
+    });
+
+    const updated = screen.getByTestId("current-time-line");
+    expect(updated).toHaveTextContent("10:31");
+    expect(updated).not.toHaveStyle({ top: "43.75%" });
+  });
+
+  it("S17: 日付が変わったときサーバーデータを取り直す", () => {
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    // 同期は無効なので、マウント時点では refresh されない
+    expect(routerMock.refresh).not.toHaveBeenCalled();
+
+    passMidnight();
+
+    expect(routerMock.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("S18: 同一日内の分更新では取り直さない", () => {
+    vi.setSystemTime(new Date(2026, 7, 11, 10, 30, 0));
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    act(() => {
+      vi.advanceTimersByTime(5 * 61_000);
+    });
+
+    expect(routerMock.refresh).not.toHaveBeenCalled();
   });
 });
 
