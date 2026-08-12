@@ -1,9 +1,16 @@
 import { expect } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
+import "./match-media";
 
 // DateTimeStepper(P5-6=統合セグメント入力)をテストから操作/検証するための共有ヘルパー。
 // value は "yyyy-MM-dd'T'HH:mm" 形式または ""。
 // 日付は隠しネイティブ date 入力(`${label}の日付`)で設定し、時・分はセグメントへ数字入力する。
+//
+// P9-1でDateTimeStepperにモバイル分岐(<input type="datetime-local">)を追加したため、
+// このヘルパーが前提とするセグメントUIを描画させるには window.matchMedia を
+// デスクトップ扱いにしておく必要がある。呼び出し元テストファイルの無改修を保つため、
+// import時点(モジュール読み込み時、render()より必ず先に実行される)に一度だけ設定する
+// (./match-media 参照)。
 
 function typeInto(name: string, digits: string) {
   const el = screen.getByRole("spinbutton", { name });

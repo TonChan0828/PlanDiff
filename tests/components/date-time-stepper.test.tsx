@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { DateTimeStepper } from "@/components/date-time-stepper";
 import { expectDateTimeStepperValue } from "../helpers/date-time-stepper";
+import { mockDesktopMatchMedia } from "../helpers/match-media";
 
 // 仕様: docs/specs/P5-6_日時セグメント編集.md #テストシナリオ(コンポーネント S13〜S30)
+// 仕様: docs/specs/P9-1_時刻編集のモバイル最適化.md #テストシナリオ(コンポーネント S31〜S35)
 
 // value を state で保持する制御ラッパー。実利用と同じく onChange→再レンダーを再現し、
 // セグメントを跨ぐ数字入力(桁の自動送り)を正しく検証できるようにする。
@@ -212,5 +214,64 @@ describe("DateTimeStepper (P5-6)", () => {
     expect(seg("開始時刻の時")).toHaveValue("10");
     expect(seg("開始時刻の分")).toHaveValue("30");
     expectDateTimeStepperValue("開始時刻", "2026-07-20T10:30");
+  });
+});
+
+describe("DateTimeStepper モバイル分岐 (P9-1)", () => {
+  afterEach(() => {
+    // 後続テスト(既存S13〜S30含む)への影響を避けるためデスクトップへ戻す
+    mockDesktopMatchMedia(true);
+  });
+
+  it("S31: モバイル判定ではネイティブdatetime-local入力が1つだけ描画され、セグメント・共有▲▼・カレンダーボタンは描画されない", () => {
+    mockDesktopMatchMedia(false);
+    renderStepper({ value: "2026-07-20T10:30" });
+
+    expect(screen.getByLabelText("開始時刻")).toHaveAttribute(
+      "type",
+      "datetime-local",
+    );
+    expect(screen.queryByRole("group", { name: "開始時刻" })).toBeNull();
+    expect(screen.queryByRole("spinbutton")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "開始時刻の分を1進める" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "開始時刻をカレンダーで選ぶ" }),
+    ).toBeNull();
+  });
+
+  it("S32: モバイル判定でネイティブ入力を変更すると、変換なしでonChangeへ渡る", () => {
+    mockDesktopMatchMedia(false);
+    const { onChange } = renderStepper({ value: "2026-07-20T10:30" });
+
+    fireEvent.change(screen.getByLabelText("開始時刻"), {
+      target: { value: "2026-09-01T08:15" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith("2026-09-01T08:15");
+  });
+
+  it("S33: モバイル判定でdisabled=trueならネイティブ入力もdisabledになる", () => {
+    mockDesktopMatchMedia(false);
+    renderStepper({ value: "2026-07-20T10:30", disabled: true });
+
+    expect(screen.getByLabelText("開始時刻")).toBeDisabled();
+  });
+
+  it('S34: モバイル判定でvalue=""でもクラッシュせず空値で描画される', () => {
+    mockDesktopMatchMedia(false);
+    renderStepper({ value: "" });
+
+    expect(screen.getByLabelText("開始時刻")).toHaveValue("");
+    expect(screen.getByLabelText("開始時刻")).toBeEnabled();
+  });
+
+  it("S35: デスクトップ判定では従来のセグメントUIが描画され、ネイティブdatetime-local入力は描画されない", () => {
+    mockDesktopMatchMedia(true);
+    renderStepper({ value: "2026-07-20T10:30" });
+
+    expect(seg("開始時刻の分")).toHaveValue("30");
+    expect(document.querySelector("input[type='datetime-local']")).toBeNull();
   });
 });

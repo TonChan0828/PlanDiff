@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { jaMinimal as ja } from "@/lib/ui/ja-locale";
 import { CalendarClock, Lightbulb, Pencil, Play, X } from "lucide-react";
@@ -10,34 +10,9 @@ import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { TimeEntryItem } from "@/lib/timer/types";
+import { useIsDesktop } from "@/lib/ui/use-is-desktop";
 
 export type CalendarContextTab = "day" | "suggestions";
-
-// useSyncExternalStore の getSnapshot はレンダーごとに呼ばれる。
-// 毎回 window.matchMedia() で MediaQueryList を作り直さないようキャッシュする(P6-3)
-const DESKTOP_QUERY = "(min-width: 1024px)";
-let desktopMedia: MediaQueryList | null = null;
-
-function getDesktopMedia(): MediaQueryList | null {
-  if (typeof window === "undefined" || !window.matchMedia) {
-    return null;
-  }
-  desktopMedia ??= window.matchMedia(DESKTOP_QUERY);
-  return desktopMedia;
-}
-
-function subscribeDesktop(callback: () => void) {
-  const media = getDesktopMedia();
-  if (!media) {
-    return () => {};
-  }
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
-}
-
-function getDesktopSnapshot() {
-  return Boolean(getDesktopMedia()?.matches);
-}
 
 interface CalendarContextPanelProps {
   open: boolean;
@@ -70,11 +45,7 @@ export function CalendarContextPanel({
   onEditEntry,
   onRestartEntry,
 }: CalendarContextPanelProps) {
-  const desktop = useSyncExternalStore(
-    subscribeDesktop,
-    getDesktopSnapshot,
-    () => false,
-  );
+  const desktop = useIsDesktop();
   const visible = open || desktop;
   // デスクトップでは常時マウントされるため、親の再レンダーのたびに
   // parseISO + sort が走らないようメモ化する(P6-3)
