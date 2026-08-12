@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { TZDate } from "@date-fns/tz";
 import { startOfDay } from "date-fns";
 import {
   buildCalendarPath,
+  parseDateParam,
   parseViewState,
   shiftDate,
   toDateParam,
@@ -110,5 +112,27 @@ describe("parseViewState(S6)", () => {
       const state = parseViewState("day", invalid, TODAY);
       expect(state.date).toEqual(startOfDay(TODAY));
     }
+  });
+});
+
+// 仕様書: docs/specs/P8-3_サマリーの日付またぎとTZ非対称の是正.md S7〜S8
+describe("parseDateParam の referenceZero 引数(S7〜S8)", () => {
+  it("S7: 第2引数を省略すると既存どおりの解釈になる(回帰確認)", () => {
+    expect(parseDateParam("2026-07-08")).toEqual(new Date(2026, 6, 8));
+    expect(parseDateParam(undefined)).toBeNull();
+    expect(parseDateParam("2026-02-30")).toBeNull();
+  });
+
+  it("S8: TZDateを渡すとそのタイムゾーンの暦日として解釈される", () => {
+    const referenceZero = new TZDate(0, "Pacific/Kiritimati");
+    const result = parseDateParam("2026-07-08", referenceZero);
+
+    expect(result).toBeInstanceOf(TZDate);
+    expect((result as TZDate).timeZone).toBe("Pacific/Kiritimati");
+    expect([
+      (result as TZDate).getFullYear(),
+      (result as TZDate).getMonth(),
+      (result as TZDate).getDate(),
+    ]).toEqual([2026, 6, 8]);
   });
 });

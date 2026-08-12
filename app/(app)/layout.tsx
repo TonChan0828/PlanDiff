@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AppBar } from "@/components/app-bar";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { DesktopNav } from "@/components/desktop-nav";
+import { TimezoneSync } from "@/components/timezone-sync";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
@@ -26,6 +27,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex h-dvh">
+      <TimezoneSync />
       <DesktopNav />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppBar />

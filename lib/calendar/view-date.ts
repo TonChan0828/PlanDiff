@@ -26,12 +26,19 @@ export function toDateParam(date: Date): string {
   return format(date, DATE_PARAM_FORMAT);
 }
 
-/** `yyyy-MM-dd` として妥当な場合のみローカル0時のDateを返す */
-export function parseDateParam(dateParam: string | undefined): Date | null {
+/**
+ * `yyyy-MM-dd` として妥当な場合のみローカル0時のDateを返す。
+ * `referenceZero` を渡すと、そのタイムゾーンの暦日として解釈する(P8-3)。
+ * 省略時は `new Date(0)`(実行環境のローカルTZ)で従来どおり動作する
+ */
+export function parseDateParam(
+  dateParam: string | undefined,
+  referenceZero: Date = new Date(0),
+): Date | null {
   if (!dateParam) {
     return null;
   }
-  const parsed = parse(dateParam, DATE_PARAM_FORMAT, new Date(0));
+  const parsed = parse(dateParam, DATE_PARAM_FORMAT, referenceZero);
   // 往復変換の一致で「2026-02-30」のような繰り上がりも弾く
   if (!isValid(parsed) || toDateParam(parsed) !== dateParam) {
     return null;
