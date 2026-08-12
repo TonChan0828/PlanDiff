@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { getDaysInMonth } from "date-fns";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -14,12 +14,17 @@ import {
   DATE_TIME_STEPPER_MESSAGES as M,
   type SegmentUnit,
 } from "@/lib/ui/messages";
+import { useIsDesktop } from "@/lib/ui/use-is-desktop";
 
 // 日時セグメント入力(P5-6)。P5-5の3ブロック構成を、年/月/日 時:分の5セグメントを
 // 1枠にまとめた統合フィールドへ置換。← →でセグメント移動、↑↓で増減(桁跨ぎ)、
 // 数字で自動送り。共有▲▼はフォーカス中セグメントに作用し、カレンダーボタンで
 // ネイティブ日付ピッカーを開く。value/onChangeは既存パネルと同じ
 // "yyyy-MM-dd'T'HH:mm" ローカル文字列(未入力は "")で統一する。
+//
+// モバイル(P9-1): readOnLyなセグメント入力は仮想キーボードが出ず、共有▲▼の連打が
+// 唯一の編集手段になってしまう。lg未満では<input type="datetime-local">に切り替え、
+// OS標準のホイールピッカーに任せる。valueの文字列形式が一致するため変換は不要。
 
 export interface DateTimeStepperProps {
   label: string;
@@ -120,6 +125,9 @@ export function DateTimeStepper({
   onChange,
   disabled,
 }: DateTimeStepperProps) {
+  const isDesktop = useIsDesktop();
+  const mobileInputId = useId();
+
   const parts = toParts(value);
   const datePart = value ? value.slice(0, 10) : "";
 
@@ -236,6 +244,24 @@ export function DateTimeStepper({
   };
 
   const activeUnit = SEGMENT_UNIT[activeSegment];
+
+  if (!isDesktop) {
+    return (
+      <div className="flex flex-col gap-1 text-sm">
+        <label htmlFor={mobileInputId} className="text-sm">
+          {label}
+        </label>
+        <input
+          id={mobileInputId}
+          type="datetime-local"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
+        />
+      </div>
+    );
+  }
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-1 text-sm">
