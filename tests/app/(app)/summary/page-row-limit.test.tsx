@@ -14,6 +14,9 @@ vi.mock("@/lib/timer/entries", () => ({
   fetchTimeEntriesInRange: vi.fn().mockResolvedValue([]),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),
 }));
+vi.mock("@/lib/time/timezone-cookie.server", () => ({
+  readTimezoneCookie: vi.fn().mockResolvedValue(null),
+}));
 
 import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
 import SummaryPage from "@/app/(app)/summary/page";

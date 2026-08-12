@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-const { usePathnameMock, redirectMock } = vi.hoisted(() => ({
+const { usePathnameMock, redirectMock, routerMock } = vi.hoisted(() => ({
   usePathnameMock: vi.fn<() => string>(),
   redirectMock: vi.fn(),
+  routerMock: { refresh: vi.fn() },
 }));
 vi.mock("next/navigation", () => ({
   usePathname: usePathnameMock,
   redirect: redirectMock,
+  useRouter: () => routerMock,
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 

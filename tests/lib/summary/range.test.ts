@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TZDate } from "@date-fns/tz";
 import {
   buildSummaryPath,
   resolveSummaryRange,
@@ -127,6 +128,43 @@ describe("resolveSummaryRange", () => {
     expect(resolved.dayCount).toBe(367);
     expect(resolved.error).toBe("too-long");
     expect(resolved.key).toBe("custom");
+  });
+});
+
+// 仕様書: docs/specs/P8-3_サマリーの日付またぎとTZ非対称の是正.md S9〜S11
+describe("resolveSummaryRange のTZ対応(S9〜S11)", () => {
+  // 2026-08-11T12:00:00Z: 東京(UTC+9)では8/11 21:00、UTC+14では8/12 02:00と
+  // 暦日が割れる瞬間(ホストのローカルTZに依存しない絶対時刻)
+  const INSTANT = new Date(Date.UTC(2026, 7, 11, 12, 0, 0));
+
+  it("S9: nowがTZDateならそのタイムゾーンの今日0時〜翌0時になる", () => {
+    const now = new TZDate(INSTANT, "Pacific/Kiritimati");
+    const resolved = resolveSummaryRange({ range: "today" }, now);
+
+    // Pacific/Kiritimati(UTC+14)での8/12 00:00 は UTC の 8/11 10:00
+    expect(resolved.range.start.getTime()).toBe(
+      Date.UTC(2026, 7, 11, 10, 0, 0),
+    );
+    expect(resolved.range.end.getTime()).toBe(Date.UTC(2026, 7, 12, 10, 0, 0));
+  });
+
+  it("S10: nowがTZDateのとき明示的なdateもそのタイムゾーンの0時境界で解釈される", () => {
+    const now = new TZDate(INSTANT, "Pacific/Kiritimati");
+    const resolved = resolveSummaryRange(
+      { range: "today", date: "2026-08-01" },
+      now,
+    );
+
+    expect(resolved.range.start.getTime()).toBe(
+      Date.UTC(2026, 6, 31, 10, 0, 0),
+    );
+    expect(resolved.range.end.getTime()).toBe(Date.UTC(2026, 7, 1, 10, 0, 0));
+  });
+
+  it("S11: nowが通常のDateなら既存どおりserver-local基準になる(回帰確認)", () => {
+    const resolved = resolveSummaryRange({ range: "today" }, NOW);
+    expect(resolved.range.start).toEqual(new Date(2026, 7, 1));
+    expect(resolved.range.end).toEqual(new Date(2026, 7, 2));
   });
 });
 

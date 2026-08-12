@@ -1,3 +1,4 @@
+import { TZDate } from "@date-fns/tz";
 import {
   addDays,
   addMonths,
@@ -94,17 +95,25 @@ export function resolveSummaryRange(
 ): ResolvedSummaryRange {
   const key = parseRangeKey(params.range);
   const today = startOfDay(now);
+  // nowがTZDate(P8-3。クライアントのタイムゾーンCookieから組み立てたもの)なら、
+  // date/from/toのURLパラメータも同じタイムゾーンの暦日として解釈する。
+  // 通常のDateなら従来どおり実行環境のローカルTZで解釈する(完全後方互換)
+  const referenceZero =
+    now instanceof TZDate ? new TZDate(0, now.timeZone) : new Date(0);
 
   if (key === "custom") {
-    const from = parseDateParam(params.from);
-    const to = parseDateParam(params.to);
+    const from = parseDateParam(params.from, referenceZero);
+    const to = parseDateParam(params.to, referenceZero);
     if (!from || !to || to < from) {
       return resolvePreset("today", today);
     }
     return build("custom", from, from, addDays(to, 1));
   }
 
-  return resolvePreset(key, parseDateParam(params.date) ?? today);
+  return resolvePreset(
+    key,
+    parseDateParam(params.date, referenceZero) ?? today,
+  );
 }
 
 /** 集計期間(ローカル日付境界)をDBクエリ用のUTC ISO範囲に変換する */

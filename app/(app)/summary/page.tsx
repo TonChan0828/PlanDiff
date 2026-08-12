@@ -36,6 +36,8 @@ import {
   type SummaryRangeKey,
 } from "@/lib/summary/range";
 import { createClient } from "@/lib/supabase/server";
+import { resolveNowInTimezone } from "@/lib/time/now-in-timezone";
+import { readTimezoneCookie } from "@/lib/time/timezone-cookie.server";
 import { actualBlockInputs } from "@/lib/timer/blocks";
 import {
   fetchRunningEntry,
@@ -87,7 +89,11 @@ export default async function SummaryPage({
   searchParams: Promise<SummarySearchParams>;
 }) {
   const params = await searchParams;
-  const now = new Date();
+  // サーバーは訪問者のタイムゾーンを知る手段がないため、TimezoneSyncが書き込む
+  // Cookieを読んで「今日」をそのタイムゾーンで計算する(P8-3)。Cookie未設定時は
+  // 従来どおりサーバーのタイムゾーンで計算する
+  const timezone = await readTimezoneCookie();
+  const now = resolveNowInTimezone(timezone);
   const resolved = resolveSummaryRange(
     {
       range: firstParam(params.range),
