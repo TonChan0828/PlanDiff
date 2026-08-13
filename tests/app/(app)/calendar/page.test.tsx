@@ -7,7 +7,9 @@ vi.mock("@/lib/calendar/events", () => ({
   fetchSyncedEvents: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/lib/calendar/recurring", () => ({
-  materializeRecurringInstances: vi.fn().mockResolvedValue(undefined),
+  // materializeRecurringInstances は実装上 undefined を返さない(常に配列)。
+  // 本テストはヘッダー構成のみを検証するため、実際の契約と一致させて空配列にする
+  materializeRecurringInstances: vi.fn().mockResolvedValue([]),
   fetchRecurringRules: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/lib/timer/entries", () => ({

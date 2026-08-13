@@ -8,6 +8,7 @@ import {
   RECURRING_ID_PREFIX,
   parseRecurringEventId,
   type RecurringPattern,
+  type RecurringRuleOrigin,
   type RecurringRuleSummary,
 } from "@/lib/calendar/recurring-id";
 
@@ -193,6 +194,11 @@ export interface RecurringRuleFormInput {
   startsOn: string;
   /** "YYYY-MM-DD" 形式。nullは無期限 */
   endsOn: string | null;
+  /**
+   * ルールの由来(P10-1)。省略時は 'manual'。
+   * 作成時のみ使用し、更新(updateRecurringRule)では変更しない
+   */
+  origin?: RecurringRuleOrigin;
 }
 
 export type RecurringRuleResult = { ok: true } | { ok: false };
@@ -284,8 +290,11 @@ function toRuleRow(validated: ValidatedRecurringRule) {
   };
 }
 
-/** ルールのtimezoneでの「今日」の0時(UTC ISO)と日付文字列(YYYY-MM-DD) */
-function todayBoundary(
+/**
+ * ルールのtimezoneでの「今日」の0時(UTC ISO)と日付文字列(YYYY-MM-DD)。
+ * lib/calendar/rule-learning.ts(P10-1)からも「今日以降のみ再実体化」の判定に使うためexportする。
+ */
+export function todayBoundary(
   timezone: string,
   now: Date = new Date(),
 ): { utcThresholdIso: string; dateOnly: string } {
@@ -314,6 +323,7 @@ export async function createRecurringRule(
   }
   const { error } = await client.from("recurring_rules").insert({
     user_id: sessionUser.id,
+    origin: input.origin ?? "manual",
     ...toRuleRow(validated),
   });
   return error ? { ok: false } : { ok: true };
@@ -455,7 +465,12 @@ interface RecurringRuleRow {
   timezone: string;
   starts_on: string;
   ends_on: string | null;
+  origin: RecurringRuleOrigin;
+  last_learned_at: string | null;
 }
+
+const RULE_SELECT_COLUMNS =
+  "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on, origin, last_learned_at";
 
 /** DBの行をUI表示用の形(HH:mmに正規化)へ変換する */
 function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
@@ -469,6 +484,8 @@ function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
     timezone: rule.timezone,
     startsOn: rule.starts_on,
     endsOn: rule.ends_on,
+    origin: rule.origin,
+    lastLearnedAt: rule.last_learned_at,
   };
 }
 
@@ -481,9 +498,7 @@ export async function fetchRecurringRules(
 ): Promise<RecurringRuleSummary[]> {
   const { data, error } = await client
     .from("recurring_rules")
-    .select(
-      "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on",
-    )
+    .select(RULE_SELECT_COLUMNS)
     .order("created_at", { ascending: true });
   if (error || !data) {
     return [];
@@ -510,31 +525,42 @@ function toUtcDateString(iso: string, dayOffset: number): string {
  *
  * 読み取ったルール一覧を返す(P6-1)。`/calendar` はこれを使うことで
  * fetchRecurringRules の重複クエリを避ける。
+ *
+ * `prefetchedRules` を渡すと `recurring_rules` の再読み込みをスキップし、
+ * 渡された値をそのまま実体化に使う(P10-1)。学習補正の直後に同一リクエスト内で
+ * 再実体化する際、Next.jsのfetchリクエストメモ化により直前と同一のSELECTが
+ * 更新前の内容を返してしまう(既存の書き込みを拾えない)ことを避けるために必要。
  */
 export async function materializeRecurringInstances(
   client: SupabaseClient,
   baseDate: Date,
   range: SyncRange = computeSyncRange(baseDate),
+  prefetchedRules?: RecurringRuleSummary[],
 ): Promise<RecurringRuleSummary[]> {
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return [];
   }
 
-  const { data: rules, error: rulesError } = await client
-    .from("recurring_rules")
-    .select(
-      "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on",
-    )
-    // fetchRecurringRules と同じ並びにして、呼び出し側が戻り値をそのまま使えるようにする
-    .order("created_at", { ascending: true });
-  if (rulesError || !rules || rules.length === 0) {
-    return [];
+  let summaries: RecurringRuleSummary[];
+  if (prefetchedRules) {
+    summaries = prefetchedRules;
+  } else {
+    const { data: rules, error: rulesError } = await client
+      .from("recurring_rules")
+      .select(RULE_SELECT_COLUMNS)
+      // fetchRecurringRules と同じ並びにして、呼び出し側が戻り値をそのまま使えるようにする
+      .order("created_at", { ascending: true });
+    if (rulesError || !rules || rules.length === 0) {
+      return [];
+    }
+    summaries = (rules as unknown as RecurringRuleRow[]).map(toRuleSummary);
+  }
+  if (summaries.length === 0) {
+    return summaries;
   }
 
-  const ruleRows = rules as unknown as RecurringRuleRow[];
-  const ruleIds = ruleRows.map((rule) => rule.id);
-  const summaries = ruleRows.map(toRuleSummary);
+  const ruleIds = summaries.map((rule) => rule.id);
 
   // 例外は全期間ではなく実体化範囲だけを取る(P6-1)。UNIQUE(rule_id, occurrence_date)が効く。
   // occurrence_date はルールのタイムゾーンの日付なので、UTC範囲との差を吸収するため前後1日を足す
@@ -565,15 +591,15 @@ export async function materializeRecurringInstances(
     end_at: string;
   }[] = [];
 
-  for (const rule of ruleRows) {
+  for (const rule of summaries) {
     const ruleInput: RecurringRuleInput = {
       pattern: rule.pattern,
       weekdays: rule.weekdays,
-      startTime: rule.start_time.slice(0, 5),
-      endTime: rule.end_time.slice(0, 5),
+      startTime: rule.startTime,
+      endTime: rule.endTime,
       timezone: rule.timezone,
-      startsOn: rule.starts_on,
-      endsOn: rule.ends_on,
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn,
     };
     const occurrences = expandOccurrences(ruleInput, rangeStart, rangeEnd);
     const excluded = exceptionsByRule.get(rule.id) ?? new Set<string>();

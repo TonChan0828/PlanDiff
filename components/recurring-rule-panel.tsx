@@ -31,6 +31,8 @@ interface RecurringRulePanelProps {
   onClose: () => void;
   pending: boolean;
   error: string | null;
+  /** P10-1: 提案経由ルール(origin='suggestion')の自動学習補正を止める */
+  onDisableLearning?: () => Promise<{ ok: boolean }>;
 }
 
 export function RecurringRulePanel({
@@ -40,6 +42,7 @@ export function RecurringRulePanel({
   onClose,
   pending,
   error,
+  onDisableLearning,
 }: RecurringRulePanelProps) {
   const [title, setTitle] = useState(initial.title);
   const [pattern, setPattern] = useState<RecurringPattern>(initial.pattern);
@@ -49,6 +52,35 @@ export function RecurringRulePanel({
   const [endsOnLocal, setEndsOnLocal] = useState(initial.endsOn ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // P10-1: 学習停止トグル。成功したらこのパネル内では即座にトグル自体を隠す
+  const [learningDisabled, setLearningDisabled] = useState(false);
+  const [disablingLearning, setDisablingLearning] = useState(false);
+  const [disableLearningError, setDisableLearningError] = useState<
+    string | null
+  >(null);
+
+  const showLearningToggle =
+    initial.origin === "suggestion" && !learningDisabled;
+
+  const handleDisableLearning = async () => {
+    if (!onDisableLearning || disablingLearning) {
+      return;
+    }
+    setDisablingLearning(true);
+    setDisableLearningError(null);
+    try {
+      const result = await onDisableLearning();
+      if (result.ok) {
+        setLearningDisabled(true);
+      } else {
+        setDisableLearningError(M.ruleLearningStopError);
+      }
+    } catch {
+      setDisableLearningError(M.ruleLearningStopError);
+    } finally {
+      setDisablingLearning(false);
+    }
+  };
 
   const toggleWeekday = (day: number) => {
     setWeekdays((prev) =>
@@ -163,6 +195,34 @@ export function RecurringRulePanel({
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <p className="text-ink-muted text-sm">{M.recurringEditWarning}</p>
+            {showLearningToggle ? (
+              <div className="border-line/60 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    {M.ruleLearningStopToggle}
+                  </p>
+                  <p className="text-ink-muted text-xs">
+                    {M.ruleLearningStopHint}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={false}
+                  aria-label={M.ruleLearningStopToggle}
+                  onClick={handleDisableLearning}
+                  disabled={disablingLearning}
+                  className="border-line bg-surface relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border disabled:opacity-50"
+                >
+                  <span className="bg-ink-muted ml-1 inline-block h-5 w-5 rounded-full transition-transform" />
+                </button>
+              </div>
+            ) : null}
+            {disableLearningError ? (
+              <p role="alert" className="text-danger text-sm">
+                {disableLearningError}
+              </p>
+            ) : null}
             <label className="flex flex-col gap-1 text-sm">
               <span>{M.eventTitleField}</span>
               <input

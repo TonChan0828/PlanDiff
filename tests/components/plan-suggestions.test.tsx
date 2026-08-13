@@ -131,6 +131,7 @@ describe("毎週にする(S16)", () => {
       timezone: TZ,
       startsOn: "2026-07-14",
       endsOn: null,
+      origin: "suggestion",
     });
     await waitFor(() => {
       expect(screen.queryByText("朝会")).not.toBeInTheDocument();
@@ -331,6 +332,7 @@ describe("まとめカードの毎週にする(S39)", () => {
       timezone: TZ,
       startsOn: "2026-07-20",
       endsOn: null,
+      origin: "suggestion",
     });
   });
 

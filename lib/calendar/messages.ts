@@ -107,4 +107,16 @@ export const CALENDAR_MESSAGES = {
   suggestionDismissLabel: (title: string) => `${title}の提案を閉じる`,
   suggestionAddError: "予定の追加に失敗しました",
   suggestionMakeWeeklyError: "繰り返し予定の作成に失敗しました",
+  // 提案経由の定期予定の自動学習補正(P10-1)
+  ruleLearningStopToggle: "自動調整を止める",
+  ruleLearningStopHint: "実績にあわせて開始時刻・所要時間を自動調整しています",
+  ruleLearningStopError: "自動調整の停止に失敗しました",
+  ruleAdjustmentNotice: (
+    title: string,
+    previousStartTime: string,
+    newStartTime: string,
+    previousDurationLabel: string,
+    newDurationLabel: string,
+  ) =>
+    `『${title}』を実績にあわせて調整しました(開始 ${previousStartTime}→${newStartTime}・所要 ${previousDurationLabel}→${newDurationLabel})`,
 } as const;

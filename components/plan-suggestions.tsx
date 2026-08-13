@@ -194,6 +194,8 @@ export function PlanSuggestions({
           timezone: resolvedTimeZone,
           startsOn: suggestion.dates[0] ?? "",
           endsOn: null,
+          // P10-1: 提案経由の定期予定として作成し、以後の学習補正の対象にする
+          origin: "suggestion",
         }),
       M.suggestionMakeWeeklyError,
     );
