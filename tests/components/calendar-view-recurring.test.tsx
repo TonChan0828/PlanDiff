@@ -89,6 +89,8 @@ const ruleSummary = {
   timezone: "Asia/Tokyo",
   startsOn: "2026-07-01",
   endsOn: null,
+  origin: "manual" as const,
+  lastLearnedAt: null,
 };
 
 function renderView(overrides?: {

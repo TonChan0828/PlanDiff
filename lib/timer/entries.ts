@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays, startOfWeek } from "date-fns";
+import { addDays, startOfWeek, subDays } from "date-fns";
 import {
   computeSyncRange,
   toRangeLiteral,
@@ -68,6 +68,38 @@ export async function fetchSuggestionSourceEntries(
   const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
   const timeMin = addDays(weekStart, -29).toISOString();
   const timeMax = addDays(weekStart, 1).toISOString();
+  const { data, error } = await client
+    .from("time_entries")
+    .select("id, title, google_event_id, start_at, end_at")
+    .not("end_at", "is", null)
+    .gte("start_at", timeMin)
+    .lt("start_at", timeMax)
+    .order("start_at", { ascending: true });
+  if (error) {
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    title: row.title as string,
+    googleEventId: (row.google_event_id as string | null) ?? null,
+    startAt: new Date(row.start_at as string).toISOString(),
+    endAt: new Date(row.end_at as string).toISOString(),
+  }));
+}
+
+/**
+ * 提案経由の定期予定の自動学習補正(P10-1)の元データ。現在時刻を基準に、
+ * rule-learning.ts の ADJUSTMENT_LOOKBACK_DAYS(42)+TZバッファ1日ぶんの完了実績を取得する。
+ * 表示中の週(baseDate)に関係なく「今」を基準にする点が
+ * fetchSuggestionSourceEntries(P5-2、baseDate基準)と異なる。
+ * 取得失敗時は空配列を返し、学習補正を行わないだけに留める(カレンダー本体を妨げない)。
+ */
+export async function fetchRuleLearningEntries(
+  client: SupabaseClient,
+  now: Date,
+): Promise<TimeEntryItem[]> {
+  const timeMin = subDays(now, 43).toISOString();
+  const timeMax = addDays(now, 1).toISOString();
   const { data, error } = await client
     .from("time_entries")
     .select("id, title, google_event_id, start_at, end_at")

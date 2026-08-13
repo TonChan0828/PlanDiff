@@ -50,6 +50,8 @@ const RULE = {
   timezone: "Asia/Tokyo",
   startsOn: "2026-01-01",
   endsOn: null,
+  origin: "manual" as const,
+  lastLearnedAt: null,
 };
 
 function mockClient(onboardedAt: string | null) {

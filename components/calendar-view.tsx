@@ -45,6 +45,7 @@ import {
   deleteAppEventAction,
   deleteRecurringOccurrenceAction,
   deleteRecurringRuleAction,
+  disableRuleLearningAction,
   updateAppEventAction,
   updateRecurringRuleAction,
 } from "@/app/(app)/calendar/event-actions";
@@ -73,6 +74,7 @@ import {
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
 import type { RecurringRulePanelValues } from "@/components/recurring-rule-panel";
+import { RuleAdjustmentBanner } from "@/components/rule-adjustment-banner";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
   hasEventOnDay,
@@ -85,6 +87,7 @@ import {
   isRecurringEventId,
   parseRecurringEventId,
   type RecurringRuleSummary,
+  type RuleAdjustmentNotice,
 } from "@/lib/calendar/recurring-id";
 import {
   buildCalendarPath,
@@ -161,6 +164,8 @@ interface CalendarViewProps {
   recurringRules?: RecurringRuleSummary[];
   /** 実績からの予定提案(P5-2)の元データ(表示週開始前4週の完了実績) */
   suggestionEntries?: TimeEntryItem[];
+  /** 提案経由の定期予定の自動学習補正(P10-1)で今回のロードで変更があった分の通知 */
+  ruleAdjustments?: RuleAdjustmentNotice[];
   /** オンボーディング完了直後など、初回描画で予定作成パネルを開く */
   startCreating?: boolean;
 }
@@ -175,6 +180,7 @@ export function CalendarView({
   googleEnabled = true,
   recurringRules = [],
   suggestionEntries = [],
+  ruleAdjustments = [],
   startCreating = false,
 }: CalendarViewProps) {
   const router = useRouter();
@@ -680,6 +686,14 @@ export function CalendarView({
       .finally(() => setEventPending(false));
   };
 
+  // 提案経由の定期予定の自動学習補正(P10-1): 停止トグル。パネル側で完結する結果だけ返す
+  const handleDisableLearning = () => {
+    if (!eventPanel || eventPanel.mode !== "rule-edit") {
+      return Promise.resolve({ ok: false });
+    }
+    return disableRuleLearningAction(eventPanel.ruleId);
+  };
+
   // ---- 実績の手動編集(P2-4): 確定済み実績のみ対象。楽観的更新はせずServer Action成功後にrefresh ----
   const [editingEntry, setEditingEntry] = useState<EditEntryPanelEntry | null>(
     null,
@@ -890,6 +904,8 @@ export function CalendarView({
           <GoogleConnectionBanner status={connectionStatus} />
         ) : null}
 
+        <RuleAdjustmentBanner notices={ruleAdjustments} />
+
         {view === "day" && selectedDate && now ? (
           <WeekStrip
             selectedDate={selectedDate}
@@ -1066,6 +1082,7 @@ export function CalendarView({
                 onClose={handleCloseEventPanel}
                 pending={eventPending}
                 error={eventError}
+                onDisableLearning={handleDisableLearning}
               />
             );
           })()

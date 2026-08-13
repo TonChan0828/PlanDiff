@@ -32,6 +32,9 @@ export function parseRecurringEventId(
 
 export type RecurringPattern = "daily" | "weekly" | "weekdays";
 
+/** ルールの由来(P10-1)。'suggestion' = 提案の「毎週にする」経由で作成 */
+export type RecurringRuleOrigin = "manual" | "suggestion";
+
 export interface RecurringRuleSummary {
   id: string;
   title: string;
@@ -46,4 +49,22 @@ export interface RecurringRuleSummary {
   startsOn: string;
   /** "YYYY-MM-DD" 形式。nullは無期限 */
   endsOn: string | null;
+  origin: RecurringRuleOrigin;
+  /** 学習補正(P10-1)の直近再計算日時。UTCのISO文字列。未学習は null */
+  lastLearnedAt: string | null;
+}
+
+/** 提案経由の定期予定の自動調整(P10-1)。変更が実際にあった1件ぶんの通知データ */
+export interface RuleAdjustmentNotice {
+  ruleId: string;
+  title: string;
+  timezone: string;
+  /** "HH:mm" 形式 */
+  previousStartTime: string;
+  /** "HH:mm" 形式 */
+  previousEndTime: string;
+  /** "HH:mm" 形式 */
+  newStartTime: string;
+  /** "HH:mm" 形式 */
+  newEndTime: string;
 }

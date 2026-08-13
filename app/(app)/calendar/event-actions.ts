@@ -17,6 +17,7 @@ import {
   type RecurringRuleFormInput,
   type RecurringRuleResult,
 } from "@/lib/calendar/recurring";
+import { disableRuleLearning } from "@/lib/calendar/rule-learning";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
@@ -135,6 +136,24 @@ export async function deleteRecurringOccurrenceAction(
   if (result.ok) {
     revalidatePath("/calendar");
     revalidatePath("/track");
+  }
+  return result;
+}
+
+// 提案経由の定期予定の自動学習補正(P10-1)の停止トグル。
+// origin='manual'に戻すだけで、今日以降のインスタンスの再実体化は次回ロード時に行われる。
+
+export async function disableRuleLearningAction(
+  ruleId: string,
+): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const sessionUser = await getSessionUser(supabase);
+  if (!sessionUser) {
+    redirect("/login");
+  }
+  const result = await disableRuleLearning(supabase, ruleId);
+  if (result.ok) {
+    revalidatePath("/calendar");
   }
   return result;
 }

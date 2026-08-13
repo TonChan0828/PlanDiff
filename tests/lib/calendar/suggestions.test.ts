@@ -74,6 +74,8 @@ function rule(
     timezone: TZ,
     startsOn: "2026-06-01",
     endsOn: null,
+    origin: "manual",
+    lastLearnedAt: null,
   };
 }
 
