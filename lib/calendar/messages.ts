@@ -6,6 +6,8 @@ export const CALENDAR_MESSAGES = {
   loggedInSuffix: "さんとしてログイン中です。",
   refresh: "更新",
   syncing: "同期中…",
+  // 表示の再取得中(P12-1)。Google同期(syncing)とは別の状態なので文言を分ける
+  viewUpdatingLabel: "表示を更新しています",
   syncError: "同期に失敗しました。時間をおいてもう一度お試しください",
   empty: "予定がありません",
   untitled: "(タイトルなし)",

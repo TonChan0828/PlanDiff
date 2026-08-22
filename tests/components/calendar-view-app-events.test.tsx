@@ -235,3 +235,111 @@ describe("Google凍結フラグ(S18/S19)", () => {
     ).toBeInTheDocument();
   });
 });
+
+// 仕様書: docs/specs/P12-1_カレンダー操作の即時フィードバック.md S7〜S10
+describe("予定の保存・削除後の反映待ちフィードバック(S7〜S10)", () => {
+  // 反映待ち(router.refresh のRSC再取得)を再現するための手動制御Promise
+  function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  async function openCreatePanelAndSave(
+    user: ReturnType<typeof userEvent.setup>,
+  ) {
+    await user.click(screen.getByRole("button", { name: M.eventAdd }));
+    await screen.findByRole("dialog");
+    await user.type(screen.getByLabelText(M.eventTitleField), "レビュー対応");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+  }
+
+  it("S7: 保存が成功するとパネルは即座に閉じ、反映待ちの間グリッドが aria-busy になる", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    renderView({ googleEnabled: false });
+
+    await openCreatePanelAndSave(user);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
+  });
+
+  it("S8: 反映が完了するとグリッドの aria-busy が false に戻る", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    renderView({ googleEnabled: false });
+
+    await openCreatePanelAndSave(user);
+    await waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+    });
+
+    deferred.resolve();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+    });
+  });
+
+  it("S9: 保存が失敗したときは refresh されず、グリッドも aria-busy にならない", async () => {
+    const user = userEvent.setup();
+    createAppEventActionMock.mockResolvedValue({ ok: false });
+    renderView({ googleEnabled: false });
+
+    await openCreatePanelAndSave(user);
+
+    expect(await screen.findByText(M.eventCreateError)).toBeInTheDocument();
+    expect(routerMock.refresh).not.toHaveBeenCalled();
+    expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
+  it("S10: 予定の削除でも反映待ちの間グリッドが aria-busy になる", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    renderView({ googleEnabled: false });
+
+    await user.click(screen.getByRole("button", { name: M.contextOpen }));
+    await user.click(
+      screen.getByRole("button", { name: M.eventEditLabel("設計作業") }),
+    );
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "削除" }));
+    await user.click(
+      screen.getByRole("button", { name: M.eventDeleteConfirmYes }),
+    );
+
+    await waitFor(() => {
+      expect(deleteAppEventActionMock).toHaveBeenCalled();
+    });
+    expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
+  });
+});

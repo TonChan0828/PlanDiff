@@ -72,6 +72,16 @@ const todaysEvents = [
   eventOn(today, "row-2", "リリース作業", 14, 0, 15, 0),
 ];
 
+// 遷移中(サーバー往復中)を再現するための手動制御Promise。
+// routerMockは同期のvi.fn()なので、これを返させないとpending状態を観測できない
+function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   fetchMock.mockResolvedValue(jsonResponse(200, { events: [] }));
@@ -446,6 +456,75 @@ describe("CalendarView 日付またぎ(S12〜S18)", () => {
     });
 
     expect(routerMock.refresh).not.toHaveBeenCalled();
+  });
+});
+
+// 仕様書: docs/specs/P12-1_カレンダー操作の即時フィードバック.md S1〜S3
+describe("ナビゲーション操作の即時フィードバック(S1〜S3)", () => {
+  const navButtonNames = [
+    M.navPrev,
+    M.navToday,
+    M.navNext,
+    M.viewDay,
+    M.viewWeek,
+  ];
+
+  it("S1: 「次へ」クリック直後はナビ系ボタンがすべて disabled になる", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: M.navNext }));
+
+    await vi.waitFor(() => {
+      for (const name of navButtonNames) {
+        expect(screen.getByRole("button", { name })).toBeDisabled();
+      }
+    });
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
+  });
+
+  it("S2: 遷移が完了するとナビ系ボタンの disabled が解除される", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: M.navNext }));
+    await vi.waitFor(() => {
+      expect(screen.getByRole("button", { name: M.navNext })).toBeDisabled();
+    });
+
+    await act(async () => {
+      deferred.resolve();
+      await deferred.promise;
+    });
+
+    for (const name of navButtonNames) {
+      expect(screen.getByRole("button", { name })).not.toBeDisabled();
+    }
+  });
+
+  it("S3: 遷移中は更新中を知らせる status 要素が表示され、完了で消える", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    render(<CalendarView events={[]} viewParam="day" googleEnabled={false} />);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: M.viewWeek }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(M.viewUpdatingLabel);
+    });
+
+    await act(async () => {
+      deferred.resolve();
+      await deferred.promise;
+    });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
 
