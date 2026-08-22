@@ -923,23 +923,35 @@ export function CalendarView({
           {view === "week" && selectedDate ? (
             <div className="bg-surface sticky top-0 z-20 grid min-w-[52rem] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-px border-b pr-1 xl:min-w-0">
               <div className="bg-surface sticky left-0" aria-hidden="true" />
-              {days.map((day) => (
-                <div
-                  key={toDateParam(day)}
-                  data-week-day-header
-                  aria-current={now && isSameDay(day, now) ? "date" : undefined}
-                  className={`flex flex-col items-center rounded-md py-1 text-xs ${
-                    now && isSameDay(day, now)
-                      ? "bg-brand text-brand-ink font-semibold"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  <span>{format(day, "E", { locale: ja })}</span>
-                  <span className="font-mono tabular-nums">
-                    {format(day, "d")}
-                  </span>
-                </div>
-              ))}
+              {days.map((day) => {
+                const isSelected = isSameDay(day, selectedDate);
+                const isToday = Boolean(now && isSameDay(day, now));
+                return (
+                  <button
+                    key={toDateParam(day)}
+                    type="button"
+                    data-week-day-header
+                    aria-pressed={isSelected}
+                    aria-current={isToday ? "date" : undefined}
+                    aria-label={format(day, "M月d日(E)", { locale: ja })}
+                    onClick={() =>
+                      router.push(buildCalendarPath("week", day, today))
+                    }
+                    className={`flex min-h-11 w-full flex-col items-center justify-center rounded-md border py-1 text-xs transition-colors ${
+                      isSelected
+                        ? "border-brand bg-brand text-brand-ink font-semibold"
+                        : isToday
+                          ? "border-brand/50 font-semibold"
+                          : "text-ink-muted hover:bg-ink/5 border-transparent"
+                    }`}
+                  >
+                    <span>{format(day, "E", { locale: ja })}</span>
+                    <span className="font-mono tabular-nums">
+                      {format(day, "d")}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : null}
           {rangeIsEmpty ? (
