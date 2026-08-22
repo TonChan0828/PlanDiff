@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format, isSameDay, startOfDay } from "date-fns";
 
@@ -197,5 +197,85 @@ describe("週表示での他日の予定・実績編集(S5/S6)", () => {
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("タイトル")).toHaveValue("他日実績");
+  });
+});
+
+// 仕様書: docs/specs/P12-1_カレンダー操作の即時フィードバック.md S4〜S6
+describe("日付選択の即時フィードバック(S4〜S6)", () => {
+  // 遷移中(サーバー往復中)を再現するための手動制御Promise
+  function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("S4: 週ヘッダークリック直後は全曜日ヘッダーが disabled になる", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    renderView({ dateParam: todayParam });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: dayHeaderLabel(otherDay) }),
+    );
+
+    await vi.waitFor(() => {
+      for (const day of weekDaysOf(today)) {
+        expect(
+          screen.getByRole("button", { name: dayHeaderLabel(day) }),
+        ).toBeDisabled();
+      }
+    });
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
+  });
+
+  it("S5: 日表示のWeekStripでも遷移中は全ボタンが disabled になる", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    render(
+      <CalendarView
+        events={[]}
+        timeEntries={[]}
+        runningEntry={null}
+        viewParam="day"
+        dateParam={todayParam}
+        googleConnected={false}
+        googleEnabled={false}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: dayHeaderLabel(otherDay) }),
+    );
+
+    await vi.waitFor(() => {
+      for (const day of weekDaysOf(today)) {
+        expect(
+          screen.getByRole("button", { name: dayHeaderLabel(day) }),
+        ).toBeDisabled();
+      }
+    });
+  });
+
+  it("S6: 遷移中は同じヘッダーを再クリックしても router.push が追加で呼ばれない", async () => {
+    const deferred = createDeferred();
+    routerMock.push.mockReturnValueOnce(deferred.promise);
+    renderView({ dateParam: todayParam });
+
+    const header = screen.getByRole("button", {
+      name: dayHeaderLabel(otherDay),
+    });
+    fireEvent.click(header);
+    await vi.waitFor(() => expect(header).toBeDisabled());
+
+    fireEvent.click(header);
+
+    expect(routerMock.push).toHaveBeenCalledTimes(1);
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
   });
 });

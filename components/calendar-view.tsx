@@ -1,6 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -36,6 +43,7 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   PanelRight,
   Play,
 } from "lucide-react";
@@ -202,6 +210,21 @@ export function CalendarView({
   const [contextOpen, setContextOpen] = useState(false);
   const [contextTab, setContextTab] = useState<CalendarContextTab>("day");
 
+  // ---- 表示の反映待ち(P12-1) ----
+  // router.push / router.refresh は重い page.tsx を丸ごと再実行させるため数秒かかる。
+  // その往復中を viewPending で表し、ナビ系ボタンの disabled とグリッドの減光に使う
+  const [viewPending, startViewTransition] = useTransition();
+
+  // update() の戻り値を await するのは、router.push/refresh が void を返す本番でも
+  // React 19 の非同期トランジションとして扱わせ、RSCの再取得がコミットされるまで
+  // viewPending を真に保つため。Server Action の失敗は各ハンドラの .catch が
+  // ユーザー向けエラーとして表示するため、ここでは握らず素通しする
+  const startViewUpdate = (update: () => void | Promise<unknown>) => {
+    startViewTransition(async () => {
+      await update();
+    });
+  };
+
   // ---- 同期(P1-2の挙動を維持): マウント時+表示週の変化+手動リフレッシュ ----
   // 凍結フラグOFF(googleEnabled=false)時は同期を一切行わない(P2-5)
   const [syncing, setSyncing] = useState(googleEnabled);
@@ -302,21 +325,27 @@ export function CalendarView({
 
   const handleNavigate = (direction: "prev" | "next") => {
     if (selectedDate) {
-      router.push(
-        buildCalendarPath(
-          view,
-          shiftDate(view, selectedDate, direction),
-          today,
+      startViewUpdate(() =>
+        router.push(
+          buildCalendarPath(
+            view,
+            shiftDate(view, selectedDate, direction),
+            today,
+          ),
         ),
       );
     }
   };
   const handleToday = () => {
-    router.push(buildCalendarPath(view, today ?? new Date(), today));
+    startViewUpdate(() =>
+      router.push(buildCalendarPath(view, today ?? new Date(), today)),
+    );
   };
   const handleViewChange = (mode: CalendarViewMode) => {
     if (selectedDate) {
-      router.push(buildCalendarPath(mode, selectedDate, today));
+      startViewUpdate(() =>
+        router.push(buildCalendarPath(mode, selectedDate, today)),
+      );
     }
   };
   const handleRefresh = () => {
@@ -582,7 +611,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEventError(failureMessage);
         }
@@ -605,7 +634,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEventError(M.eventDeleteError);
         }
@@ -625,7 +654,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEventError(M.recurrenceCreateError);
         }
@@ -658,7 +687,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEventError(M.recurrenceUpdateError);
         }
@@ -677,7 +706,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEventPanel(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEventError(M.recurrenceDeleteError);
         }
@@ -742,7 +771,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEditingEntry(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEditError(T.updateError);
         }
@@ -761,7 +790,7 @@ export function CalendarView({
       .then((result) => {
         if (result.ok) {
           setEditingEntry(null);
-          router.refresh();
+          startViewUpdate(() => router.refresh());
         } else {
           setEditError(T.deleteError);
         }
@@ -808,14 +837,16 @@ export function CalendarView({
                 type="button"
                 aria-label={M.navPrev}
                 onClick={() => handleNavigate("prev")}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
+                disabled={viewPending}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors disabled:opacity-50"
               >
                 <ChevronLeft aria-hidden="true" className="h-5 w-5" />
               </button>
               <button
                 type="button"
                 onClick={handleToday}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors"
+                disabled={viewPending}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {M.navToday}
               </button>
@@ -823,14 +854,28 @@ export function CalendarView({
                 type="button"
                 aria-label={M.navNext}
                 onClick={() => handleNavigate("next")}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors"
+                disabled={viewPending}
+                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors disabled:opacity-50"
               >
                 <ChevronRight aria-hidden="true" className="h-5 w-5" />
               </button>
             </div>
-            <p className="font-mono text-sm font-medium tabular-nums">
-              {rangeLabel}
-            </p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              {viewPending ? (
+                <>
+                  <Loader2
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none"
+                  />
+                  <span role="status" aria-live="polite" className="sr-only">
+                    {M.viewUpdatingLabel}
+                  </span>
+                </>
+              ) : null}
+              <p className="truncate font-mono text-sm font-medium tabular-nums">
+                {rangeLabel}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <div
@@ -844,7 +889,8 @@ export function CalendarView({
                   type="button"
                   aria-pressed={view === mode}
                   onClick={() => handleViewChange(mode)}
-                  className={`inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors ${
+                  disabled={viewPending}
+                  className={`inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors disabled:opacity-50 ${
                     view === mode ? "bg-brand text-brand-ink" : "hover:bg-ink/5"
                   }`}
                 >
@@ -910,15 +956,23 @@ export function CalendarView({
           <WeekStrip
             selectedDate={selectedDate}
             today={now}
+            pending={viewPending}
             onSelect={(day) =>
-              router.push(buildCalendarPath("day", day, today))
+              startViewUpdate(() =>
+                router.push(buildCalendarPath("day", day, today)),
+              )
             }
           />
         ) : null}
 
         <div
           ref={scrollRef}
-          className="border-line bg-surface relative min-h-64 flex-1 overflow-auto rounded-lg border"
+          data-testid="calendar-grid"
+          aria-busy={viewPending}
+          // 反映待ちの間は古いデータが残るため、誤タップでタイマーが動かないよう操作を止める(P12-1)
+          className={`border-line bg-surface relative min-h-64 flex-1 overflow-auto rounded-lg border transition-opacity duration-150 ${
+            viewPending ? "pointer-events-none opacity-60" : ""
+          }`}
         >
           {view === "week" && selectedDate ? (
             <div className="bg-surface sticky top-0 z-20 grid min-w-[52rem] grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-px border-b pr-1 xl:min-w-0">
@@ -935,9 +989,12 @@ export function CalendarView({
                     aria-current={isToday ? "date" : undefined}
                     aria-label={format(day, "M月d日(E)", { locale: ja })}
                     onClick={() =>
-                      router.push(buildCalendarPath("week", day, today))
+                      startViewUpdate(() =>
+                        router.push(buildCalendarPath("week", day, today)),
+                      )
                     }
-                    className={`flex min-h-11 w-full flex-col items-center justify-center rounded-md border py-1 text-xs transition-colors ${
+                    disabled={viewPending}
+                    className={`flex min-h-11 w-full flex-col items-center justify-center rounded-md border py-1 text-xs transition-colors disabled:opacity-50 ${
                       isSelected
                         ? "border-brand bg-brand text-brand-ink font-semibold"
                         : isToday
@@ -1144,10 +1201,13 @@ const GRID_BACKGROUND_STYLE = {
 function WeekStrip({
   selectedDate,
   today,
+  pending,
   onSelect,
 }: {
   selectedDate: Date;
   today: Date;
+  /** 表示の反映待ち中(P12-1)。連打と、遷移前の日付への誤タップを防ぐ */
+  pending: boolean;
   onSelect: (day: Date) => void;
 }) {
   return (
@@ -1163,7 +1223,8 @@ function WeekStrip({
               aria-current={isToday ? "date" : undefined}
               aria-label={format(day, "M月d日(E)", { locale: ja })}
               onClick={() => onSelect(day)}
-              className={`flex min-h-11 w-full flex-col items-center justify-center rounded-lg border text-xs transition-colors ${
+              disabled={pending}
+              className={`flex min-h-11 w-full flex-col items-center justify-center rounded-lg border text-xs transition-colors disabled:opacity-50 ${
                 isSelected
                   ? "border-brand bg-brand text-brand-ink font-semibold"
                   : isToday

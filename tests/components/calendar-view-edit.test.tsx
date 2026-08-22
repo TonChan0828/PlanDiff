@@ -200,3 +200,84 @@ describe("編集パネルの削除(S14/S15)", () => {
     expect(screen.getByText("この実績を削除しますか?")).toBeInTheDocument();
   });
 });
+
+// 仕様書: docs/specs/P12-1_カレンダー操作の即時フィードバック.md S12
+describe("実績の保存・削除後の反映待ちフィードバック(S12)", () => {
+  // 反映待ち(router.refresh のRSC再取得)を再現するための手動制御Promise
+  function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("S12: 実績の保存が成功すると反映待ちの間グリッドが aria-busy になり、完了で戻る", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    render(
+      <CalendarView
+        events={planEvents}
+        timeEntries={[confirmedEntry]}
+        runningEntry={null}
+        viewParam="day"
+        dateParam={todayParam}
+        googleEnabled={false}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "保存" }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+    });
+
+    deferred.resolve();
+
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+    });
+  });
+
+  it("S12: 実績の削除でも反映待ちの間グリッドが aria-busy になる", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    render(
+      <CalendarView
+        events={planEvents}
+        timeEntries={[confirmedEntry]}
+        runningEntry={null}
+        viewParam="day"
+        dateParam={todayParam}
+        googleEnabled={false}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "朝会の実績を編集(フリー)" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "削除" }));
+    await user.click(screen.getByRole("button", { name: "削除する" }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+    });
+
+    // 未解決のまま次のテストへ持ち越すとトランジションが残るため後始末する
+    deferred.resolve();
+  });
+});

@@ -264,3 +264,46 @@ describe("rec:予定ブロックの表示とタイマー互換(S16)", () => {
     expect(screen.getAllByTitle(M.recurringMarkLabel)).toHaveLength(1);
   });
 });
+
+// 仕様書: docs/specs/P12-1_カレンダー操作の即時フィードバック.md S11
+describe("繰り返し予定の保存後の反映待ちフィードバック(S11)", () => {
+  // 反映待ち(router.refresh のRSC再取得)を再現するための手動制御Promise
+  function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it("S11: 繰り返しルールの保存が成功すると反映待ちの間グリッドが aria-busy になり、完了で戻る", async () => {
+    const user = userEvent.setup();
+    const deferred = createDeferred();
+    routerMock.refresh.mockReturnValueOnce(deferred.promise);
+    renderView();
+
+    await user.click(screen.getByRole("button", { name: M.contextOpen }));
+    await user.click(
+      screen.getByRole("button", { name: M.eventEditLabel("朝会") }),
+    );
+    await user.click(await screen.findByText(M.recurringEditChoiceSeries));
+    await screen.findByText(M.recurringEditWarning);
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+    });
+
+    deferred.resolve();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("calendar-grid")).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+    });
+  });
+});
