@@ -21,7 +21,8 @@ const EXPECTED_AUTHENTICATED: Record<string, string[]> = {
   time_entries: ["DELETE", "INSERT", "SELECT", "UPDATE"],
   recurring_rules: ["DELETE", "INSERT", "SELECT", "UPDATE"],
   recurring_exceptions: ["DELETE", "INSERT", "SELECT", "UPDATE"],
-  // google_tokens / pro_interest_events は service role 専用のため一切付けない
+  // google_tokens / pro_interest_events / push_subscriptions は
+  // service role 専用のため一切付けない
 };
 
 beforeAll(async () => {
@@ -228,5 +229,28 @@ describe("権限の付け直しで既存機能が壊れていないこと(S5〜S
       .delete()
       .eq("user_id", userA.id);
     expect(remove.error).toBeNull();
+  });
+});
+
+// 仕様書: docs/specs/P13-1_計測しっぱなしの検知とPush通知.md S32 / S33
+describe("push_subscriptions の権限(P13-1 S32〜S33)", () => {
+  it("S32: authenticated は push_subscriptions を SELECT できない", async () => {
+    // createTestUser が返す client は既にサインイン済みの authenticated 文脈。
+    // TestUser は password を持たないため、この client をそのまま使う
+    const { data, error } = await userA.client
+      .from("push_subscriptions")
+      .select("id");
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
+  });
+
+  it("S33: anon は push_subscriptions を SELECT できない", async () => {
+    const anon = createAnonClient();
+
+    const { data, error } = await anon.from("push_subscriptions").select("id");
+
+    expect(data).toBeNull();
+    expect(error).not.toBeNull();
   });
 });
