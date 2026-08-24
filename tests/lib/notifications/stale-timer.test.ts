@@ -57,6 +57,19 @@ describe("formatElapsed(S5〜S7)", () => {
 
     expect(formatElapsed(startAt, now)).toBe("12時間0分");
   });
+
+  it("経過0分(開始直後)を「0時間0分」と整形する", () => {
+    const startAt = new Date(2026, 7, 25, 9, 0);
+
+    expect(formatElapsed(startAt, startAt)).toBe("0時間0分");
+  });
+
+  it("now が startAt より前(時計のずれ)でも負にせず「0時間0分」を返す", () => {
+    const startAt = new Date(2026, 7, 25, 9, 0);
+    const now = new Date(2026, 7, 25, 8, 30);
+
+    expect(formatElapsed(startAt, now)).toBe("0時間0分");
+  });
 });
 
 describe("resolveTimezone(S9)", () => {
@@ -87,7 +100,11 @@ describe("buildStaleTimerPayload(S8・S10・S11)", () => {
 
     expect(payload.body).toContain("設計レビュー");
     expect(payload.body).toContain("13時間20分");
-    // JSTでの開始時刻。ローカルTZに関わらず同じ表記になる
+    // 実行環境のシステムTZによって startAt の絶対時刻が変わるため、Asia/Tokyo へ
+    // 変換した表記も 8月24日 / 8月25日 のどちらかに揺れる(だから正規表現が緩い)。
+    // ここでは「日付と時刻の形で本文に入ること」だけを検証する。TZ変換が実際に
+    // 効いていることは次のテスト(Tokyo と New_York で本文が変わる)が担保する。
+    // R-1: この正規表現を厳密な固定文字列にするとUTCのCIだけが壊れる
     expect(payload.body).toMatch(/8月2[45]日 \d{2}:\d{2}/);
   });
 
