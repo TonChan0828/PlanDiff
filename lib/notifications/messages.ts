@@ -7,7 +7,7 @@ export const NOTIFICATION_MESSAGES = {
   /** 例: 「設計レビュー」を 8月24日 21:30 から 13時間20分 計測中です */
   staleTimerBody: (title: string, startedAt: string, elapsed: string) =>
     `「${title}」を ${startedAt} から ${elapsed} 計測中です`,
-  /** ペイロードが壊れていたときのフォールバック(sw.js 側にも同じ文字列を持つ) */
+  // public/sw.js にも同じ文言がある。変更するときは両方直すこと
   staleTimerFallbackBody: "計測しっぱなしの記録があります",
 
   // 設定画面
