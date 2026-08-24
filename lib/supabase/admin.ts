@@ -12,7 +12,10 @@ import {
 // リクエストをまたいで共有しても利用者の文脈が混ざることはない。
 let adminClient: SupabaseClient | null = null;
 
-function createAdminClient() {
+// 通知ドメイン(lib/notifications/store.ts)からも使うため export する。
+// admin.ts は既に3ドメインを抱えており、通知の関数まで足すと責務が薄まるため、
+// クエリは通知ディレクトリ側に置く。"server-only" があるのでクライアントには漏れない。
+export function createAdminClient() {
   if (adminClient) {
     return adminClient;
   }
