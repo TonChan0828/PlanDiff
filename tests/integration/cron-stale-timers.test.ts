@@ -29,6 +29,14 @@ let userB: TestUser;
 
 const CRON_SECRET = "test-cron-secret";
 
+/** GET /api/cron/stale-timers のレスポンス契約。ブリーフで定められた形状 */
+type CronSummary = {
+  candidates: number;
+  notified: number;
+  failed: number;
+  removed: number;
+};
+
 function cronRequest(secret: string | null): Request {
   return new Request("http://localhost/api/cron/stale-timers", {
     headers: secret ? { authorization: `Bearer ${secret}` } : {},
@@ -121,6 +129,10 @@ describe("検知と送信(S3・S4・S27〜S31)", () => {
 
     expect(response.status).toBe(200);
     expect(sendStaleTimerPush).toHaveBeenCalledTimes(1);
+    const body = (await response.json()) as CronSummary;
+    expect(body.candidates).toBe(1);
+    expect(body.notified).toBe(1);
+    expect(body.failed).toBe(0);
     const { data } = await admin
       .from("time_entries")
       .select("stale_notified_at")
@@ -206,8 +218,11 @@ describe("検知と送信(S3・S4・S27〜S31)", () => {
   it("S29: 購読が0件のユーザーは stale_notified_at が更新されない", async () => {
     const entryId = await seedRunningEntry(userA.id, 13);
 
-    await GET(cronRequest(CRON_SECRET));
+    const response = await GET(cronRequest(CRON_SECRET));
 
+    const body = (await response.json()) as CronSummary;
+    expect(body.candidates).toBe(1);
+    expect(body.notified).toBe(0);
     const { data } = await admin
       .from("time_entries")
       .select("stale_notified_at")
@@ -221,8 +236,10 @@ describe("検知と送信(S3・S4・S27〜S31)", () => {
     await seedSubscription(userA.id, "https://push.example.com/a");
     sendStaleTimerPush.mockResolvedValue({ ok: false, expired: true });
 
-    await GET(cronRequest(CRON_SECRET));
+    const response = await GET(cronRequest(CRON_SECRET));
 
+    const body = (await response.json()) as CronSummary;
+    expect(body.removed).toBe(1);
     const { data } = await admin
       .from("push_subscriptions")
       .select("id")

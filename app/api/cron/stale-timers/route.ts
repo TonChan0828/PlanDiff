@@ -35,7 +35,14 @@ function isAuthorized(request: Request): boolean {
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-/** 1ユーザー分を処理する。1件でも送信に成功したら通知済みにする */
+/**
+ * 1ユーザー分を処理する。1件でも送信に成功したら通知済みにする。
+ *
+ * one_running_timer_per_user(user_id単位・end_at is null の部分unique index)により、
+ * 1ユーザーの実行中タイマーは最大1本。したがって entries は現状 always 1件で、
+ * 下のループは実質1周しか回らない。不変条件が変わっても壊れないよう、
+ * 失効した購読は以後の周回の対象から外している。
+ */
 async function notifyUser(
   entries: StaleEntry[],
   now: Date,
@@ -51,9 +58,18 @@ async function notifyUser(
     return;
   }
 
+  // 失効を検知した購読IDはここに集め、以後の周回の送信対象から外す。
+  // 除外しないと、次のentryの周回で同じ死んだendpointへ再送し、
+  // 既に削除済みの行へ deletePushSubscriptionById を再実行し、
+  // summary.removed を多重加算してしまう
+  const expiredIds = new Set<string>();
+
   for (const entry of entries) {
+    const activeSubscriptions = subscriptions.filter(
+      (subscription) => !expiredIds.has(subscription.id),
+    );
     const results = await Promise.allSettled(
-      subscriptions.map(async (subscription) => {
+      activeSubscriptions.map(async (subscription) => {
         const payload = buildStaleTimerPayload({
           entryTitle: entry.title,
           startAt: entry.startAt,
@@ -62,6 +78,7 @@ async function notifyUser(
         });
         const result = await sendStaleTimerPush(subscription, payload);
         if (!result.ok && result.expired) {
+          expiredIds.add(subscription.id);
           await deletePushSubscriptionById(subscription.id);
           summary.removed += 1;
         }
