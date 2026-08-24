@@ -50,3 +50,6 @@ client_secret_*.json
 
 # Playwright MCP作業ファイル(セッションcookie等を含みうるためコミット禁止)
 .playwright-mcp/
+
+# Subagent-Driven Development の作業ディレクトリ(台帳・ブリーフ・レビュー資材)
+.superpowers/
