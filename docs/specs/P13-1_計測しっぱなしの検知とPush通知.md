@@ -162,12 +162,16 @@ iOS かどうかを補助的に見る。standalone 判定は
    ```sql
    select id, user_id, title, start_at from public.time_entries
    where end_at is null
-     and start_at < :threshold   -- 実行時刻 - STALE_TIMER_THRESHOLD_HOURS
+     and start_at <= :threshold   -- 実行時刻 - STALE_TIMER_THRESHOLD_HOURS
      and stale_notified_at is null
    ```
    閾値は SQL リテラルではなく `lib/notifications/stale-timer.ts` の
-   `STALE_TIMER_THRESHOLD_HOURS` から算出した時刻を supabase-js の `.lt()` に渡す。
+   `STALE_TIMER_THRESHOLD_HOURS` から算出した時刻を supabase-js の **`.lte()`** に渡す。
    SQL 側に `interval '12 hours'` を直書きすると定数が二重管理になるため。
+
+   **比較演算子は `<` ではなく `<=`**。テストシナリオ1「経過ちょうど12時間00分の計測が
+   対象になる」を満たすには境界を含める必要がある(`start_at == threshold` のとき
+   `<` は false になる)。
 2. `user_id` ごとにまとめ、該当ユーザーの `push_subscriptions` を引く
 3. 購読ごとに `web-push` で送信する。1件の失敗が全体を止めないよう `Promise.allSettled`
 4. **1件でも送信に成功したユーザーの `time_entries.stale_notified_at` を `now()` で更新**する
