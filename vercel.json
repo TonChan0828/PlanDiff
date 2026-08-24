@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/stale-timers",
+      "schedule": "0 22 * * *"
+    }
+  ]
+}
