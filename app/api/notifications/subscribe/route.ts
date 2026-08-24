@@ -34,17 +34,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: M.enableFailed }, { status: 401 });
   }
 
-  let body: SubscribeBody;
+  let body: SubscribeBody | null;
   try {
-    body = (await request.json()) as SubscribeBody;
+    body = (await request.json()) as SubscribeBody | null;
   } catch {
     return NextResponse.json({ error: M.enableFailed }, { status: 400 });
   }
 
-  const endpoint = body.endpoint;
-  const p256dhKey = body.keys?.p256dh;
-  const authKey = body.keys?.auth;
-  const timezone = body.timezone;
+  const endpoint = body?.endpoint;
+  const p256dhKey = body?.keys?.p256dh;
+  const authKey = body?.keys?.auth;
+  const timezone = body?.timezone;
   if (
     !isNonEmptyString(endpoint) ||
     !isNonEmptyString(p256dhKey) ||
