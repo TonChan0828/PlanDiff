@@ -242,7 +242,11 @@ describe("push_subscriptions の権限(P13-1 S32〜S33)", () => {
       .select("id");
 
     expect(data).toBeNull();
-    expect(error).not.toBeNull();
+    // テーブル不在(42P01)ではなく権限エラー(42501)であることまで確認する。
+    // どちらも error !== null にはなるため、code まで見ないと
+    // authenticated への GRANT 漏れを検知できない
+    expect(error?.code).toBe("42501");
+    expect(error?.message).toContain("permission denied");
   });
 
   it("S33: anon は push_subscriptions を SELECT できない", async () => {
@@ -251,6 +255,7 @@ describe("push_subscriptions の権限(P13-1 S32〜S33)", () => {
     const { data, error } = await anon.from("push_subscriptions").select("id");
 
     expect(data).toBeNull();
-    expect(error).not.toBeNull();
+    expect(error?.code).toBe("42501");
+    expect(error?.message).toContain("permission denied");
   });
 });
