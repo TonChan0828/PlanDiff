@@ -12,13 +12,20 @@ type SetupOptions = {
   existingSubscription?: boolean;
   standalone?: boolean;
   userAgent?: string;
-  subscribeRejects?: boolean;
+  /** requestPermission が "denied" を返す(許可ダイアログ自体で拒否される)経路 */
+  permissionDenied?: boolean;
+  /** 許可は下りるが pushManager.subscribe() 自体が失敗する経路(VAPID鍵不整合等) */
+  subscribeFails?: boolean;
 };
 
 const subscribe = vi.fn();
 const getSubscription = vi.fn();
 const unsubscribe = vi.fn();
 const requestPermission = vi.fn();
+// fetch はテストから呼び出し引数・順序を検査したいので、専用のモックを使い回す
+// (setup() のたびに vi.fn() を作り直すと前のテストの呼び出し履歴と混ざらない代わりに、
+// テスト内で参照する変数が用意できなくなるため)
+const fetchMock = vi.fn();
 
 function setup(options: SetupOptions = {}) {
   const {
@@ -27,13 +34,12 @@ function setup(options: SetupOptions = {}) {
     existingSubscription = false,
     standalone = true,
     userAgent = "Mozilla/5.0 (Macintosh)",
-    subscribeRejects = false,
+    permissionDenied = false,
+    subscribeFails = false,
   } = options;
 
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response(null, { status: 204 })),
-  );
+  fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: query.includes("standalone") ? standalone : false,
     media: query,
@@ -65,12 +71,12 @@ function setup(options: SetupOptions = {}) {
     existingSubscription ? fakeSubscription : null,
   );
   subscribe.mockImplementation(() =>
-    subscribeRejects
-      ? Promise.reject(new Error("denied"))
+    subscribeFails
+      ? Promise.reject(new Error("subscribe failed"))
       : Promise.resolve(fakeSubscription),
   );
   requestPermission.mockResolvedValue(
-    subscribeRejects ? "denied" : ("granted" as NotificationPermission),
+    permissionDenied ? "denied" : ("granted" as NotificationPermission),
   );
 
   vi.stubGlobal("PushManager", class {});
@@ -143,7 +149,7 @@ describe("NotificationSettings(S12〜S18)", () => {
     ).toBeInTheDocument();
   });
 
-  it("S16: 有効化で requestPermission → subscribe → POST の順に呼ばれる", async () => {
+  it("S16: 有効化で requestPermission → subscribe → POST の順に呼ばれ、正しい引数が渡る", async () => {
     setup({ permission: "default" });
 
     render(<NotificationSettings />);
@@ -154,15 +160,41 @@ describe("NotificationSettings(S12〜S18)", () => {
     await waitFor(() => {
       expect(requestPermission).toHaveBeenCalled();
       expect(subscribe).toHaveBeenCalled();
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         "/api/notifications/subscribe",
         expect.objectContaining({ method: "POST" }),
       );
     });
+
+    // 呼び出し順序そのものを検証する(toHaveBeenCalled の並記では逆順でも通ってしまう)
+    const permissionOrder = requestPermission.mock.invocationCallOrder[0]!;
+    const subscribeOrder = subscribe.mock.invocationCallOrder[0]!;
+    const fetchOrder = fetchMock.mock.invocationCallOrder[0]!;
+    expect(permissionOrder).toBeLessThan(subscribeOrder);
+    expect(subscribeOrder).toBeLessThan(fetchOrder);
+
+    // subscribe に渡すオプション(VAPID鍵の変換結果を含む)を検証する
+    const subscribeArgs = subscribe.mock.calls[0]![0] as {
+      userVisibleOnly: boolean;
+      applicationServerKey: unknown;
+    };
+    expect(subscribeArgs.userVisibleOnly).toBe(true);
+    expect(subscribeArgs.applicationServerKey).toBeInstanceOf(Uint8Array);
+
+    // fetch の body(購読情報とタイムゾーン)を検証する
+    const requestInit = fetchMock.mock.calls[0]![1] as RequestInit;
+    const body = JSON.parse(requestInit.body as string) as {
+      endpoint: string;
+      keys: { p256dh: string; auth: string };
+      timezone: string;
+    };
+    expect(body.endpoint).toBe("https://push.example.com/a");
+    expect(body.keys).toEqual({ p256dh: "p256dh", auth: "auth" });
+    expect(typeof body.timezone).toBe("string");
   });
 
-  it("S17: 許可を拒否されたらブロック案内に切り替わる", async () => {
-    setup({ permission: "default", subscribeRejects: true });
+  it("S17: 許可ダイアログで拒否されたらブロック案内に切り替わる", async () => {
+    setup({ permission: "default", permissionDenied: true });
 
     render(<NotificationSettings />);
     fireEvent.click(
@@ -172,12 +204,56 @@ describe("NotificationSettings(S12〜S18)", () => {
     expect(await screen.findByText(M.blocked)).toBeInTheDocument();
   });
 
+  it("許可は下りたがsubscribe自体が失敗したらブロック案内に切り替わる", async () => {
+    setup({ permission: "default", subscribeFails: true });
+
+    render(<NotificationSettings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: M.enableButton }),
+    );
+
+    await waitFor(() => {
+      expect(requestPermission).toHaveBeenCalled();
+      expect(subscribe).toHaveBeenCalled();
+    });
+    expect(await screen.findByText(M.blocked)).toBeInTheDocument();
+  });
+
+  it("無効にするとDELETEが呼ばれ、unsubscribeされて未設定表示に戻る", async () => {
+    setup({ permission: "granted", existingSubscription: true });
+
+    render(<NotificationSettings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: M.disableButton }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/notifications/subscribe",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(unsubscribe).toHaveBeenCalled();
+    });
+    expect(await screen.findByText(M.notEnabled)).toBeInTheDocument();
+  });
+
+  it("DELETEが失敗したらエラーを表示し、unsubscribeせず有効のままにする", async () => {
+    setup({ permission: "granted", existingSubscription: true });
+    fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
+
+    render(<NotificationSettings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: M.disableButton }),
+    );
+
+    expect(await screen.findByText(M.disableFailed)).toBeInTheDocument();
+    expect(unsubscribe).not.toHaveBeenCalled();
+    expect(screen.getByText(M.enabledOnThisDevice)).toBeInTheDocument();
+  });
+
   it("S18: POSTが失敗したら日本語のエラーが表示される", async () => {
     setup({ permission: "default" });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(null, { status: 500 })),
-    );
+    fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
 
     render(<NotificationSettings />);
     fireEvent.click(

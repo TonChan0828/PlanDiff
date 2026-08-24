@@ -132,11 +132,17 @@ export function NotificationSettings() {
       const registration = await navigator.serviceWorker.register("/sw.js");
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        await fetch(SUBSCRIBE_ENDPOINT, {
+        const response = await fetch(SUBSCRIBE_ENDPOINT, {
           method: "DELETE",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
+        if (!response.ok) {
+          // サーバー側の購読行が残ったまま。ここで unsubscribe() すると
+          // ブラウザ側の手がかりが消え、二度と解除できなくなるので実行しない
+          setError(M.disableFailed);
+          return;
+        }
         await subscription.unsubscribe();
       }
       setStatus("disabled");
