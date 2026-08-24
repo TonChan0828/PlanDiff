@@ -3,8 +3,10 @@ import Link from "next/link";
 import { signOutAction } from "@/app/(app)/actions";
 import { disconnectGoogleAction } from "@/app/(app)/settings/actions";
 import { DeleteAccountSection } from "@/components/delete-account-section";
+import { NotificationSettings } from "@/components/notification-settings";
 import { ThemeSelector } from "@/components/theme-selector";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
+import { NOTIFICATION_MESSAGES as N } from "@/lib/notifications/messages";
 import { SETTINGS_MESSAGES as M } from "@/lib/settings/messages";
 import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -96,6 +98,11 @@ export default async function SettingsPage({
       <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="text-base font-semibold">{M.themeSectionHeading}</h2>
         <ThemeSelector />
+      </section>
+
+      <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
+        <h2 className="text-base font-semibold">{N.sectionHeading}</h2>
+        <NotificationSettings />
       </section>
 
       <section className="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4">
