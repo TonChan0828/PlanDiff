@@ -121,6 +121,20 @@ describe("POST /api/notifications/subscribe(S19〜S22)", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("本文が有効なJSONの null でも500にせず400を返す", async () => {
+    mockLoggedInUser(userA.id);
+
+    const response = await POST(
+      new Request("http://localhost/api/notifications/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "null",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
 });
 
 describe("DELETE /api/notifications/subscribe(S23)", () => {
