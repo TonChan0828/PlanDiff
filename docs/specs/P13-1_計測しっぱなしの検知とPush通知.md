@@ -1,6 +1,6 @@
 # 仕様書: P13-1 計測しっぱなしの検知とPush通知
 
-- ステータス: 承認待ち(2026-08-24 作成)
+- ステータス: 実装完了(2026-08-25)
 - 関連: docs/要件定義書.md の FR-05(フリータイマー)/ FR-09(PWA対応)/
   docs/specs/P3-3_PWA対応.md(Service Worker を明示的にスコープ外とした経緯。本件で初導入する)/
   docs/specs/P0-6_DBスキーマとRLS.md(`time_entries` の実行中タイマー制約)/
@@ -302,20 +302,54 @@ R-1 に従い、**日時はすべて `new Date(2026, 7, 24, 21, 30)` 形式で�
 
 ## 検証(手動)
 
-- [ ] `npm run check` 合格(出力を確認する)
-- [ ] `npx supabase db reset` が通り、`npx supabase db diff` に意図しない差分がない
-- [ ] 設定画面の通知セクションを **375px 幅**で確認(`ui-quality` Skill のチェックリスト)。
-      4状態すべてで横スクロールが発生しないこと
+- [x] `npm run check` 合格(出力を確認する)。2026-08-25実施:
+      typecheck / lint 合格、`npm test` 128ファイル/791件全合格、`next build` 成功、EXIT=0
+- [x] `npx supabase db reset` が通り、`npx supabase db diff` に意図しない差分がない。2026-08-25実施:
+      両方EXIT=0、`db diff` は "No schema changes found"
+- [x] 設定画面の通知セクションを **375px 幅**で確認(`ui-quality` Skill のチェックリスト)。
+      2026-08-25、Playwright(実ブラウザ)で375×667にて検証。**通知許可ダイアログは一切出していない**
+      (ブラウザAPIをJSで上書きして4状態+`unsupported`を再現)。
+      - 横スクロール: 全状態で `scrollWidth === innerWidth === 375`(0px)
+      - 4状態(`unsupported` / `iosNeedsHomeScreen` / `blocked` / `disabled(未許可)` / `enabled`)
+        すべてで文言が折り返され、はみ出しなし。特に `iosNeedsHomeScreen` の長文
+        (「iPhone・iPadでは、ホーム画面に追加した…」)をスクリーンショットで目視確認
+      - タップターゲット: 「通知を有効にする」44px、「無効にする」44px(実測。`min-h-11` 通り)
+      - ライト/ダーク両方で `iosNeedsHomeScreen` 表示を確認、コントラスト・レイアウト破綻なし
+      - コンソールエラー0件
 - [ ] ローカルで cron エンドポイントを手動実行し、実機(Android Chrome / デスクトップ Chrome)に
-      通知が届くこと。タップで `/track` が開くこと
+      通知が届くこと。タップで `/track` が開くこと(**未実施**。VAPID鍵・Vercel環境変数が未登録のため
+      実行できず。残タスク参照)
 - [ ] iOS: ホーム画面に追加した PWA で通知が届くこと。Safari タブでは案内文が出ること
+      (**未実施**。実機が必要なため。残タスク参照)
 
 ## 残タスク(ユーザー作業)
 
 - [ ] `npx web-push generate-vapid-keys` で鍵を生成し、Vercel に
       `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `CRON_SECRET` を登録する
+      (`.env.example` に3本ともプレースホルダを追記済み。ローカル `.env.local` にも同じ3本を追加する)
 - [ ] 本番 Supabase へ `npx supabase db push`(テーブル追加+列追加のため必須)
 - [ ] 本番デプロイ後、Vercel ダッシュボードの Cron Jobs にジョブが登録されたことを確認する
+- [ ] **実機での Push 到達確認**(未確認のまま残る項目):
+      Android Chrome、および iOS はホーム画面に追加した PWA。ローカルで cron エンドポイントを
+      手動実行し通知が届くこと・タップで `/track` が開くことを確認する
+- [ ] **本番での cron 実行確認**(未確認のまま残る項目): デプロイ後、Vercel Cron が
+      実際に `/api/cron/stale-timers` を1日1回叩いていることをログで確認する
+
+## 実装後の補足(Task 1〜6 レビューで確定した事実・2026-08-25)
+
+- **レビューで見つけて修正した不具合3件**:
+  1. 購読API(`POST /api/notifications/subscribe`)が本文 `null` で500を返していた
+     (現在は400を返すよう修正済み)
+  2. 通知の解除(`handleDisable`)で `DELETE` の失敗を握りつぶし、サーバーに購読行が
+     残ったまま「無効にしました」と表示していた(現在は失敗時にエラー表示し、
+     `unsubscribe()` を呼ばない設計に修正済み。§3実装 `components/notification-settings.tsx` 参照)
+  3. cron で失効した購読が周回ごとに再処理され、レスポンスの `removed` 件数が多重加算され得る
+     構造だった。`one_running_timer_per_user` の制約により実際には到達不能な経路だったが、
+     予防的に修正済み
+- **テスト規模**(2026-08-25実測): 単体・コンポーネント 128ファイル / **791件**、
+  結合 25ファイル / **152件**。いずれも全件合格(EXIT=0)
+- **R-1(TZ確認)**: `TZ=UTC npm test` と `TZ=Pacific/Kiritimati npm test` を実行し、
+  いずれも128ファイル/791件全合格・EXIT=0を確認済み
 
 ## リスクと留意点
 
