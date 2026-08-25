@@ -15,6 +15,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # 依存の脆弱性を最速で落とす(S-1)。閾値をhighに置くのは、moderateまで含めると
+      # 常時赤になりCIが「無視されるチェック」に退化するため。
+      # 新規Advisoryで無関係なPRが落ちた場合は、そのPRで直さず別途更新タスクを立てる
+      - run: npm audit --audit-level=high
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run lint
