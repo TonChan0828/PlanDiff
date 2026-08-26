@@ -32,6 +32,15 @@ function jsonResponse(status: number, body: object): Response {
   });
 }
 
+// 基準時刻を正午に固定する(R-1)。TZだけでなく「時刻」も固定しないと落ちる:
+// 時間軸ラベルは `${hour}:00`、現在時刻チップは format(now, "HH:mm") のため、
+// hour >= 10 の毎正時0分台の1分間だけ両者が同じ文字列になり getByText が複数一致する
+// (9時台は "9:00" と "09:00" でぶつからないため長く隠れていた)。
+// CIはUTCの任意の時刻に走るので、この1分の窓を踏むと落ちる。
+// const today より前に置く必要がある(モジュール評価時に new Date() を読むため)。
+vi.useFakeTimers({ shouldAdvanceTime: true });
+vi.setSystemTime(new Date(2026, 7, 26, 12, 0, 0));
+
 // 「今日」基準のテストデータ(現在時刻ライン等が実日付に依存するため動的に組み立てる)
 const today = startOfDay(new Date());
 const todayParam = format(today, "yyyy-MM-dd");

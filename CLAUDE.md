@@ -50,8 +50,9 @@ Googleカレンダーの「予定」とタイムトラッキングの「実績�
 
 ### R-1: 日付・時刻のテストはローカルTZで組み立て、コミット前に `TZ=UTC` で確認する
 
-**発生3回**: P5-2(PR #28、`suggestions.test.ts` 12件失敗) / D-5(2026-07-19、`subHours(now, 5)` が
-UTC深夜実行で前日扱い) / P6-3(2026-08-08、`hasEventOnDay` のテストがUTCで境界一致し失敗)。
+**発生4回**: P5-2(PR #28、`suggestions.test.ts` 12件失敗) / D-5(2026-07-19、`subHours(now, 5)` が
+UTC深夜実行で前日扱い) / P6-3(2026-08-08、`hasEventOnDay` のテストがUTCで境界一致し失敗) /
+S-1(2026-08-26、`calendar-view.test.tsx` S7 が CI の UTC 23:00台で失敗。**TZではなく「時刻」由来**)。
 
 開発機は JST、**CI(GitHub Actions)は UTC** で走る。ローカルで通ってもCIで落ちる。
 
@@ -60,9 +61,20 @@ UTC深夜実行で前日扱い) / P6-3(2026-08-08、`hasEventOnDay` のテスト
   (`startOfDay` はローカルTZで動くため、UTCとJSTで日の境界がずれる)
 - 「今日」に依存するテストは基準時刻を固定する
   (`vi.useFakeTimers({ shouldAdvanceTime: true })` + `setSystemTime` で正午など)
+- **固定するのはTZだけでなく「時刻」も**。CIは**UTCの任意の時刻**に走るため、
+  日付は合っていても時刻が特定の値のときだけ落ちるテストが生まれる
+  (4回目の発生: S-1、2026-08-26。`calendar-view.test.tsx` S7 が CI の 23:00台で失敗。
+  時間軸ラベルは `${hour}:00`、現在時刻チップは `format(now, "HH:mm")` のため、
+  **hour ≥ 10 の毎正時0分台の1分間だけ**同じ文字列になり `getByText` が複数一致した。
+  9時台は `"9:00"` と `"09:00"` でぶつからないため長く隠れていた)
+- **現在時刻を画面に表示するコンポーネント**(現在時刻ライン・経過時間・実行中バー等)の
+  テストは、必ず `setSystemTime` で時刻まで固定する。表示書式が別の要素と衝突しうる
+- `setSystemTime` は**モジュール評価より前に置く**。`const today = startOfDay(new Date())` のような
+  トップレベル定数は import 時に評価されるため、`beforeEach` に書いても間に合わない
 - **日時が絡むテストを追加・変更したら、コミット前に `TZ=UTC npx vitest run <file>` を実行する**。
   境界値を触った場合は `TZ=Pacific/Kiritimati`(UTC+14)も確認すると西→東の両方向を潰せる
-- pre-commit フックはローカルTZで走るため、この確認を代替しない
+- pre-commit フックはローカルTZで走るため、この確認を代替しない。
+  **時刻依存の窓は「その時刻に走らせない限り踏まない」ため、テストの実行回数では検出できない**
 
 ## 技術スタック
 
