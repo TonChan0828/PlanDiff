@@ -63,7 +63,7 @@ export function RunningTimerBar({
         type="button"
         onClick={onStop}
         disabled={stopping}
-        className="bg-danger hover:bg-danger/90 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-5 text-sm font-bold text-white transition-colors disabled:opacity-50"
+        className="bg-danger hover:bg-danger/90 rounded-control inline-flex min-h-11 shrink-0 items-center justify-center px-5 text-sm font-bold text-white transition-colors disabled:opacity-50"
       >
         {T.stop}
       </button>

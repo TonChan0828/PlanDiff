@@ -19,7 +19,7 @@ export default function NotFound() {
       </p>
       <Link
         href="/"
-        className="bg-brand text-brand-ink mt-2 inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-semibold"
+        className="bg-brand text-brand-ink rounded-control mt-2 inline-flex min-h-11 items-center justify-center px-5 text-sm font-semibold"
       >
         {M.backToTop}
       </Link>

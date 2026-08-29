@@ -15,7 +15,7 @@ export function MarketingHeader() {
       </Link>
       <Link
         href={onSignup ? "/login" : "/signup"}
-        className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center rounded-lg border px-4 text-sm font-semibold transition-colors"
+        className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center border px-4 text-sm font-semibold transition-colors"
       >
         {onSignup ? "ログイン" : "無料で始める"}
       </Link>

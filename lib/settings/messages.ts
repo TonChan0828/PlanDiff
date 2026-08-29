@@ -37,4 +37,7 @@ export const SETTINGS_MESSAGES = {
   themeLight: "ライト",
   themeDark: "ダーク",
   themeSystem: "システムに合わせる",
+
+  // D-6: Structuredテーマ(コーラル×スレートブルーの暖色系)
+  themeStructured: "Structured",
 } as const;

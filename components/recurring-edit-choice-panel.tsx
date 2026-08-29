@@ -39,14 +39,14 @@ export function RecurringEditChoicePanel({
           <button
             type="button"
             onClick={onChooseOccurrence}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium"
           >
             {M.recurringEditChoiceOccurrence}
           </button>
           <button
             type="button"
             onClick={onChooseSeries}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium"
           >
             {M.recurringEditChoiceSeries}
           </button>

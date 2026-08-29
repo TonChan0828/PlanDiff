@@ -63,7 +63,7 @@ export function ResetPasswordForm() {
       <button
         type="submit"
         disabled={status === "pending"}
-        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-12 items-center justify-center rounded-xl px-6 text-sm font-bold transition-colors disabled:opacity-50"
+        className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control-lg inline-flex min-h-12 items-center justify-center px-6 text-sm font-bold transition-colors disabled:opacity-50"
       >
         {M.resetPasswordButton}
       </button>

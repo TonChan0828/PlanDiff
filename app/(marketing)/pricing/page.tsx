@@ -81,7 +81,7 @@ export default function PricingPage() {
         </p>
         <Link
           href="/signup"
-          className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-12 items-center rounded-xl px-6 text-[15px] font-bold transition-colors"
+          className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control-lg inline-flex min-h-12 items-center px-6 text-[15px] font-bold transition-colors"
         >
           {M.ctaSignup}
         </Link>

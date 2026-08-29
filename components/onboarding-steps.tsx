@@ -68,7 +68,7 @@ export function OnboardingSteps() {
           <button
             type="button"
             onClick={() => setStepIndex((current) => current - 1)}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-6 text-sm font-medium transition-colors"
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-6 text-sm font-medium transition-colors"
           >
             <ChevronLeft aria-hidden="true" className="mr-1.5 h-4 w-4" />
             {M.back}
@@ -79,7 +79,7 @@ export function OnboardingSteps() {
             <input type="hidden" name="intent" value="start" />
             <button
               type="submit"
-              className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-6 text-sm font-medium transition-colors"
+              className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 items-center justify-center px-6 text-sm font-medium transition-colors"
             >
               {M.start}
               <CalendarPlus aria-hidden="true" className="ml-1.5 h-4 w-4" />
@@ -89,7 +89,7 @@ export function OnboardingSteps() {
           <button
             type="button"
             onClick={() => setStepIndex((current) => current + 1)}
-            className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-6 text-sm font-medium transition-colors"
+            className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 items-center justify-center px-6 text-sm font-medium transition-colors"
           >
             {M.next}
             <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4" />

@@ -58,7 +58,7 @@ export function RunningTimerHero({
         <button
           type="button"
           onClick={onEditStart}
-          className="border-line hover:bg-ink/5 inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition-colors"
+          className="border-line hover:bg-ink/5 rounded-control-lg inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 border text-sm font-semibold transition-colors"
         >
           開始 <span className="font-mono tabular-nums">{startTime}</span>{" "}
           を変更
@@ -67,7 +67,7 @@ export function RunningTimerHero({
           type="button"
           onClick={onStop}
           disabled={stopping}
-          className="bg-danger hover:bg-danger/90 inline-flex min-h-12 flex-1 items-center justify-center rounded-xl text-sm font-extrabold text-white transition-colors disabled:opacity-50"
+          className="bg-danger hover:bg-danger/90 rounded-control-lg inline-flex min-h-12 flex-1 items-center justify-center text-sm font-extrabold text-white transition-colors disabled:opacity-50"
         >
           {T.stop}
         </button>

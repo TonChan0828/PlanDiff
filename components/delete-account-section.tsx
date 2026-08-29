@@ -32,7 +32,7 @@ export function DeleteAccountSection() {
         <button
           type="submit"
           disabled={!canDelete}
-          className="bg-danger hover:bg-danger/90 inline-flex min-h-11 w-fit items-center justify-center rounded-lg px-6 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          className="bg-danger hover:bg-danger/90 rounded-control inline-flex min-h-11 w-fit items-center justify-center px-6 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40"
         >
           {M.deleteAccountButton}
         </button>

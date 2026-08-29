@@ -132,7 +132,7 @@ export function EditEntryPanel({
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
                 disabled={pending}
-                className="border-line inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium disabled:opacity-50"
+                className="border-line rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium disabled:opacity-50"
               >
                 {T.cancel}
               </button>
@@ -140,7 +140,7 @@ export function EditEntryPanel({
                 type="button"
                 onClick={onDelete}
                 disabled={pending}
-                className="bg-danger inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-medium text-white disabled:opacity-50"
+                className="bg-danger rounded-control inline-flex min-h-11 items-center justify-center px-4 text-sm font-medium text-white disabled:opacity-50"
               >
                 {T.editDeleteConfirmYes}
               </button>
@@ -180,14 +180,14 @@ export function EditEntryPanel({
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={pending}
-                className="border-danger/40 text-danger inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium disabled:opacity-50"
+                className="border-danger/40 text-danger rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium disabled:opacity-50"
               >
                 {T.delete}
               </button>
               <button
                 type="submit"
                 disabled={pending}
-                className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-5 text-sm font-medium transition-colors disabled:opacity-50"
+                className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 items-center justify-center px-5 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {T.save}
               </button>
