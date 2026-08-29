@@ -146,6 +146,20 @@ describe("Structuredテーマのコントラスト(D-6 S14)", () => {
       `${foreground}(${fg}) / ${background}(${bg}) = ${ratio.toFixed(2)}:1`,
     ).toBeGreaterThanOrEqual(4.5);
   });
+
+  // --brand と --danger はどちらも赤系(アプリのアクセントがコーラルのため)。
+  // 現在時刻ライン(--danger)は実績ブロック(--brand のベタ塗り)の上に重なるので、
+  // 色相だけでなく明度でも分離していないと線が沈む
+  it("S18: --danger が --brand と明度で分離している(現在時刻ラインの視認性)", () => {
+    const brand = requireProperty(STRUCTURED_PROPERTIES, "--brand");
+    const danger = requireProperty(STRUCTURED_PROPERTIES, "--danger");
+    const ratio = contrastRatio(danger, brand);
+
+    expect(
+      ratio,
+      `--danger(${danger}) / --brand(${brand}) = ${ratio.toFixed(2)}:1`,
+    ).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe("@theme inline の間接参照(D-6 S15)", () => {
