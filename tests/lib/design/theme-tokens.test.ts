@@ -81,6 +81,36 @@ function relativeLuminance(rgb: [number, number, number]): number {
   return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
 }
 
+/** 色相(0-360°)と彩度(0-100%)。柔らかさと色被りの判定に使う */
+function hueAndSaturation(rgb: [number, number, number]): {
+  hue: number;
+  saturation: number;
+} {
+  const [r, g, b] = rgb.map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  if (max === min) return { hue: 0, saturation: 0 };
+
+  const delta = max - min;
+  const saturation =
+    lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue: number;
+  if (max === r) hue = (g - b) / delta + (g < b ? 6 : 0);
+  else if (max === g) hue = (b - r) / delta + 2;
+  else hue = (r - g) / delta + 4;
+
+  return { hue: hue * 60, saturation: saturation * 100 };
+}
+
+/** 2色の色相差(0-180°)。180°が正反対 */
+function hueGap(a: string, b: string): number {
+  const diff = Math.abs(
+    hueAndSaturation(parseHex(a)).hue - hueAndSaturation(parseHex(b)).hue,
+  );
+  return Math.min(diff, 360 - diff);
+}
+
 /** WCAG のコントラスト比(1〜21)。明るい方を分子に置く */
 function contrastRatio(foreground: string, background: string): number {
   const light = relativeLuminance(parseHex(foreground));
@@ -160,6 +190,42 @@ describe("Structuredテーマのコントラスト(D-6 S14)", () => {
       `--danger(${danger}) / --brand(${brand}) = ${ratio.toFixed(2)}:1`,
     ).toBeGreaterThanOrEqual(2);
   });
+});
+
+describe("Structuredテーマの色被りと柔らかさ(D-6 S19・S20)", () => {
+  // 意味の違う役割どうしが同じ色相帯に入ると「色被り」として認識される。
+  // 初版は --brand と --danger の色相差が 23° しかなく、カレンダー上で
+  // 予定の薄塗り・実績・現在時刻ラインが全て赤系に見えた(2026-08-29 ユーザー指摘)
+  it.each([
+    ["--brand", "--danger"],
+    ["--brand", "--interrupt"],
+    ["--interrupt", "--danger"],
+    ["--brand", "--success"],
+  ])("S19: %s と %s の色相が 35°以上 離れている", (a, b) => {
+    const colorA = requireProperty(STRUCTURED_PROPERTIES, a);
+    const colorB = requireProperty(STRUCTURED_PROPERTIES, b);
+    const gap = hueGap(colorA, colorB);
+
+    expect(
+      gap,
+      `${a}(${colorA}) と ${b}(${colorB}) の色相差 = ${gap.toFixed(0)}°`,
+    ).toBeGreaterThanOrEqual(35);
+  });
+
+  // 柔らかい色味にするための上限。白文字とのAAがあるため明度は上げられないので、
+  // 彩度を抑えることで柔らかさを出している(2026-08-29 ユーザー要望)
+  it.each(["--brand", "--plan-text", "--interrupt", "--danger", "--success"])(
+    "S20: %s の彩度が 40%% 以下(柔らかい色味)",
+    (name) => {
+      const color = requireProperty(STRUCTURED_PROPERTIES, name);
+      const { saturation } = hueAndSaturation(parseHex(color));
+
+      expect(
+        saturation,
+        `${name}(${color}) の彩度 = ${saturation.toFixed(0)}%`,
+      ).toBeLessThanOrEqual(40);
+    },
+  );
 });
 
 describe("@theme inline の間接参照(D-6 S15)", () => {
