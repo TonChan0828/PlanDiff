@@ -69,13 +69,13 @@ function CtaButtons({ center = false }: { center?: boolean }) {
     <div className={`flex flex-wrap gap-2.5 ${center ? "justify-center" : ""}`}>
       <Link
         href="/signup"
-        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-12 items-center rounded-xl px-6 text-[15px] font-bold transition-colors"
+        className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control-lg inline-flex min-h-12 items-center px-6 text-[15px] font-bold transition-colors"
       >
         {CTA_SIGNUP}
       </Link>
       <Link
         href="/login"
-        className="border-line hover:bg-ink/5 inline-flex min-h-12 items-center rounded-xl border px-5 text-[15px] font-semibold transition-colors"
+        className="border-line hover:bg-ink/5 rounded-control-lg inline-flex min-h-12 items-center border px-5 text-[15px] font-semibold transition-colors"
       >
         {CTA_LOGIN}
       </Link>

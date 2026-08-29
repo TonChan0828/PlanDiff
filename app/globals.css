@@ -22,6 +22,20 @@
   --grid: rgba(26, 29, 35, 0.05); /* 方眼(15分) */
   --grid-hour: rgba(26, 29, 35, 0.12); /* 方眼(1時間) */
   --focus: #2f4acb;
+
+  /* 角丸(D-6): Tailwind v4の既定値と同値。@theme inlineからvar()で参照させることで
+     data-themeによる差し替えを可能にする。値が既定と同じなので既存テーマの見た目は不変。
+     --r-control系は操作部品専用。既存テーマでは元のクラスと同値にして見た目を保つ
+     (小さめボタン min-h-11 は--r-lgと、大きめCTA min-h-12 は--r-xlと同値) */
+  --r-xs: 0.125rem;
+  --r-md: 0.375rem;
+  --r-lg: 0.5rem;
+  --r-xl: 0.75rem;
+  --r-control: 0.5rem;
+  --r-control-lg: 0.75rem;
+
+  /* フォント(D-6): テーマで差し替えるための間接参照。既定はGeist Sans */
+  --app-font-sans: var(--font-geist-sans);
 }
 
 @theme inline {
@@ -38,7 +52,14 @@
   --color-interrupt: var(--interrupt);
   --color-danger: var(--danger);
   --color-success: var(--success);
-  --font-sans: var(--font-geist-sans);
+  /* 角丸・フォントもテーマで差し替える(D-6)。生の値を書くとdata-themeで上書きできない */
+  --radius-xs: var(--r-xs);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-control: var(--r-control);
+  --radius-control-lg: var(--r-control-lg);
+  --font-sans: var(--app-font-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -92,12 +113,49 @@
   color-scheme: light;
 }
 
+/* Structuredテーマ(D-6): https://structured.app/ を参考にした暖色系。ライト固定。
+   参考サイトのアクション色 #6185a8 は白文字とのコントラストが3.87:1でWCAG AAを
+   満たさないため、--brandは暗く寄せた #35597d を使う(実績ブロックのベタ塗り背景
+   としても使われ、必ず白文字が乗るため)。値ではなく「暖色の面×寒色のアクション」
+   という役割関係を継承している。コントラストは tests/lib/design/theme-tokens.test.ts で検証 */
+:root[data-theme="structured"] {
+  color-scheme: light;
+  --paper: #faeae7; /* 淡いコーラル(背景) */
+  --surface: #ffffff; /* 白カード */
+  --ink: #2a2320; /* 暖かい近黒 */
+  --ink-muted: #665754; /* 暖かいグレー */
+  --line: #edd9d5; /* コーラル寄りの罫線 */
+  --brand: #35597d; /* スレートブルー(実績・ブランド) */
+  --brand-ink: #ffffff;
+  --plan-fill: rgba(53, 89, 125, 0.12); /* スレートブルー12%(計画) */
+  --plan-border: rgba(53, 89, 125, 0.4);
+  --plan-text: #2c5073; /* ネイビー */
+  --interrupt: #b4551f; /* テラコッタ(割り込み・ズレ) */
+  --danger: #b3261e;
+  --success: #2a6b4f;
+  --hatch: rgba(180, 85, 31, 0.5); /* ズレの斜線(--interruptの50%) */
+  /* 方眼を弱める(参考サイトは罫線を使わない) */
+  --grid: rgba(42, 35, 32, 0.045);
+  --grid-hour: rgba(42, 35, 32, 0.1);
+  --focus: #35597d;
+  /* 角丸を大きく。操作部品は完全なピル(参考サイトは border-radius: 100px) */
+  --r-xs: 0.25rem;
+  --r-md: 0.625rem;
+  --r-lg: 0.875rem;
+  --r-xl: 1.5rem;
+  --r-control: 999px;
+  --r-control-lg: 999px;
+  /* 参考サイトと同じ Inter */
+  --app-font-sans: var(--font-inter);
+}
+
 body {
   background: var(--paper);
   color: var(--ink);
-  /* Geist Sans(next/fontでロード)+日本語フォールバック。時刻・数値は font-mono(Geist Mono) */
+  /* 本文フォントはテーマで差し替わる(D-6)+日本語フォールバック。
+     時刻・数値は font-mono(Geist Mono)でテーマに関わらず固定 */
   font-family:
-    var(--font-geist-sans), "Hiragino Sans", "Noto Sans JP", sans-serif;
+    var(--app-font-sans), "Hiragino Sans", "Noto Sans JP", sans-serif;
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {

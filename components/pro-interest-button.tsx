@@ -85,7 +85,7 @@ export function ProInterestButton() {
     return (
       <p
         role="status"
-        className="border-plan-border bg-plan-fill text-brand inline-flex min-h-12 items-center rounded-xl border px-5 text-sm font-bold"
+        className="border-plan-border bg-plan-fill text-brand rounded-control-lg inline-flex min-h-12 items-center border px-5 text-sm font-bold"
       >
         {M.interestThanks}
       </p>
@@ -98,7 +98,7 @@ export function ProInterestButton() {
         type="button"
         onClick={handleClick}
         disabled={sending}
-        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-12 w-fit items-center rounded-xl px-6 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control-lg inline-flex min-h-12 w-fit items-center px-6 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
         {M.interestButton}
       </button>

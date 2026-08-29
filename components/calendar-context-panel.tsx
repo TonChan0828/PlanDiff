@@ -205,7 +205,7 @@ function ContextTab({
       role="tab"
       aria-selected={selected}
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${selected ? "bg-plan-fill text-brand" : "text-ink-muted hover:bg-ink/5"}`}
+      className={`rounded-control inline-flex min-h-11 items-center justify-center gap-2 text-sm font-semibold ${selected ? "bg-plan-fill text-brand" : "text-ink-muted hover:bg-ink/5"}`}
     >
       {icon}
       {children}

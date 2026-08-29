@@ -41,7 +41,7 @@ export function FreeTimerBar({ onStart, pending }: FreeTimerBarProps) {
         type="submit"
         disabled={pending}
         aria-label={T.freeStartLabel}
-        className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-5 text-sm font-bold transition-colors disabled:opacity-50"
+        className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 shrink-0 items-center justify-center px-5 text-sm font-bold transition-colors disabled:opacity-50"
       >
         {T.freeStart}
       </button>

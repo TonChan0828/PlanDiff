@@ -154,7 +154,7 @@ export default async function SummaryPage({
           </label>
           <button
             type="submit"
-            className="bg-brand text-brand-ink min-h-11 rounded-lg px-4 text-sm font-medium"
+            className="bg-brand text-brand-ink rounded-control min-h-11 px-4 text-sm font-medium"
           >
             {S.customSubmit}
           </button>

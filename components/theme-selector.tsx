@@ -10,7 +10,7 @@ import {
   type ThemePreference,
 } from "@/lib/theme/theme";
 
-// 外観(テーマ)の3択セレクタ(D-1e)。選択はlocalStorageに保存し、
+// 外観(テーマ)のセレクタ(D-1e、D-6でStructuredを追加して4択)。選択はlocalStorageに保存し、
 // <html data-theme>で即時反映する。SSRとの不一致を避けるため保存値は
 // useSyncExternalStoreで購読する(サーバースナップショットはsystem)
 
@@ -18,6 +18,7 @@ const OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "light", label: M.themeLight },
   { value: "dark", label: M.themeDark },
   { value: "system", label: M.themeSystem },
+  { value: "structured", label: M.themeStructured },
 ];
 
 function readStoredPreference(): ThemePreference {
@@ -59,7 +60,7 @@ export function ThemeSelector() {
         {OPTIONS.map((option) => (
           <label
             key={option.value}
-            className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
+            className={`rounded-control inline-flex min-h-11 cursor-pointer items-center gap-2 border px-4 text-sm font-medium transition-colors ${
               preference === option.value
                 ? "border-brand bg-brand text-brand-ink"
                 : "border-line hover:bg-ink/5"

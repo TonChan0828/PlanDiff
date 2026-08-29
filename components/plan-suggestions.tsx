@@ -254,7 +254,7 @@ export function PlanSuggestions({
                   type="button"
                   onClick={() => addThisWeek(suggestion)}
                   disabled={pending}
-                  className="border-plan-border/60 text-plan-text hover:bg-plan-fill/40 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium disabled:opacity-50"
+                  className="border-plan-border/60 text-plan-text hover:bg-plan-fill/40 rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium disabled:opacity-50"
                 >
                   {M.suggestionAddThisWeek}
                 </button>
@@ -262,7 +262,7 @@ export function PlanSuggestions({
                   type="button"
                   onClick={() => makeWeekly(suggestion)}
                   disabled={pending}
-                  className="border-line text-ink hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium disabled:opacity-50"
+                  className="border-line text-ink hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium disabled:opacity-50"
                 >
                   {M.suggestionMakeWeekly}
                 </button>

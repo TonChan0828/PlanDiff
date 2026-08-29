@@ -360,7 +360,7 @@ export function TrackView({
                               type="button"
                               aria-label={TR.promoteLabel(entry.title)}
                               onClick={() => handleOpenPromotion(entry)}
-                              className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+                              className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium transition-colors"
                             >
                               {TR.promote}
                             </button>

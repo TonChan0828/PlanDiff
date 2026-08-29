@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/font/google", () => ({
   Geist: () => ({ variable: "--font-geist-sans" }),
   Geist_Mono: () => ({ variable: "--font-geist-mono" }),
+  // D-6: Structuredテーマの本文フォント
+  Inter: () => ({ variable: "--font-inter" }),
 }));
 
 import { metadata, viewport } from "@/app/layout";

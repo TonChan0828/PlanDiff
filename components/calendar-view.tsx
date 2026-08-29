@@ -838,7 +838,7 @@ export function CalendarView({
                 aria-label={M.navPrev}
                 onClick={() => handleNavigate("prev")}
                 disabled={viewPending}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors disabled:opacity-50"
+                className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 min-w-11 items-center justify-center border text-sm transition-colors disabled:opacity-50"
               >
                 <ChevronLeft aria-hidden="true" className="h-5 w-5" />
               </button>
@@ -846,7 +846,7 @@ export function CalendarView({
                 type="button"
                 onClick={handleToday}
                 disabled={viewPending}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
+                className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {M.navToday}
               </button>
@@ -855,7 +855,7 @@ export function CalendarView({
                 aria-label={M.navNext}
                 onClick={() => handleNavigate("next")}
                 disabled={viewPending}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border text-sm transition-colors disabled:opacity-50"
+                className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 min-w-11 items-center justify-center border text-sm transition-colors disabled:opacity-50"
               >
                 <ChevronRight aria-hidden="true" className="h-5 w-5" />
               </button>
@@ -903,7 +903,7 @@ export function CalendarView({
                 type="button"
                 onClick={handleRefresh}
                 disabled={syncing}
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-50"
+                className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {syncing ? M.syncing : M.refresh}
               </button>
@@ -913,14 +913,14 @@ export function CalendarView({
               aria-label={M.contextOpen}
               title={M.contextOpen}
               onClick={() => setContextOpen(true)}
-              className="border-line text-ink-muted hover:bg-ink/5 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border lg:hidden"
+              className="border-line text-ink-muted hover:bg-ink/5 rounded-control inline-flex min-h-11 min-w-11 items-center justify-center border lg:hidden"
             >
               <PanelRight aria-hidden="true" className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={handleOpenCreateEvent}
-              className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 text-sm font-medium transition-colors"
+              className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 items-center justify-center px-3.5 text-sm font-medium transition-colors"
             >
               <CalendarPlus aria-hidden="true" className="mr-1.5 h-4 w-4" />
               {M.eventAdd}

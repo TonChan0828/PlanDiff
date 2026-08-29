@@ -88,7 +88,7 @@ export default async function SettingsPage({
         <form action={signOutAction}>
           <button
             type="submit"
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium transition-colors"
           >
             {M.signOutButton}
           </button>
@@ -109,7 +109,7 @@ export default async function SettingsPage({
         <h2 className="text-base font-semibold">{M.helpSectionHeading}</h2>
         <Link
           href="/onboarding"
-          className="border-line hover:bg-ink/5 inline-flex min-h-11 w-fit items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+          className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 w-fit items-center justify-center border px-4 text-sm font-medium transition-colors"
         >
           {M.reviewOnboardingLink}
         </Link>
@@ -125,7 +125,7 @@ export default async function SettingsPage({
             <form action={disconnectGoogleAction}>
               <button
                 type="submit"
-                className="border-line hover:bg-ink/5 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
+                className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 items-center justify-center border px-4 text-sm font-medium transition-colors"
               >
                 {M.disconnectButton}
               </button>
@@ -133,7 +133,7 @@ export default async function SettingsPage({
           ) : (
             <a
               href="/api/google/connect"
-              className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 w-fit items-center justify-center rounded-lg px-6 text-sm font-medium transition-colors"
+              className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 w-fit items-center justify-center px-6 text-sm font-medium transition-colors"
             >
               {M.connectButton}
             </a>

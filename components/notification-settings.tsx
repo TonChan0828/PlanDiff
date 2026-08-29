@@ -178,7 +178,7 @@ export function NotificationSettings() {
             type="button"
             onClick={handleDisable}
             disabled={busy}
-            className="border-line hover:bg-ink/5 inline-flex min-h-11 w-fit items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors disabled:opacity-50"
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 w-fit items-center justify-center border px-4 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {M.disableButton}
           </button>
@@ -192,7 +192,7 @@ export function NotificationSettings() {
             type="button"
             onClick={handleEnable}
             disabled={busy}
-            className="bg-brand text-brand-ink hover:bg-brand/90 inline-flex min-h-11 w-fit items-center justify-center rounded-lg px-6 text-sm font-medium transition-colors disabled:opacity-50"
+            className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 w-fit items-center justify-center px-6 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {M.enableButton}
           </button>
