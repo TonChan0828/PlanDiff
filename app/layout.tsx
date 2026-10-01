@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { BRAND_COLOR, DARK_BACKGROUND_COLOR } from "@/lib/pwa/theme";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
+import BrowserThemeMetadataSync from "@/components/browser-theme-metadata-sync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         {/* テーマ初期化(D-1e): 描画前にlocalStorageの選択をdata-themeへ反映(FOUC防止) */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <BrowserThemeMetadataSync />
         {children}
       </body>
     </html>

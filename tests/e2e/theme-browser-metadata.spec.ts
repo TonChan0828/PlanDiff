@@ -50,22 +50,16 @@ async function expectThemeMetadata(
 
   const themeColors = page.locator('meta[name="theme-color"]');
   await expect(themeColors).toHaveCount(2);
-  const activeThemeColor = page.locator(
-    'meta[name="theme-color"]:not([media])',
+  const lightThemeColor = page.locator(
+    'meta[name="theme-color"][media="(prefers-color-scheme: light)"]',
   );
-  await expect(activeThemeColor).toHaveCount(1);
-  await expect(activeThemeColor).toHaveAttribute(
-    "content",
-    THEMES[theme].color,
+  await expect(lightThemeColor).toHaveCount(1);
+  await expect(lightThemeColor).toHaveAttribute("content", THEMES[theme].color);
+  const darkThemeColor = page.locator(
+    'meta[name="theme-color"][media="(prefers-color-scheme: dark)"]',
   );
-  const disabledThemeColor = page.locator(
-    'meta[name="theme-color"][media="not all"]',
-  );
-  await expect(disabledThemeColor).toHaveCount(1);
-  await expect(disabledThemeColor).toHaveAttribute(
-    "content",
-    THEMES[theme].color,
-  );
+  await expect(darkThemeColor).toHaveCount(1);
+  await expect(darkThemeColor).toHaveAttribute("content", THEMES[theme].color);
 
   const icons = page.locator('link[rel~="icon"]');
   await expect(icons).toHaveCount(1);
