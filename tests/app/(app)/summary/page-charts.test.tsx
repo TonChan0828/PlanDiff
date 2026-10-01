@@ -30,6 +30,11 @@ import SummaryPage from "@/app/(app)/summary/page";
 //
 // R-1(CLAUDE.md): 日時はローカルTZで構築する。
 
+// S33の開始時刻は今日の0:05のため、00:00〜00:05に実行すると未来時刻になる。
+// モジュール評価時の基準時刻をローカル正午に固定し、UTC/UTC+14でも安定させる。
+vi.useFakeTimers({ shouldAdvanceTime: true });
+vi.setSystemTime(new Date(2026, 7, 26, 12, 0, 0));
+
 const fetchEventsMock = vi.mocked(fetchSyncedEventsInRange);
 const fetchEntriesMock = vi.mocked(fetchTimeEntriesInRange);
 const fetchRunningMock = vi.mocked(fetchRunningEntry);
