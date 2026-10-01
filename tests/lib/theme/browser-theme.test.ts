@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyThemePreference,
+  resolveCurrentThemeAttribute,
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
 } from "@/lib/theme/theme";
-import { resolveBrowserThemeDisplay } from "@/lib/theme/browser-theme";
+import {
+  resolveBrowserThemeDisplay,
+  syncBrowserThemeMetadata,
+} from "@/lib/theme/browser-theme";
 
 const SYSTEM_ICON_HREF = "/icon.svg?d7-test-generated";
 const SYSTEM_COLORS = {
@@ -72,7 +76,7 @@ describe("browser theme display(D-7 S1)", () => {
 
 describe("browser theme initialization(D-7 S2 / S3)", () => {
   it.each(["light", "dark", "structured"] as const)(
-    "S3: saved %s updates the page theme, both media colors, and one icon link",
+    "S3: saved %s updates the page theme before browser metadata sync",
     (theme) => {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
 
@@ -81,10 +85,20 @@ describe("browser theme initialization(D-7 S2 / S3)", () => {
       const { lightMeta, darkMeta, icon } = installFixtureReferences();
       const display = resolveBrowserThemeDisplay(theme);
       expect(document.documentElement.dataset.theme).toBe(theme);
+      expect(lightMeta.content).toBe(SYSTEM_COLORS.light);
+      expect(darkMeta.content).toBe(SYSTEM_COLORS.dark);
+      expect(icon.getAttribute("href")).toBe(SYSTEM_ICON_HREF);
+
+      syncBrowserThemeMetadata(theme);
+
       expect(lightMeta.content).toBe(display.themeColor);
-      expect(lightMeta.hasAttribute("media")).toBe(false);
+      expect(lightMeta.getAttribute("media")).toBe(
+        "(prefers-color-scheme: light)",
+      );
       expect(darkMeta.content).toBe(display.themeColor);
-      expect(darkMeta.getAttribute("media")).toBe("not all");
+      expect(darkMeta.getAttribute("media")).toBe(
+        "(prefers-color-scheme: dark)",
+      );
       expect(icon.getAttribute("href")).toBe(display.iconHref);
       expect(document.head.querySelectorAll('link[rel="icon"]')).toHaveLength(
         1,
@@ -141,9 +155,13 @@ describe("live browser theme updates(D-7 S4 / S5 / S6)", () => {
       expect(document.documentElement.dataset.theme).toBe(theme);
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe(theme);
       expect(lightMeta.content).toBe(display.themeColor);
-      expect(lightMeta.hasAttribute("media")).toBe(false);
+      expect(lightMeta.getAttribute("media")).toBe(
+        "(prefers-color-scheme: light)",
+      );
       expect(darkMeta.content).toBe(display.themeColor);
-      expect(darkMeta.getAttribute("media")).toBe("not all");
+      expect(darkMeta.getAttribute("media")).toBe(
+        "(prefers-color-scheme: dark)",
+      );
       expect(icon.getAttribute("href")).toBe(display.iconHref);
       expect(document.head.querySelectorAll('link[rel="icon"]')).toHaveLength(
         1,
@@ -151,7 +169,7 @@ describe("live browser theme updates(D-7 S4 / S5 / S6)", () => {
     }
   });
 
-  it("S5: returning to system restores both media values and the original Next.js icon href", () => {
+  it("S5: returning to system restores both media colors and the original Next.js icon href", () => {
     applyThemePreference("structured");
     applyThemePreference("system");
 
@@ -177,17 +195,26 @@ describe("live browser theme updates(D-7 S4 / S5 / S6)", () => {
     expect(document.documentElement.dataset.theme).toBe("structured");
     expect(installFixtureReferences().lightMeta.content).toBe("#f9f7f3");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    expect(resolveCurrentThemeAttribute()).toBe("structured");
+
+    applyThemePreference("system");
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(resolveCurrentThemeAttribute()).toBeNull();
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
 
     vi.restoreAllMocks();
     removeHeadFixtures();
     delete document.documentElement.dataset.theme;
     const { lightMeta, darkMeta, icon } = installHeadFixtures();
     new Function(THEME_INIT_SCRIPT)();
+    syncBrowserThemeMetadata("light");
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(lightMeta.content).toBe("#2f4acb");
-    expect(lightMeta.hasAttribute("media")).toBe(false);
+    expect(lightMeta.getAttribute("media")).toBe(
+      "(prefers-color-scheme: light)",
+    );
     expect(darkMeta.content).toBe("#2f4acb");
-    expect(darkMeta.getAttribute("media")).toBe("not all");
+    expect(darkMeta.getAttribute("media")).toBe("(prefers-color-scheme: dark)");
     expect(icon.getAttribute("href")).toBe("/icons/favicon-light.svg");
   });
 

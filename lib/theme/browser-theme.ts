@@ -24,17 +24,15 @@ const SYSTEM_THEME_COLOR_BY_MEDIA: Readonly<Record<string, string>> = {
   "(prefers-color-scheme: dark)": DARK_BACKGROUND_COLOR,
 };
 
-const SYSTEM_COLOR_ATTRIBUTE = "data-plandiff-system-color";
-const SYSTEM_MEDIA_ATTRIBUTE = "data-plandiff-system-media";
-const SYSTEM_MEDIA_PRESENT_ATTRIBUTE = "data-plandiff-system-media-present";
-const SYSTEM_ICON_ATTRIBUTE = "data-plandiff-system-icon-href";
+const originalThemeColors = new WeakMap<HTMLMetaElement, string | null>();
+const originalIconHrefs = new WeakMap<HTMLLinkElement, string | null>();
 
 /** Return the browser chrome values for a manually selected theme. */
 export function resolveBrowserThemeDisplay(theme: ThemeAttribute) {
   return BROWSER_THEME_DISPLAY[theme];
 }
 
-/** Synchronize the existing Next.js metadata nodes without adding competing tags. */
+/** Synchronize Next.js's existing metadata nodes without changing their identity. */
 export function syncBrowserThemeMetadata(
   theme: ThemeAttribute | null,
   documentRef: Document | undefined = typeof document === "undefined"
@@ -46,72 +44,48 @@ export function syncBrowserThemeMetadata(
   const display = theme ? resolveBrowserThemeDisplay(theme) : null;
   documentRef
     .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
-    .forEach((meta, index) => {
+    .forEach((meta) => {
       if (display) {
-        if (!meta.hasAttribute(SYSTEM_COLOR_ATTRIBUTE)) {
-          const systemColor = meta.getAttribute("content");
-          if (systemColor !== null) {
-            meta.setAttribute(SYSTEM_COLOR_ATTRIBUTE, systemColor);
-          }
-          const systemMedia = meta.getAttribute("media");
-          meta.setAttribute(
-            SYSTEM_MEDIA_PRESENT_ATTRIBUTE,
-            systemMedia === null ? "false" : "true",
-          );
-          if (systemMedia !== null) {
-            meta.setAttribute(SYSTEM_MEDIA_ATTRIBUTE, systemMedia);
-          }
+        if (!originalThemeColors.has(meta)) {
+          originalThemeColors.set(meta, meta.getAttribute("content"));
         }
-        meta.setAttribute("content", display.themeColor);
-        if (index === 0) {
-          meta.removeAttribute("media");
-        } else {
-          meta.setAttribute("media", "not all");
+        if (meta.getAttribute("content") !== display.themeColor) {
+          meta.setAttribute("content", display.themeColor);
         }
         return;
       }
 
-      const systemColor = meta.getAttribute(SYSTEM_COLOR_ATTRIBUTE);
-      if (systemColor !== null) {
+      const originalColor = originalThemeColors.get(meta);
+      const media = meta.getAttribute("media");
+      const systemColor =
+        originalColor ?? (media ? SYSTEM_THEME_COLOR_BY_MEDIA[media] : null);
+      if (systemColor && meta.getAttribute("content") !== systemColor) {
         meta.setAttribute("content", systemColor);
-        meta.removeAttribute(SYSTEM_COLOR_ATTRIBUTE);
-      } else {
-        const media = meta.getAttribute("media");
-        const fallbackColor = media ? SYSTEM_THEME_COLOR_BY_MEDIA[media] : null;
-        if (fallbackColor) meta.setAttribute("content", fallbackColor);
       }
-
-      const systemMediaPresent = meta.getAttribute(
-        SYSTEM_MEDIA_PRESENT_ATTRIBUTE,
-      );
-      const systemMedia = meta.getAttribute(SYSTEM_MEDIA_ATTRIBUTE);
-      if (systemMediaPresent === "true" && systemMedia !== null) {
-        meta.setAttribute("media", systemMedia);
-      } else if (systemMediaPresent === "false") {
-        meta.removeAttribute("media");
-      }
-      meta.removeAttribute(SYSTEM_MEDIA_ATTRIBUTE);
-      meta.removeAttribute(SYSTEM_MEDIA_PRESENT_ATTRIBUTE);
+      originalThemeColors.delete(meta);
     });
 
   documentRef
     .querySelectorAll<HTMLLinkElement>('link[rel="icon"]')
     .forEach((icon) => {
       if (display) {
-        if (!icon.hasAttribute(SYSTEM_ICON_ATTRIBUTE)) {
-          const systemHref = icon.getAttribute("href");
-          if (systemHref !== null) {
-            icon.setAttribute(SYSTEM_ICON_ATTRIBUTE, systemHref);
-          }
+        if (!originalIconHrefs.has(icon)) {
+          originalIconHrefs.set(icon, icon.getAttribute("href"));
         }
-        icon.setAttribute("href", display.iconHref);
+        if (icon.getAttribute("href") !== display.iconHref) {
+          icon.setAttribute("href", display.iconHref);
+        }
         return;
       }
 
-      const systemHref = icon.getAttribute(SYSTEM_ICON_ATTRIBUTE);
-      if (systemHref !== null) {
-        icon.setAttribute("href", systemHref);
-        icon.removeAttribute(SYSTEM_ICON_ATTRIBUTE);
+      if (originalIconHrefs.has(icon)) {
+        const originalHref = originalIconHrefs.get(icon);
+        if (originalHref === null) {
+          icon.removeAttribute("href");
+        } else if (originalHref !== undefined) {
+          icon.setAttribute("href", originalHref);
+        }
+        originalIconHrefs.delete(icon);
       }
     });
 }
