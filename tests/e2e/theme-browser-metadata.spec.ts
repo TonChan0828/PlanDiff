@@ -162,14 +162,14 @@ for (const theme of Object.keys(THEMES) as BrowserTheme[]) {
       .first()
       .getAttribute("href");
 
-    await page.getByRole("radio", { name: "ダーク" }).check();
+    await page.getByText("ダーク", { exact: true }).click();
     const darkIconHref = await expectThemeMetadata(page, "dark");
     expect(darkIconHref).not.toBe(initialIconHref);
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       originalTimeOrigin,
     );
 
-    await page.getByRole("radio", { name: "Structured" }).check();
+    await page.getByText("Structured", { exact: true }).click();
     await expectThemeMetadata(page, "structured");
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       originalTimeOrigin,
