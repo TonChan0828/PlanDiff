@@ -7,6 +7,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { createECDH } from "node:crypto";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
@@ -43,9 +44,14 @@ function jsonRequest(body: unknown): Request {
   });
 }
 
+const testEcdh = createECDH("prime256v1");
+testEcdh.generateKeys();
 const validBody = {
-  endpoint: "https://push.example.com/endpoint-a",
-  keys: { p256dh: "p256dh-a", auth: "auth-a" },
+  endpoint: "https://fcm.googleapis.com/fcm/send/endpoint-a",
+  keys: {
+    p256dh: testEcdh.getPublicKey().toString("base64url"),
+    auth: Buffer.alloc(16, 1).toString("base64url"),
+  },
   timezone: "Asia/Tokyo",
 };
 
@@ -135,6 +141,59 @@ describe("POST /api/notifications/subscribe(S19〜S22)", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("N4: mode=checkは本人のbooleanだけを返し、成功時に端末cookieを設定する", async () => {
+    mockLoggedInUser(userA.id);
+    await POST(jsonRequest(validBody));
+    const own = await POST(
+      jsonRequest({ mode: "check", endpoint: validBody.endpoint }),
+    );
+    expect(own.status).toBe(200);
+    expect(await own.json()).toEqual({ enabled: true });
+    expect(own.headers.get("cache-control")).toBe("no-store");
+    expect(own.headers.get("set-cookie")).toMatch(/HttpOnly/i);
+    expect(own.headers.get("set-cookie")).toMatch(/SameSite=Lax/i);
+
+    mockLoggedInUser(userB.id);
+    const other = await POST(
+      jsonRequest({ mode: "check", endpoint: validBody.endpoint }),
+    );
+    expect(await other.json()).toEqual({ enabled: false });
+  });
+
+  it("N3: 上限時も同じendpoint更新は成功し、新規11件目は429", async () => {
+    mockLoggedInUser(userA.id);
+    for (let index = 0; index < 10; index += 1) {
+      const response = await POST(
+        jsonRequest({
+          ...validBody,
+          endpoint: `https://fcm.googleapis.com/fcm/send/device-${index}`,
+        }),
+      );
+      expect(response.status).toBe(204);
+    }
+    expect(
+      (
+        await POST(
+          jsonRequest({
+            ...validBody,
+            endpoint: "https://fcm.googleapis.com/fcm/send/device-0",
+            timezone: "America/New_York",
+          }),
+        )
+      ).status,
+    ).toBe(204);
+    expect(
+      (
+        await POST(
+          jsonRequest({
+            ...validBody,
+            endpoint: "https://fcm.googleapis.com/fcm/send/device-10",
+          }),
+        )
+      ).status,
+    ).toBe(429);
+  });
 });
 
 describe("DELETE /api/notifications/subscribe(S23)", () => {
@@ -145,7 +204,7 @@ describe("DELETE /api/notifications/subscribe(S23)", () => {
     await POST(
       jsonRequest({
         ...validBody,
-        endpoint: "https://push.example.com/endpoint-b",
+        endpoint: "https://fcm.googleapis.com/fcm/send/endpoint-b",
       }),
     );
 

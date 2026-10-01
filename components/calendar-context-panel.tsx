@@ -7,6 +7,7 @@ import { CalendarClock, Lightbulb, Pencil, Play, X } from "lucide-react";
 import type { CalendarViewEvent } from "@/components/calendar-view";
 import { PlanSuggestions } from "@/components/plan-suggestions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { hasEventOnDay } from "@/lib/calendar/layout";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import type { TimeEntryItem } from "@/lib/timer/types";
@@ -52,14 +53,14 @@ export function CalendarContextPanel({
   const dayEvents = useMemo(
     () =>
       events
-        .filter((event) => isSameDay(parseISO(event.startAt), selectedDate))
+        .filter((event) => hasEventOnDay([event], selectedDate))
         .sort((a, b) => a.startAt.localeCompare(b.startAt)),
     [events, selectedDate],
   );
   const dayEntries = useMemo(
     () =>
       timeEntries
-        .filter((entry) => isSameDay(parseISO(entry.startAt), selectedDate))
+        .filter((entry) => hasEventOnDay([entry], selectedDate))
         .sort((a, b) => a.startAt.localeCompare(b.startAt)),
     [timeEntries, selectedDate],
   );
@@ -243,11 +244,14 @@ function ContextItem({
   startAt: string;
   endAt: string;
 }) {
+  const start = parseISO(startAt);
+  const end = parseISO(endAt);
+  const timeFormat = isSameDay(start, end) ? "HH:mm" : "M/d HH:mm";
   return (
     <div className="min-w-0 flex-1">
       <p className="truncate text-sm font-medium">{title || M.untitled}</p>
       <p className="text-ink-muted font-mono text-xs tabular-nums">
-        {format(parseISO(startAt), "HH:mm")}〜{format(parseISO(endAt), "HH:mm")}
+        {format(start, timeFormat)}〜{format(end, timeFormat)}
       </p>
     </div>
   );

@@ -201,12 +201,18 @@ export function CalendarView({
     () => (nowMinuteMs === null ? null : new Date(nowMinuteMs)),
     [nowMinuteMs],
   );
-  const today = useMemo(() => (now ? startOfDay(now) : null), [now]);
+  // 分tickでは日付参照を変えず、日付またぎのときだけ更新する(P16-ui)。
+  const todayMs = now ? startOfDay(now).getTime() : null;
+  const today = useMemo(
+    () => (todayMs === null ? null : new Date(todayMs)),
+    [todayMs],
+  );
 
   const view: CalendarViewMode = viewParam === "week" ? "week" : "day";
   // dateパラメータが妥当ならTZに依存せず確定する。省略・不正時はクライアントの「今日」。
   // 「dateなし=今日を見ている」ため、0時をまたぐと自動的に翌日へ切り替わる(P8-1)
-  const selectedDate = parseDateParam(dateParam) ?? today;
+  const explicitDate = useMemo(() => parseDateParam(dateParam), [dateParam]);
+  const selectedDate = explicitDate ?? today;
   const [contextOpen, setContextOpen] = useState(false);
   const [contextTab, setContextTab] = useState<CalendarContextTab>("day");
 
@@ -536,6 +542,8 @@ export function CalendarView({
   };
 
   const handleOpenEditEvent = (event: CalendarViewEvent) => {
+    // モバイル一覧(z-30)が編集パネルを覆わないよう先に閉じる(P16-ui)。
+    setContextOpen(false);
     setEventError(null);
     const initial: AppEventPanelValues = {
       title: event.title,
@@ -744,6 +752,7 @@ export function CalendarView({
   };
 
   const handleEditTimeEntry = (entry: TimeEntryItem) => {
+    setContextOpen(false);
     setEditError(null);
     setEditingEntry({
       id: entry.id,
@@ -812,11 +821,15 @@ export function CalendarView({
     [timeEntries, running, nowMinuteMs],
   );
 
-  const days = selectedDate
-    ? view === "week"
-      ? weekDaysOf(selectedDate)
-      : [selectedDate]
-    : [];
+  const days = useMemo(
+    () =>
+      selectedDate
+        ? view === "week"
+          ? weekDaysOf(selectedDate)
+          : [selectedDate]
+        : [],
+    [selectedDate, view],
+  );
   const rangeLabel = selectedDate
     ? view === "week"
       ? `${format(days[0]!, "yyyy年M月d日", { locale: ja })}〜${format(days[6]!, "M月d日", { locale: ja })}`

@@ -64,7 +64,7 @@ describe("LoginForm", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("S9: 異常系。メール未確認時は未確認メッセージと再送導線が表示される", async () => {
+  it("N13 / S9: メール未確認時に認証コールバック付きの確認メールを再送する", async () => {
     signInWithPasswordMock.mockResolvedValue({
       error: { message: "Email not confirmed" },
     });
@@ -92,6 +92,7 @@ describe("LoginForm", () => {
     expect(resendMock).toHaveBeenCalledWith({
       type: "signup",
       email: "user@example.com",
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
     });
   });
 });

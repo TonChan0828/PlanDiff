@@ -1,6 +1,7 @@
 "use client"; // エラー境界はClient Componentである必要がある(Next.jsの規約)
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/monitoring/client";
 import { ERROR_PAGE_MESSAGES } from "@/lib/errors/messages";
 import "./globals.css";
 
@@ -15,6 +16,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("画面の表示に失敗しました:", error.digest ?? error.name);
+    reportClientError(error, "boundary");
   }, [error]);
 
   const M = ERROR_PAGE_MESSAGES.globalError;

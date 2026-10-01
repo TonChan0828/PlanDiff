@@ -59,6 +59,7 @@ export function LoginForm() {
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
       email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
     });
     setResendStatus(resendError ? "error" : "sent");
   };

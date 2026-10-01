@@ -3,6 +3,7 @@ import "server-only";
 import { TZDate } from "@date-fns/tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSessionUser } from "@/lib/supabase/session-user";
+import { fetchAllPages } from "@/lib/supabase/paged-fetch";
 import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
 import {
   RECURRING_ID_PREFIX,
@@ -564,15 +565,35 @@ export async function materializeRecurringInstances(
 
   // 例外は全期間ではなく実体化範囲だけを取る(P6-1)。UNIQUE(rule_id, occurrence_date)が効く。
   // occurrence_date はルールのタイムゾーンの日付なので、UTC範囲との差を吸収するため前後1日を足す
-  const { data: exceptions } = await client
-    .from("recurring_exceptions")
-    .select("rule_id, occurrence_date")
-    .in("rule_id", ruleIds)
-    .gte("occurrence_date", toUtcDateString(range.timeMin, -1))
-    .lte("occurrence_date", toUtcDateString(range.timeMax, 1));
+  let exceptions: { rule_id: string; occurrence_date: string }[];
+  const exceptionsErrorMessage = "繰り返し予定の削除例外を読み込めませんでした";
+  try {
+    exceptions = await fetchAllPages<{
+      rule_id: string;
+      occurrence_date: string;
+    }>(
+      (from, to) =>
+        client
+          .from("recurring_exceptions")
+          .select("rule_id, occurrence_date")
+          .in("rule_id", ruleIds)
+          .gte("occurrence_date", toUtcDateString(range.timeMin, -1))
+          .lte("occurrence_date", toUtcDateString(range.timeMax, 1))
+          // UNIQUE(rule_id, occurrence_date)によってページ間の順序を確定する。
+          .order("rule_id", { ascending: true })
+          .order("occurrence_date", { ascending: true })
+          .range(from, to),
+      exceptionsErrorMessage,
+    );
+  } catch {
+    // 部分取得を「例外なし」として扱うと削除済み予定が復活する。
+    // 全件確認できないときは書き込まず、既存予定の表示を継続する(P16-data)。
+    console.error(exceptionsErrorMessage);
+    return summaries;
+  }
 
   const exceptionsByRule = new Map<string, Set<string>>();
-  for (const exception of exceptions ?? []) {
+  for (const exception of exceptions) {
     const ruleId = exception.rule_id as string;
     const set = exceptionsByRule.get(ruleId) ?? new Set<string>();
     set.add(exception.occurrence_date as string);

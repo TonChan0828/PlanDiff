@@ -177,3 +177,47 @@ describe("MediaQueryList のキャッシュ(S14)", () => {
     expect(spy.mock.calls.length).toBe(afterFirst);
   });
 });
+
+// 仕様書: P16-ui S6/S7
+it("S6: 前日から続く予定と実績を表示し、両端の日付を添える", () => {
+  const overnight = {
+    ...planEvent("overnight", "日またぎ予定", 0),
+    startAt: isoAt(new Date(2026, 7, 2), 23),
+    endAt: isoAt(selectedDate, 1),
+  };
+  renderPanel(
+    [overnight],
+    [{ ...overnight, id: "entry", title: "日またぎ実績", googleEventId: null }],
+  );
+  expect(screen.getByText("日またぎ予定")).toBeInTheDocument();
+  expect(screen.getByText("日またぎ実績")).toBeInTheDocument();
+  expect(screen.getAllByText("8/2 23:00〜8/3 01:00")).toHaveLength(2);
+});
+
+it("S7: 日境界で終了・開始した項目は除外し、当日0時のゼロ長実績は含める", () => {
+  const previous = {
+    ...planEvent("previous", "前日で終了", 0),
+    startAt: isoAt(new Date(2026, 7, 2), 23),
+    endAt: isoAt(selectedDate, 0),
+  };
+  const next = {
+    ...planEvent("next", "翌日から開始", 0),
+    startAt: isoAt(new Date(2026, 7, 4), 0),
+    endAt: isoAt(new Date(2026, 7, 4), 1),
+  };
+  renderPanel(
+    [previous, next],
+    [
+      {
+        id: "zero",
+        title: "0時の実績",
+        googleEventId: null,
+        startAt: isoAt(selectedDate, 0),
+        endAt: isoAt(selectedDate, 0),
+      },
+    ],
+  );
+  expect(screen.queryByText("前日で終了")).not.toBeInTheDocument();
+  expect(screen.queryByText("翌日から開始")).not.toBeInTheDocument();
+  expect(screen.getByText("0時の実績")).toBeInTheDocument();
+});

@@ -1,6 +1,7 @@
 "use client"; // エラー境界はClient Componentである必要がある(Next.jsの規約)
 
 import { useEffect } from "react";
+import { reportClientError } from "@/lib/monitoring/client";
 import { ERROR_PAGE_MESSAGES } from "@/lib/errors/messages";
 
 // ルート配下の未捕捉例外の受け皿(P4-5)。内部情報(message/stack)は画面に出さず、
@@ -14,6 +15,7 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     console.error("画面の描画に失敗しました:", error.digest ?? error.name);
+    reportClientError(error, "boundary");
   }, [error]);
 
   const M = ERROR_PAGE_MESSAGES.error;
