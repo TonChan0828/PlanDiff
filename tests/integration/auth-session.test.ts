@@ -1,6 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined, delete: () => {} }),
+}));
 
 import AppLayout from "@/app/(app)/layout";
 import { signOutAction } from "@/app/(app)/actions";

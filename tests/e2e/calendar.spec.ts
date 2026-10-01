@@ -36,7 +36,9 @@ test("375px: 日またぎ予定を翌日の詳細から編集して元の日時�
     testUser.date,
   );
   const details = await openDayDetails(page);
-  const crossMidnightTime = details.getByText(/\d+\/\d+ 23:30〜\d+\/\d+ 00:30/);
+  const crossMidnightTime = details
+    .getByText(/\d+\/\d+ 23:30〜\d+\/\d+ 00:30/)
+    .first();
   await expect(details.getByRole("heading", { name: "予定" })).toBeVisible();
   await expect(
     details.getByRole("button", { name: `${TEST_EVENT_TITLE}の予定を編集` }),
@@ -119,7 +121,7 @@ test("375px: 日またぎ実績の削除確認でフォーカスを閉じ込めE
     details.getByRole("button", { name: `${TEST_ACTUAL_TITLE}の実績を編集` }),
   ).toBeVisible();
   await expect(
-    details.getByText(/\d+\/\d+ 23:30〜\d+\/\d+ 00:30/),
+    details.getByText(/\d+\/\d+ 23:30〜\d+\/\d+ 00:30/).first(),
   ).toBeVisible();
   await details
     .getByRole("button", { name: `${TEST_ACTUAL_TITLE}の実績を編集` })
