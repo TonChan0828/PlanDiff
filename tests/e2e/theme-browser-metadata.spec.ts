@@ -159,6 +159,7 @@ for (const theme of Object.keys(THEMES) as BrowserTheme[]) {
     );
     const initialIconHref = await page
       .locator('link[rel~="icon"]')
+      .first()
       .getAttribute("href");
 
     await page.getByRole("radio", { name: "ダーク" }).check();
