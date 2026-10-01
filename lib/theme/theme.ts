@@ -1,6 +1,11 @@
 // テーマの手動切替(D-1e / D-6)。localStorageの保存値と<html data-theme>属性の対応を定義する。
 // 属性なし=システム(prefers-color-scheme)追随
 
+import {
+  BROWSER_THEME_DISPLAY,
+  syncBrowserThemeMetadata,
+} from "./browser-theme";
+
 export const THEME_STORAGE_KEY = "plandiff-theme";
 
 /** 選択変更をUIへ通知するイベント名(useSyncExternalStoreの購読用) */
@@ -50,13 +55,28 @@ export function applyThemePreference(preference: ThemePreference): void {
   } catch {
     // プライベートモード等で保存できない場合は表示だけ切り替える
   }
+  syncBrowserThemeMetadata(attribute);
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
 // 初回描画前に保存値を反映するインラインスクリプト(FOUC防止)。
 // ルートレイアウトの<body>先頭で同期実行する。localStorage失敗時は何もしない。
 // 許可する値はTHEME_ATTRIBUTESから生成するため、テーマ追加時の直し忘れが起きない
+const THEME_INIT_DISPLAY = JSON.stringify(BROWSER_THEME_DISPLAY);
+
 export const THEME_INIT_SCRIPT =
   `try{var t=localStorage.getItem("${THEME_STORAGE_KEY}");` +
-  `if(${JSON.stringify(THEME_ATTRIBUTES)}.indexOf(t)>=0)` +
-  `{document.documentElement.dataset.theme=t}}catch(e){}`;
+  `if(${JSON.stringify(THEME_ATTRIBUTES)}.indexOf(t)>=0){` +
+  `document.documentElement.dataset.theme=t;` +
+  `var d=${THEME_INIT_DISPLAY};` +
+  `document.querySelectorAll('meta[name="theme-color"]').forEach(function(m,n){` +
+  `if(!m.hasAttribute("data-plandiff-system-color")){` +
+  `var c=m.getAttribute("content");if(c!==null)m.setAttribute("data-plandiff-system-color",c);` +
+  `var s=m.getAttribute("media");m.setAttribute("data-plandiff-system-media-present",s===null?"false":"true");` +
+  `if(s!==null)m.setAttribute("data-plandiff-system-media",s)}` +
+  `m.setAttribute("content",d[t].themeColor);` +
+  `if(n===0)m.removeAttribute("media");else m.setAttribute("media","not all")});` +
+  `document.querySelectorAll('link[rel="icon"]').forEach(function(i){` +
+  `if(!i.hasAttribute("data-plandiff-system-icon-href")){` +
+  `var h=i.getAttribute("href");if(h!==null)i.setAttribute("data-plandiff-system-icon-href",h)}` +
+  `i.setAttribute("href",d[t].iconHref)})}}catch(e){}`;
