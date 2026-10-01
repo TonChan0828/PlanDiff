@@ -28,6 +28,7 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 // Google凍結中でも表示するエラー(P4-2)
 const GENERAL_ERROR_MESSAGES: Record<string, string> = {
   account_delete_failed: M.errorAccountDeleteFailed,
+  notification_logout_failed: M.errorNotificationLogoutFailed,
 };
 
 export default async function SettingsPage({

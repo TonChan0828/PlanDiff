@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MAX_FETCH_ROWS, PAGE_SIZE } from "@/lib/supabase/paged-fetch";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 
@@ -35,11 +36,14 @@ interface MaterializeMockOptions {
   rules?: RuleRow[];
   rulesError?: boolean;
   exceptions?: { rule_id: string; occurrence_date: string }[];
+  exceptionsErrorOnPage?: number;
 }
 
 function createMaterializeMock(options: MaterializeMockOptions = {}) {
   const exceptionFilters: Record<string, unknown> = {};
   const upserted: Record<string, unknown>[][] = [];
+  const exceptionPages: number[] = [];
+  const exceptionOrders: string[] = [];
 
   const from = vi.fn((table: string) => {
     if (table === "recurring_rules") {
@@ -77,8 +81,25 @@ function createMaterializeMock(options: MaterializeMockOptions = {}) {
         exceptionFilters[`lte:${column}`] = value;
         return builder;
       };
+      builder.order = (column: string) => {
+        exceptionOrders.push(column);
+        return builder;
+      };
+      const pageResult = (from: number, to: number) => {
+        const page = Math.floor(from / PAGE_SIZE) + 1;
+        return options.exceptionsErrorOnPage === page
+          ? { data: null, error: { message: "exceptions failed" } }
+          : {
+              data: (options.exceptions ?? []).slice(from, to + 1),
+              error: null,
+            };
+      };
+      builder.range = (from: number, to: number) => {
+        exceptionPages.push(from);
+        return Promise.resolve(pageResult(from, to));
+      };
       builder.then = (resolve: (value: unknown) => unknown) =>
-        resolve({ data: options.exceptions ?? [], error: null });
+        resolve(pageResult(0, PAGE_SIZE - 1));
       return builder;
     }
     return {
@@ -99,7 +120,13 @@ function createMaterializeMock(options: MaterializeMockOptions = {}) {
     from,
   } as unknown as SupabaseClient;
 
-  return { client, exceptionFilters, upserted };
+  return {
+    client,
+    exceptionFilters,
+    upserted,
+    exceptionPages,
+    exceptionOrders,
+  };
 }
 
 const RANGE = {
@@ -201,5 +228,85 @@ describe("materializeRecurringInstances の戻り値(S7・S8)", () => {
     await expect(
       materializeRecurringInstances(client, new Date(RANGE.timeMin), RANGE),
     ).resolves.toEqual([]);
+  });
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+function exceptionRows(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    rule_id: `rule-${Math.floor(index / 365) + 1}`,
+    occurrence_date: new Date(Date.UTC(2026, 0, 1 + (index % 365)))
+      .toISOString()
+      .slice(0, 10),
+  }));
+}
+
+describe("P16-data 定期予定の削除例外を全件確認する", () => {
+  it.each([1, 2])(
+    "D3/D4: 例外取得の%dページ目が失敗しても予定を再生成しない",
+    async (page) => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { client, upserted } = createMaterializeMock({
+        rules: [ruleRow()],
+        exceptions: exceptionRows(1001),
+        exceptionsErrorOnPage: page,
+      });
+      const rules = await materializeRecurringInstances(
+        client,
+        new Date(RANGE.timeMin),
+        RANGE,
+      );
+      expect(rules).toHaveLength(1);
+      expect(upserted).toEqual([]);
+      expect(console.error).toHaveBeenCalledWith(
+        "繰り返し予定の削除例外を読み込めませんでした",
+      );
+    },
+  );
+
+  it("D5: 1001件の削除例外を全ページ取得し2ページ目の削除も反映する", async () => {
+    const exceptions = exceptionRows(1001);
+    const { client, upserted, exceptionPages, exceptionOrders } =
+      createMaterializeMock({
+        rules: [
+          ruleRow(),
+          ruleRow({ id: "rule-2" }),
+          ruleRow({ id: "rule-3" }),
+        ],
+        exceptions,
+      });
+    await materializeRecurringInstances(client, new Date(2026, 0, 1), {
+      timeMin: new Date(2025, 11, 31).toISOString(),
+      timeMax: new Date(2027, 0, 2).toISOString(),
+    });
+    expect(exceptionPages).toEqual([0, 1000]);
+    expect(exceptionOrders).toEqual([
+      "rule_id",
+      "occurrence_date",
+      "rule_id",
+      "occurrence_date",
+    ]);
+    const rows = upserted.flat();
+    const last = exceptions.at(-1)!;
+    expect(rows.map((row) => row.google_event_id)).not.toContain(
+      `rec:${last.rule_id}:${last.occurrence_date}`,
+    );
+    expect(
+      rows.some((row) => row.google_event_id === "rec:rule-3:2026-12-31"),
+    ).toBe(true);
+  });
+
+  it("D6: 削除例外が件数上限を超えたら部分結果で再生成しない", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client, upserted } = createMaterializeMock({
+      rules: [ruleRow()],
+      exceptions: exceptionRows(MAX_FETCH_ROWS + 1),
+    });
+    await materializeRecurringInstances(client, new Date(RANGE.timeMin), RANGE);
+    expect(upserted).toEqual([]);
+    expect(console.error).toHaveBeenCalledWith(
+      "繰り返し予定の削除例外を読み込めませんでした",
+    );
   });
 });

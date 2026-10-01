@@ -24,3 +24,96 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  integration:
+    name: Integration and migration tests (local Supabase)
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.107.0
+      - name: Start disposable local Supabase
+        env:
+          GOOGLE_CLIENT_ID: local-ci-client
+          GOOGLE_CLIENT_SECRET: local-ci-secret
+        run: >-
+          supabase start
+          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
+      - name: Apply all migrations to the disposable database
+        run: supabase db reset --local --no-seed
+      - name: Export local-only Supabase settings
+        shell: bash
+        run: |
+          supabase status --output env > "$RUNNER_TEMP/supabase.env"
+          set -a
+          source "$RUNNER_TEMP/supabase.env"
+          set +a
+          {
+            printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$API_URL"
+            printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+            printf 'SUPABASE_DB_URL=%s\n' "$DB_URL"
+          } >> "$GITHUB_ENV"
+      - run: npm run test:integration
+
+  e2e:
+    name: Mobile browser tests (local Supabase)
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.107.0
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Start disposable local Supabase
+        env:
+          GOOGLE_CLIENT_ID: local-ci-client
+          GOOGLE_CLIENT_SECRET: local-ci-secret
+        run: >-
+          supabase start
+          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
+      - name: Apply all migrations to the disposable database
+        run: supabase db reset --local --no-seed
+      - name: Export local-only Supabase settings
+        shell: bash
+        run: |
+          supabase status --output env > "$RUNNER_TEMP/supabase.env"
+          set -a
+          source "$RUNNER_TEMP/supabase.env"
+          set +a
+          {
+            printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$API_URL"
+            printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+            printf 'SUPABASE_DB_URL=%s\n' "$DB_URL"
+          } >> "$GITHUB_ENV"
+      - run: npm run build
+      - run: npm run test:e2e
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

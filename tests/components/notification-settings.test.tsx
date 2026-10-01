@@ -38,7 +38,12 @@ function setup(options: SetupOptions = {}) {
     subscribeFails = false,
   } = options;
 
-  fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+  fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    return body.mode === "check"
+      ? Response.json({ enabled: true })
+      : new Response(null, { status: 204 });
+  });
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: query.includes("standalone") ? standalone : false,
@@ -204,7 +209,7 @@ describe("NotificationSettings(S12〜S18)", () => {
     expect(await screen.findByText(M.blocked)).toBeInTheDocument();
   });
 
-  it("許可は下りたがsubscribe自体が失敗したらブロック案内に切り替わる", async () => {
+  it("N7: subscribe失敗は権限拒否と区別して再試行できる", async () => {
     setup({ permission: "default", subscribeFails: true });
 
     render(<NotificationSettings />);
@@ -216,7 +221,9 @@ describe("NotificationSettings(S12〜S18)", () => {
       expect(requestPermission).toHaveBeenCalled();
       expect(subscribe).toHaveBeenCalled();
     });
-    expect(await screen.findByText(M.blocked)).toBeInTheDocument();
+    expect(await screen.findByText(M.enableFailed)).toBeInTheDocument();
+    expect(screen.queryByText(M.blocked)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: M.enableButton })).toBeEnabled();
   });
 
   it("無効にするとDELETEが呼ばれ、unsubscribeされて未設定表示に戻る", async () => {
@@ -239,6 +246,7 @@ describe("NotificationSettings(S12〜S18)", () => {
 
   it("DELETEが失敗したらエラーを表示し、unsubscribeせず有効のままにする", async () => {
     setup({ permission: "granted", existingSubscription: true });
+    fetchMock.mockResolvedValueOnce(Response.json({ enabled: true }));
     fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
 
     render(<NotificationSettings />);
@@ -261,5 +269,35 @@ describe("NotificationSettings(S12〜S18)", () => {
     );
 
     expect(await screen.findByText(M.enableFailed)).toBeInTheDocument();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: M.enableButton })).toBeEnabled();
+  });
+
+  it("N5: 別アカウント/DB未登録の購読を有効と表示せず解除する", async () => {
+    setup({ permission: "granted", existingSubscription: true });
+    fetchMock.mockResolvedValue(Response.json({ enabled: false }));
+    render(<NotificationSettings />);
+    expect(
+      await screen.findByRole("button", { name: M.enableButton }),
+    ).toBeInTheDocument();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(screen.queryByText(M.enabledOnThisDevice)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/notifications/subscribe",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"mode":"check"'),
+      }),
+    );
+  });
+
+  it("N6: 照合APIの失敗は有効/無効と断定せず再確認できる", async () => {
+    setup({ permission: "granted", existingSubscription: true });
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    render(<NotificationSettings />);
+    expect(await screen.findByText(M.checkFailed)).toBeInTheDocument();
+    expect(unsubscribe).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: M.retryButton }));
+    expect(await screen.findByText(M.enabledOnThisDevice)).toBeInTheDocument();
   });
 });

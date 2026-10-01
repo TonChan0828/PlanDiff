@@ -11,6 +11,8 @@ import {
 import { fetchRunningEntry, fetchTimeEntries } from "@/lib/timer/entries";
 import {
   createAdminClient,
+  createAnonClient,
+  createDbSql,
   createTestUser,
   deleteTestUser,
   type TestUser,
@@ -20,6 +22,7 @@ import {
 // ローカルSupabase(npx supabase start)前提。RLS認証済みクライアントで実行する。
 
 const admin = createAdminClient();
+const sql = createDbSql();
 let userA: TestUser;
 let userB: TestUser;
 
@@ -50,6 +53,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await deleteTestUser(admin, userA.id);
   await deleteTestUser(admin, userB.id);
+  await sql.end();
 });
 
 describe("startTimer(S9 / S10)", () => {
@@ -434,5 +438,132 @@ describe("実績の手動編集(S16〜S21)", () => {
     const rowsB = await fetchAllEntries(userB.id);
     expect(rowsB).toHaveLength(1);
     expect(rowsB[0]!.title).toBe("Bの実績");
+  });
+});
+
+describe("P16-data タイマー切替の原子性と権限", () => {
+  it("D9: 新規INSERT失敗時に旧タイマーの停止をロールバックする", async () => {
+    await clearEntries(userA.client);
+    expect(
+      await startTimer(userA.client, { title: "継続中", googleEventId: null }),
+    ).toEqual({ ok: true });
+    const before = await fetchAllEntries(userA.id);
+    // NOT NULL違反をINSERT段階で発生させ、停止が先行確定しないことを確認する。
+    const { error } = await userA.client.rpc("start_timer", {
+      p_title: null,
+      p_google_event_id: null,
+    });
+    expect(error?.code).toBe("23502");
+    expect(await fetchAllEntries(userA.id)).toEqual(before);
+    expect((await fetchRunningEntry(userA.client))?.id).toBe(before[0]!.id);
+  });
+
+  it("D10: 同一利用者の8件同時開始は全件成功し実行中は1本だけ", async () => {
+    await clearEntries(userA.client);
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        startTimer(userA.client, {
+          title: `並行作業${index}`,
+          googleEventId: null,
+        }),
+      ),
+    );
+    expect(results.every((result) => result.ok)).toBe(true);
+    const rows = (await fetchAllEntries(userA.id)).sort(
+      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+    );
+    expect(rows).toHaveLength(8);
+    expect(rows.filter((row) => row.end_at === null)).toHaveLength(1);
+    expect(rows.at(-1)!.end_at).toBeNull();
+    for (let index = 0; index < rows.length - 1; index += 1) {
+      expect(new Date(rows[index]!.end_at).getTime()).toBeGreaterThanOrEqual(
+        new Date(rows[index]!.start_at).getTime(),
+      );
+      expect(rows[index]!.end_at).toBe(rows[index + 1]!.start_at);
+    }
+  });
+
+  it("D11: 同一利用者の開始と停止が競合しても両方成功し区間は非負", async () => {
+    await clearEntries(userA.client);
+    await startTimer(userA.client, { title: "元の計測", googleEventId: null });
+    const results = await Promise.all([
+      startTimer(userA.client, { title: "新しい計測", googleEventId: null }),
+      stopTimer(userA.client),
+    ]);
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    const rows = await fetchAllEntries(userA.id);
+    expect(rows).toHaveLength(2);
+    expect(
+      rows.filter((row) => row.end_at === null).length,
+    ).toBeLessThanOrEqual(1);
+    for (const row of rows) {
+      if (row.end_at !== null) {
+        expect(new Date(row.end_at).getTime()).toBeGreaterThanOrEqual(
+          new Date(row.start_at).getTime(),
+        );
+      }
+    }
+  });
+
+  it("D12: 本人のみを変更し匿名・auth.uidなしの呼び出しは拒否する", async () => {
+    await clearEntries(userA.client);
+    await clearEntries(userB.client);
+    await startTimer(userB.client, {
+      title: "他人の計測",
+      googleEventId: null,
+    });
+    const beforeB = await fetchAllEntries(userB.id);
+    expect(
+      (
+        await userA.client.rpc("start_timer", {
+          p_title: "本人の計測",
+          p_google_event_id: null,
+        })
+      ).error,
+    ).toBeNull();
+    expect((await userA.client.rpc("stop_timer")).error).toBeNull();
+    expect(await fetchAllEntries(userB.id)).toEqual(beforeB);
+    const anon = createAnonClient();
+    expect(
+      (
+        await anon.rpc("start_timer", {
+          p_title: "匿名",
+          p_google_event_id: null,
+        })
+      ).error?.code,
+    ).toBe("42501");
+    expect((await anon.rpc("stop_timer")).error?.code).toBe("42501");
+    for (const operation of ["start", "stop"]) {
+      await expect(
+        sql.begin(async (transaction) => {
+          await transaction`set local role authenticated`;
+          if (operation === "start") {
+            await transaction`select public.start_timer('未認証', null)`;
+          } else {
+            await transaction`select public.stop_timer()`;
+          }
+        }),
+      ).rejects.toMatchObject({ code: "28000" });
+    }
+  });
+
+  it("D13: RPCはSECURITY INVOKER・search_path固定・authenticated限定", async () => {
+    const rows = await sql`
+      select p.proname, p.prosecdef, p.proconfig,
+        has_function_privilege('authenticated', p.oid, 'execute') as authenticated_execute,
+        has_function_privilege('anon', p.oid, 'execute') as anon_execute,
+        has_function_privilege('service_role', p.oid, 'execute') as service_execute
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname in ('start_timer', 'stop_timer')
+      order by p.proname
+    `;
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.prosecdef).toBe(false);
+      expect(row.proconfig).toContain('search_path=""');
+      expect(row.authenticated_execute).toBe(true);
+      expect(row.anon_execute).toBe(false);
+      expect(row.service_execute).toBe(false);
+    }
   });
 });

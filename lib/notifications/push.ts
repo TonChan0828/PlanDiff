@@ -4,6 +4,7 @@ import webpush, { WebPushError } from "web-push";
 
 import type { StaleTimerPayload } from "@/lib/notifications/stale-timer";
 import type { PushSubscriptionRecord } from "@/lib/notifications/store";
+import { parsePushSubscription } from "@/lib/notifications/validation";
 
 // P13-1: web-push の薄いラッパ。呼び出し側が web-push の型と例外を知らずに済むようにする。
 // 秘匿値(VAPID秘密鍵・endpoint・鍵)はログにも戻り値にも含めない
@@ -43,6 +44,15 @@ export async function sendStaleTimerPush(
   subscription: PushSubscriptionRecord,
   payload: StaleTimerPayload,
 ): Promise<PushSendResult> {
+  const validated = parsePushSubscription({
+    endpoint: subscription.endpoint,
+    keys: { p256dh: subscription.p256dhKey, auth: subscription.authKey },
+    timezone: subscription.timezone,
+  });
+  if (!validated) {
+    console.error("notifications.push.invalid_subscription");
+    return { ok: false, expired: true };
+  }
   if (!ensureVapid()) {
     return { ok: false, expired: false };
   }
@@ -53,20 +63,20 @@ export async function sendStaleTimerPush(
         keys: { p256dh: subscription.p256dhKey, auth: subscription.authKey },
       },
       JSON.stringify(payload),
+      { timeout: 5000 },
     );
     return { ok: true };
   } catch (cause) {
     if (cause instanceof WebPushError) {
       const expired = EXPIRED_STATUS_CODES.has(cause.statusCode);
-      // endpoint は出さない。購読IDとステータスだけで追跡できる
-      console.error(
-        `Push送信に失敗しました(subscription=${subscription.id}, status=${cause.statusCode})`,
-      );
+      console.error("notifications.push.send_failed", String(cause.statusCode));
       return { ok: false, expired };
     }
     console.error(
-      `Push送信に失敗しました(subscription=${subscription.id}):`,
-      cause instanceof Error ? cause.name : "unknown",
+      "notifications.push.send_failed",
+      cause instanceof Error
+        ? cause.name.replace(/[^A-Za-z0-9_]/g, "").slice(0, 40)
+        : "UNKNOWN",
     );
     return { ok: false, expired: false };
   }

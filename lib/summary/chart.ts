@@ -1,4 +1,9 @@
-import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
+import {
+  addDays,
+  constructFrom,
+  differenceInCalendarDays,
+  parseISO,
+} from "date-fns";
 import {
   durationMinutes,
   isStartInRange,
@@ -57,7 +62,10 @@ export function computeDailyGapSeries(
     if (!isStartInRange(startAt, range)) {
       return null;
     }
-    const index = differenceInCalendarDays(parseISO(startAt), range.start);
+    // date-fnsは先頭のDateのタイムゾーンを基準にする。通常のDateへ戻すと
+    // サーバーTZで日付がずれるため、集計期間のDate/TZDateに揃える(P16-data)。
+    const start = constructFrom(range.start, parseISO(startAt));
+    const index = differenceInCalendarDays(start, range.start);
     // isStartInRange を通っていれば範囲内に収まるが、DST等で境界がずれても
     // 配列外アクセスにならないよう防御しておく
     return index >= 0 && index < dayCount ? index : null;

@@ -1,3 +1,4 @@
+import { createECDH } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendNotification = vi.hoisted(() => vi.fn());
@@ -26,11 +27,13 @@ import {
 
 // 仕様書: docs/specs/P13-1_計測しっぱなしの検知とPush通知.md §5(失効した購読の削除)
 
+const ecdh = createECDH("prime256v1");
+ecdh.generateKeys();
 const subscription = {
   id: "sub-1",
-  endpoint: "https://push.example.com/abc",
-  p256dhKey: "p256dh-value",
-  authKey: "auth-value",
+  endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+  p256dhKey: ecdh.getPublicKey().toString("base64url"),
+  authKey: Buffer.alloc(16, 1).toString("base64url"),
   timezone: "Asia/Tokyo",
 };
 
@@ -63,6 +66,7 @@ describe("sendStaleTimerPush", () => {
         keys: { p256dh: subscription.p256dhKey, auth: subscription.authKey },
       },
       JSON.stringify(payload),
+      { timeout: 5000 },
     );
   });
 
@@ -97,5 +101,23 @@ describe("sendStaleTimerPush", () => {
 
     expect(result).toEqual({ ok: false, expired: false });
     expect(sendNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("N12: 送信の制限", () => {
+  it("保存済みの不正なendpointには送信しない", async () => {
+    const result = await sendStaleTimerPush(
+      { ...subscription, endpoint: "https://127.0.0.1/internal" },
+      payload,
+    );
+    expect(result).toEqual({ ok: false, expired: true });
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+  it("socket timeoutは送信失敗として返す", async () => {
+    sendNotification.mockRejectedValue(new Error("Socket timeout"));
+    expect(await sendStaleTimerPush(subscription, payload)).toEqual({
+      ok: false,
+      expired: false,
+    });
   });
 });

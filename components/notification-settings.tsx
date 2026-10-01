@@ -4,10 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { NOTIFICATION_MESSAGES as M } from "@/lib/notifications/messages";
 
-// P13-1: 設定画面の通知セクション。ブラウザの購読状態が唯一の真実で、
-// サーバーには問い合わせない(push_subscriptions はクライアントから読めない)。
-// 仕様書: docs/specs/P13-1_計測しっぱなしの検知とPush通知.md §3
-
 const SUBSCRIBE_ENDPOINT = "/api/notifications/subscribe";
 
 type Status =
@@ -15,6 +11,7 @@ type Status =
   | "unsupported"
   | "iosNeedsHomeScreen"
   | "blocked"
+  | "checkFailed"
   | "enabled"
   | "disabled";
 
@@ -27,26 +24,20 @@ function isPushSupported(): boolean {
   );
 }
 
-/** 案内文を出し分けるためだけの補助判定。機能検出を優先し、これは文言選択にしか使わない */
 function isIosLikeWithoutHomeScreen(): boolean {
-  const ua = navigator.userAgent;
-  const isIos = /iPhone|iPad|iPod/.test(ua);
-  // matchMedia 自体が無い環境(jsdomの既定環境など)でも落ちないようにする
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const standalone =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(display-mode: standalone)").matches;
   return isIos && !standalone;
 }
 
-/** base64url の VAPID公開鍵を Uint8Array に変換する(Push API の要求形式) */
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = window.atob(base64);
   const output = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i += 1) {
-    output[i] = raw.charCodeAt(i);
-  }
+  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
   return output;
 }
 
@@ -54,26 +45,68 @@ export function NotificationSettings() {
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-
     const detect = async () => {
+      setError(null);
       if (!isPushSupported()) {
-        const next = isIosLikeWithoutHomeScreen()
-          ? "iosNeedsHomeScreen"
-          : "unsupported";
-        if (!cancelled) setStatus(next);
+        setStatus(
+          isIosLikeWithoutHomeScreen() ? "iosNeedsHomeScreen" : "unsupported",
+        );
         return;
       }
       if (Notification.permission === "denied") {
-        if (!cancelled) setStatus("blocked");
+        setStatus("blocked");
         return;
       }
+
       try {
         const registration = await navigator.serviceWorker.register("/sw.js");
         const subscription = await registration.pushManager.getSubscription();
-        if (!cancelled) setStatus(subscription ? "enabled" : "disabled");
+        if (cancelled) return;
+        if (!subscription) {
+          setStatus("disabled");
+          return;
+        }
+
+        let response: Response;
+        try {
+          response = await fetch(SUBSCRIBE_ENDPOINT, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              mode: "check",
+              endpoint: subscription.endpoint,
+            }),
+          });
+        } catch {
+          if (!cancelled) setStatus("checkFailed");
+          return;
+        }
+        if (!response.ok) {
+          if (!cancelled) setStatus("checkFailed");
+          return;
+        }
+
+        let result: { enabled?: unknown };
+        try {
+          result = (await response.json()) as { enabled?: unknown };
+        } catch {
+          if (!cancelled) setStatus("checkFailed");
+          return;
+        }
+        if (cancelled) return;
+        if (result.enabled === true) {
+          setStatus("enabled");
+          return;
+        }
+
+        // The browser may retain a subscription from a different account. It is
+        // not active until this authenticated user's server row also exists.
+        const removed = await subscription.unsubscribe();
+        if (!cancelled) setStatus(removed ? "disabled" : "checkFailed");
       } catch {
         if (!cancelled) setStatus("unsupported");
       }
@@ -83,19 +116,21 @@ export function NotificationSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retry]);
 
   const handleEnable = useCallback(async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
+    let subscription: PushSubscription | null = null;
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        setStatus("blocked");
+        setStatus(permission === "denied" ? "blocked" : "disabled");
         return;
       }
       const registration = await navigator.serviceWorker.register("/sw.js");
-      const subscription = await registration.pushManager.subscribe({
+      subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
           process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
@@ -112,20 +147,27 @@ export function NotificationSettings() {
         }),
       });
       if (!response.ok) {
-        setError(M.enableFailed);
+        await subscription.unsubscribe().catch(() => false);
+        setStatus("disabled");
+        setError(
+          response.status === 429 ? M.subscriptionLimit : M.enableFailed,
+        );
         return;
       }
       setStatus("enabled");
     } catch {
-      // 許可ダイアログでの拒否・subscribe の失敗はどちらもここに来る。
-      // ユーザーから見れば「有効にできなかった」で同じなのでブロック案内に寄せる
-      setStatus("blocked");
+      // Permission denial is handled above. A subscribe or network failure is a
+      // recoverable setup error, and a locally-created subscription is rolled back.
+      if (subscription) await subscription.unsubscribe().catch(() => false);
+      setStatus("disabled");
+      setError(M.enableFailed);
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [busy]);
 
   const handleDisable = useCallback(async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -138,8 +180,6 @@ export function NotificationSettings() {
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
         if (!response.ok) {
-          // サーバー側の購読行が残ったまま。ここで unsubscribe() すると
-          // ブラウザ側の手がかりが消え、二度と解除できなくなるので実行しない
           setError(M.disableFailed);
           return;
         }
@@ -151,11 +191,9 @@ export function NotificationSettings() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [busy]);
 
-  if (status === "loading") {
-    return null;
-  }
+  if (status === "loading") return null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -169,6 +207,24 @@ export function NotificationSettings() {
       ) : null}
       {status === "blocked" ? (
         <p className="text-ink-muted text-sm">{M.blocked}</p>
+      ) : null}
+      {status === "checkFailed" ? (
+        <>
+          <p role="alert" className="text-danger text-sm">
+            {M.checkFailed}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setStatus("loading");
+              setRetry((value) => value + 1);
+            }}
+            disabled={busy}
+            className="border-line hover:bg-ink/5 rounded-control inline-flex min-h-11 w-fit items-center justify-center border px-4 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {M.retryButton}
+          </button>
+        </>
       ) : null}
 
       {status === "enabled" ? (

@@ -4,8 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
 // タイマー操作のコアロジック(P2-2)。Server Actionから呼ぶ。
-// 時刻はすべてサーバー側で決定し、UTCで保存する。
-// 実行中1本の保証はDBの partial unique index(one_running_timer_per_user)が最終防衛線。
+// 時刻はすべてDB側で決定し、UTCで保存する。
+// 開始・停止は同一利用者のadvisory lockを取るRPCで直列化する。
 
 export interface StartTimerInput {
   /** フリータイマー(P2-3)は null */
@@ -16,18 +16,20 @@ export interface StartTimerInput {
 
 export type TimerResult = { ok: true } | { ok: false };
 
-const UNIQUE_VIOLATION = "23505";
-
-/** 実行中エントリがあれば停止する(なければ何もしない) */
-async function stopRunning(
+/** RPCのDBエラーや通信例外を、サービス層の失敗結果へ揃える */
+async function callTimerRpc(
   client: SupabaseClient,
-  endAtIso: string,
-): Promise<boolean> {
-  const { error } = await client
-    .from("time_entries")
-    .update({ end_at: endAtIso })
-    .is("end_at", null);
-  return !error;
+  name: "start_timer" | "stop_timer",
+  args?: { p_title: string; p_google_event_id: string | null },
+): Promise<TimerResult> {
+  try {
+    const { error } = args
+      ? await client.rpc(name, args)
+      : await client.rpc(name);
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function startTimer(
@@ -39,33 +41,19 @@ export async function startTimer(
     return { ok: false };
   }
 
-  // 競合(別デバイスの同時開始で unique index 違反)時は 停止→insert を1回だけリトライする
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const nowIso = new Date().toISOString();
-    if (!(await stopRunning(client, nowIso))) {
-      return { ok: false };
-    }
-    const { error } = await client.from("time_entries").insert({
-      user_id: sessionUser.id,
-      title: input.title,
-      google_event_id: input.googleEventId,
-      start_at: nowIso,
-      end_at: null,
-    });
-    if (!error) {
-      return { ok: true };
-    }
-    if (error.code !== UNIQUE_VIOLATION) {
-      return { ok: false };
-    }
-  }
-  return { ok: false };
+  // 停止とINSERTはDBの1トランザクションで行う。INSERT失敗時に既存計測も維持される。
+  return callTimerRpc(client, "start_timer", {
+    p_title: input.title,
+    p_google_event_id: input.googleEventId,
+  });
 }
 
 /** 実行中エントリを停止して実績として確定する。実行中がなければ何もせず成功(冪等) */
 export async function stopTimer(client: SupabaseClient): Promise<TimerResult> {
-  const stopped = await stopRunning(client, new Date().toISOString());
-  return stopped ? { ok: true } : { ok: false };
+  if (!(await getSessionUser(client))) {
+    return { ok: false };
+  }
+  return callTimerRpc(client, "stop_timer");
 }
 
 export interface UpdateTimeEntryInput {

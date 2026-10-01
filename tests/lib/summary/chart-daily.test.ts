@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TZDate } from "@date-fns/tz";
 import {
   computeGapSummary,
   type SummaryActualEntry,
@@ -286,5 +287,69 @@ describe("computeDailyGapSeries — 境界値", () => {
     expect(points[0]?.isEmpty).toBe(false);
     expect(points[1]?.gapMinutes).toBe(0);
     expect(points[1]?.isEmpty).toBe(true);
+  });
+});
+
+// P16-data: サーバーTZとは別の利用者TZを明示して組み立てる。
+describe("P16-data 日別系列の利用者タイムゾーン", () => {
+  it.each(["Asia/Tokyo", "America/Los_Angeles", "Pacific/Kiritimati"])(
+    "D1: %s の初日/最終日の予定・実績を正しい日へ集計する",
+    (timezone) => {
+      const range = {
+        start: new TZDate(2026, 6, 6, 0, 0, 0, timezone),
+        end: new TZDate(2026, 6, 13, 0, 0, 0, timezone),
+      };
+      const plans = [6, 12].map((day) => ({
+        googleEventId: `plan-${day}`,
+        title: "昼の予定",
+        startAt: new TZDate(2026, 6, day, 12, 0, 0, timezone).toISOString(),
+        endAt: new TZDate(2026, 6, day, 13, 0, 0, timezone).toISOString(),
+      }));
+      const actuals = plans.map((event) => ({
+        ...event,
+        id: `actual-${event.googleEventId}`,
+      }));
+      const points = computeDailyGapSeries(plans, actuals, range);
+      const summary = computeGapSummary(plans, actuals, range);
+      expect(points.map((point) => point.planMinutes)).toEqual([
+        60, 0, 0, 0, 0, 0, 60,
+      ]);
+      expect(points.map((point) => point.actualMinutes)).toEqual([
+        60, 0, 0, 0, 0, 0, 60,
+      ]);
+      expect(points.reduce((sum, point) => sum + point.planMinutes, 0)).toBe(
+        summary.planTotalMinutes,
+      );
+      expect(points.reduce((sum, point) => sum + point.actualMinutes, 0)).toBe(
+        summary.actualTotalMinutes,
+      );
+    },
+  );
+
+  it("D2: DST開始週の初日0時と最終日23時59分を含め終了日0時は除外する", () => {
+    const timezone = "America/New_York";
+    const range = {
+      start: new TZDate(2026, 2, 2, 0, 0, 0, timezone),
+      end: new TZDate(2026, 2, 9, 0, 0, 0, timezone),
+    };
+    const starts = [
+      range.start,
+      new TZDate(2026, 2, 8, 23, 59, 0, timezone),
+      range.end,
+    ];
+    const actuals = starts.map((start, index) => ({
+      id: `boundary-${index}`,
+      title: "境界の実績",
+      googleEventId: null,
+      startAt: start.toISOString(),
+      endAt: new Date(start.getTime() + 30 * 60_000).toISOString(),
+    }));
+    const points = computeDailyGapSeries([], actuals, range);
+    expect(points.map((point) => point.actualMinutes)).toEqual([
+      30, 0, 0, 0, 0, 0, 30,
+    ]);
+    expect(points.reduce((sum, point) => sum + point.actualMinutes, 0)).toBe(
+      computeGapSummary([], actuals, range).actualTotalMinutes,
+    );
   });
 });

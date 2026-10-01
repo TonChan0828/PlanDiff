@@ -24,5 +24,8 @@ export const NOTIFICATION_MESSAGES = {
     "iPhone・iPadでは、ホーム画面に追加したPlanDiffからのみ通知を受け取れます。共有メニューの「ホーム画面に追加」を実行してから、もう一度お試しください",
   unsupported: "この環境では通知を利用できません",
   enableFailed: "通知の設定に失敗しました。時間をおいてもう一度お試しください",
+  checkFailed: "通知の状態を確認できませんでした。もう一度確認してください",
+  retryButton: "もう一度確認する",
+  subscriptionLimit: "通知を登録できる端末は1アカウントあたり10台までです",
   disableFailed: "通知の解除に失敗しました。時間をおいてもう一度お試しください",
 } as const;
