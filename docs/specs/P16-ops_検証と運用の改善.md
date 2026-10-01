@@ -37,6 +37,7 @@
 
 - `npm run check`: 型チェック・lint・unit 140ファイル901件・production buildまで成功。`npm run format:check`と`git diff --check`も合格。
 - UTC/UTC+14の指定3ファイルは55件ずつ合格。Playwrightは4ケースを検出。ブラウザ実行とSupabase統合テストはDocker daemon未起動のため未実施。
+- O11: `calendar-view-restart`、`calendar-view-timer`、`summary/page-charts`の計26件が、ローカル正午へ時計を固定した後にUTC/UTC+14双方で合格。
 - `supabase/config.toml`の現行CLIで無効な`local_smtp`を公式設定の`inbucket`へ変更。CLIは設定を読めたが、Docker daemon不在でサービス状態を確認できなかった。
 - Vercel Productionの環境変数は名前と適用環境のみ確認し、値は読み出していない。Cron定義は`0 22 * * *`。Supabase Productionの状態は未確認。
 - `npm audit`は元lockfileと同じ4 moderate / 5 high / 1 criticalを返した。High以上のため既存CI監査は失敗し、P16依存変更が原因でないことを確認。別作業S-2をPhase 14に起票した。Next.js advisory GHSA-vcvr-r3jv-pc5jに関して、`next/og`は静的アイコン生成に限られ、リクエスト由来の文字列をSVGへ渡していない。

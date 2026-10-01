@@ -24,6 +24,11 @@ import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
 const START_ERROR = "タイマーを開始できませんでした";
 
+// モジュール評価時に作る日付フィクスチャの基準時刻を正午に固定する(R-1)。
+// `subHours(new Date(), 1)` が深夜の評価時に前日へずれるのを防ぐ。
+vi.useFakeTimers({ shouldAdvanceTime: true });
+vi.setSystemTime(new Date(2026, 7, 26, 12, 0, 0));
+
 const today = startOfDay(new Date());
 const todayParam = format(today, "yyyy-MM-dd");
 
