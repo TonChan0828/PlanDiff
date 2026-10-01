@@ -146,12 +146,26 @@ describe("検知と送信(S3・S4・S27〜S31)", () => {
   // seedRunningEntry は Date.now() 基準、cron は自身の new Date() 基準のため、素朴に
   // 呼ぶだけでは両者の間に数ミリ秒〜数百ミリ秒のズレが生じ、.lte でも .lt でも
   // 通ってしまいうる(境界の証明にならない)。
-  // vi.useFakeTimers + setSystemTime でシステム時刻を固定し、seed時のstart_atと
-  // cron内部のnowをミリ秒まで一致させることで、.lte を守る唯一の砦にする。
+  // Dateだけ固定して実タイマーは動かし、SupabaseへのHTTP通信を妨げず
+  // seed時のstart_atとcron内部のnowをミリ秒まで一致させる。
   it("S1: 経過ちょうど12時間の計測も対象に含まれる(lte境界)", async () => {
-    const fixedNow = new Date(2026, 7, 24, 9, 0, 0, 0); // ローカルTZで構築(R-1)
-    vi.useFakeTimers();
-    vi.setSystemTime(fixedNow);
+    const RealDate = Date;
+    const fixedNow = new RealDate();
+    const fixedNowMs = fixedNow.getTime();
+    const FrozenDate = new Proxy(RealDate, {
+      construct(target, args) {
+        return Reflect.construct(
+          target,
+          args.length === 0 ? [fixedNowMs] : args,
+          target,
+        );
+      },
+      get(target, property, receiver) {
+        if (property === "now") return () => fixedNowMs;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    vi.stubGlobal("Date", FrozenDate);
 
     let entryId: string;
     let response: Response;
@@ -161,7 +175,7 @@ describe("検知と送信(S3・S4・S27〜S31)", () => {
 
       response = await GET(cronRequest(CRON_SECRET));
     } finally {
-      vi.useRealTimers();
+      vi.unstubAllGlobals();
     }
 
     expect(response.status).toBe(200);
