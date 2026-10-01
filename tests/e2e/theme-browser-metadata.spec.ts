@@ -4,9 +4,21 @@ const THEME_STORAGE_KEY = "plandiff-theme";
 const INITIALIZED_MARKER = "__d7_theme_e2e_initialized__";
 
 const THEMES = {
-  light: { color: "#2f4acb", iconColor: "#2f4acb" },
-  dark: { color: "#0e1116", iconColor: "#4c6ef5" },
-  structured: { color: "#f9f7f3", iconColor: "#a05f58" },
+  light: {
+    color: "#2f4acb",
+    iconColor: "#2f4acb",
+    iconHref: "/icons/favicon-light.svg",
+  },
+  dark: {
+    color: "#0e1116",
+    iconColor: "#4c6ef5",
+    iconHref: "/icons/favicon-dark.svg",
+  },
+  structured: {
+    color: "#f9f7f3",
+    iconColor: "#a05f58",
+    iconHref: "/icons/favicon-structured.svg",
+  },
 } as const;
 
 type BrowserTheme = keyof typeof THEMES;
@@ -62,12 +74,21 @@ async function expectThemeMetadata(
   await expect(darkThemeColor).toHaveAttribute("content", THEMES[theme].color);
 
   const icons = page.locator('link[rel~="icon"]');
-  await expect(icons).toHaveCount(1);
-  const href = await icons.getAttribute("href");
-  expect(href).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const hrefs = await icons.evaluateAll((links) =>
+        links.map((link) => link.getAttribute("href")),
+      );
+      return (
+        hrefs.length > 0 &&
+        hrefs.every((href) => href === THEMES[theme].iconHref)
+      );
+    })
+    .toBe(true);
+  const href = THEMES[theme].iconHref;
 
   const iconResponse = await page.request.get(
-    new URL(href!, page.url()).toString(),
+    new URL(href, page.url()).toString(),
   );
   expect(iconResponse.ok()).toBe(true);
   const iconSvg = (await iconResponse.text()).toLowerCase();
@@ -78,7 +99,41 @@ async function expectThemeMetadata(
     }
   }
 
-  return href!;
+  return href;
+}
+
+async function expectStreamedMetadataToSync(
+  page: import("@playwright/test").Page,
+  theme: BrowserTheme,
+) {
+  await page.evaluate(() => {
+    const themeColor = document.createElement("meta");
+    themeColor.name = "theme-color";
+    themeColor.content = "#ffffff";
+    themeColor.media = "(prefers-color-scheme: light)";
+    themeColor.dataset.e2eStreamedThemeColor = "true";
+
+    const icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.href = "/icon.svg";
+    icon.dataset.e2eStreamedIcon = "true";
+
+    document.head.append(themeColor, icon);
+  });
+
+  await expect(
+    page.locator('meta[data-e2e-streamed-theme-color="true"]'),
+  ).toHaveAttribute("content", THEMES[theme].color);
+  await expect(
+    page.locator('link[data-e2e-streamed-icon="true"]'),
+  ).toHaveAttribute("href", THEMES[theme].iconHref);
+
+  await page
+    .locator('[data-e2e-streamed-theme-color="true"]')
+    .evaluate((node) => node.remove());
+  await page
+    .locator('[data-e2e-streamed-icon="true"]')
+    .evaluate((node) => node.remove());
 }
 
 for (const theme of Object.keys(THEMES) as BrowserTheme[]) {
@@ -89,6 +144,7 @@ for (const theme of Object.keys(THEMES) as BrowserTheme[]) {
     await seedInitialTheme(page, theme);
     await signIn(page, testUser.email, testUser.password);
     await expectThemeMetadata(page, theme);
+    await expectStreamedMetadataToSync(page, theme);
 
     if (theme !== "light") return;
 
