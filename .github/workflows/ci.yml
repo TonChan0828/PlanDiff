@@ -50,6 +50,8 @@ jobs:
           --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
       - name: Apply all migrations to the disposable database
         run: supabase db reset --local --no-seed
+      - name: Verify local migration history parser
+        run: node scripts/check-migration-history.mjs --local
       - name: Export local-only Supabase settings
         shell: bash
         run: |
