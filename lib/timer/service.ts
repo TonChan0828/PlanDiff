@@ -16,6 +16,30 @@ export interface StartTimerInput {
 
 export type TimerResult = { ok: true } | { ok: false };
 
+function normalizeTimerRpcErrorCode(error: unknown): string {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    /^[A-Z0-9]{5}$/.test(error.code)
+  ) {
+    return error.code;
+  }
+  return "UNKNOWN";
+}
+
+function logTimerRpcFailure(
+  operation: "start_timer" | "stop_timer",
+  code: string,
+): void {
+  try {
+    console.error("timer_rpc_failed", { operation, code });
+  } catch {
+    // 診断ログの失敗はRPC結果へ影響させず、再試行もしない。
+  }
+}
+
 /** RPCのDBエラーや通信例外を、サービス層の失敗結果へ揃える */
 async function callTimerRpc(
   client: SupabaseClient,
@@ -26,8 +50,13 @@ async function callTimerRpc(
     const { error } = args
       ? await client.rpc(name, args)
       : await client.rpc(name);
-    return { ok: !error };
+    if (error) {
+      logTimerRpcFailure(name, normalizeTimerRpcErrorCode(error));
+      return { ok: false };
+    }
+    return { ok: true };
   } catch {
+    logTimerRpcFailure(name, "UNKNOWN");
     return { ok: false };
   }
 }
