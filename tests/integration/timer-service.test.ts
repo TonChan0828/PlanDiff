@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { addDays } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -55,6 +63,8 @@ afterAll(async () => {
   await deleteTestUser(admin, userB.id);
   await sql.end();
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("startTimer(S9 / S10)", () => {
   it("S9: 実行中なしで開始すると、予定に紐づく実行中エントリが作られる", async () => {
@@ -442,18 +452,23 @@ describe("実績の手動編集(S16〜S21)", () => {
 });
 
 describe("P16-data タイマー切替の原子性と権限", () => {
-  it("D9: 新規INSERT失敗時に旧タイマーの停止をロールバックする", async () => {
+  it("D9 / P17-1 S5: INSERT失敗を安全に記録し旧タイマーの停止をロールバックする", async () => {
     await clearEntries(userA.client);
     expect(
       await startTimer(userA.client, { title: "継続中", googleEventId: null }),
     ).toEqual({ ok: true });
     const before = await fetchAllEntries(userA.id);
     // NOT NULL違反をINSERT段階で発生させ、停止が先行確定しないことを確認する。
-    const { error } = await userA.client.rpc("start_timer", {
-      p_title: null,
-      p_google_event_id: null,
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await startTimer(userA.client, {
+      title: null as unknown as string,
+      googleEventId: null,
     });
-    expect(error?.code).toBe("23502");
+    expect(result).toEqual({ ok: false });
+    expect(log).toHaveBeenCalledExactlyOnceWith("timer_rpc_failed", {
+      operation: "start_timer",
+      code: "23502",
+    });
     expect(await fetchAllEntries(userA.id)).toEqual(before);
     expect((await fetchRunningEntry(userA.client))?.id).toBe(before[0]!.id);
   });
