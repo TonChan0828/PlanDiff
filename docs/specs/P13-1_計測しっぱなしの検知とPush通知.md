@@ -1,6 +1,6 @@
 # 仕様書: P13-1 計測しっぱなしの検知とPush通知
 
-- ステータス: 実装完了(2026-08-25)
+- ステータス: 実装完了(2026-08-25)。本番DB migration適用済み(2026-10-02)、本番Push運用設定・実機確認は未完了
 - 関連: docs/要件定義書.md の FR-05(フリータイマー)/ FR-09(PWA対応)/
   docs/specs/P3-3_PWA対応.md(Service Worker を明示的にスコープ外とした経緯。本件で初導入する)/
   docs/specs/P0-6_DBスキーマとRLS.md(`time_entries` の実行中タイマー制約)/
@@ -316,6 +316,7 @@ R-1 に従い、**日時はすべて `new Date(2026, 7, 24, 21, 30)` 形式で�
       - タップターゲット: 「通知を有効にする」44px、「無効にする」44px(実測。`min-h-11` 通り)
       - ライト/ダーク両方で `iosNeedsHomeScreen` 表示を確認、コントラスト・レイアウト破綻なし
       - コンソールエラー0件
+- [x] 本番 Supabase へ P13-1 migration `20260824222006_stale_timer_push_notifications.sql` を適用。2026-10-02に本番migration履歴を確認後、ユーザーが `db push` を実行した(`docs/logs/2026-10-02.md` 参照)
 - [ ] ローカルで cron エンドポイントを手動実行し、実機(Android Chrome / デスクトップ Chrome)に
       通知が届くこと。タップで `/track` が開くこと(**未実施**。VAPID鍵・Vercel環境変数が未登録のため
       実行できず。残タスク参照)
@@ -324,10 +325,10 @@ R-1 に従い、**日時はすべて `new Date(2026, 7, 24, 21, 30)` 形式で�
 
 ## 残タスク(ユーザー作業)
 
+- 本番DBへのP13-1 migrationは2026-10-02に適用済み。以降の環境設定と動作確認は未完了:
 - [ ] `npx web-push generate-vapid-keys` で鍵を生成し、Vercel に
       `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `CRON_SECRET` を登録する
       (`.env.example` に3本ともプレースホルダを追記済み。ローカル `.env.local` にも同じ3本を追加する)
-- [ ] 本番 Supabase へ `npx supabase db push`(テーブル追加+列追加のため必須)
 - [ ] 本番デプロイ後、Vercel ダッシュボードの Cron Jobs にジョブが登録されたことを確認する
 - [ ] **実機での Push 到達確認**(未確認のまま残る項目):
       Android Chrome、および iOS はホーム画面に追加した PWA。ローカルで cron エンドポイントを
