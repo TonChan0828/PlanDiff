@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { STATE_COOKIE } from "@/app/api/google/connect/route";
+import { STATE_COOKIE } from "@/lib/google/connect-options";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { exchangeAuthorizationCode } from "@/lib/google/token";
 import { saveGoogleRefreshToken } from "@/lib/supabase/admin";

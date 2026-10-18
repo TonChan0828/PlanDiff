@@ -17,6 +17,10 @@ import {
   type RecurringRuleFormInput,
   type RecurringRuleResult,
 } from "@/lib/calendar/recurring";
+import {
+  setRulePause,
+  type RulePauseAction,
+} from "@/lib/calendar/rule-pausing";
 import { disableRuleLearning } from "@/lib/calendar/rule-learning";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/supabase/session-user";
@@ -154,6 +158,21 @@ export async function disableRuleLearningAction(
   const result = await disableRuleLearning(supabase, ruleId);
   if (result.ok) {
     revalidatePath("/calendar");
+  }
+  return result;
+}
+
+export async function setRulePauseAction(
+  ruleId: string,
+  action: RulePauseAction,
+): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  if (!(await getSessionUser(supabase))) redirect("/login");
+  const result = await setRulePause(supabase, ruleId, action);
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/track");
+    revalidatePath("/summary");
   }
   return result;
 }

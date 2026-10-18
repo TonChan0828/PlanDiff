@@ -7,6 +7,7 @@ import type { RuleAdjustmentNotice } from "@/lib/calendar/recurring-id";
 
 const NOTICE: RuleAdjustmentNotice = {
   ruleId: "rule-1",
+  sampleCount: 5,
   title: "朝会",
   timezone: "Asia/Tokyo",
   previousStartTime: "09:00",
@@ -21,6 +22,7 @@ describe("RuleAdjustmentBanner(T23)", () => {
 
     const banner = screen.getByRole("status");
     expect(banner).toHaveTextContent("朝会");
+    expect(banner).toHaveTextContent("直近6週間の実績5件をもとに調整");
     expect(banner).toHaveTextContent("09:00→09:15");
     expect(banner).toHaveTextContent("30分→45分");
   });

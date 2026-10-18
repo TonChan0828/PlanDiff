@@ -85,6 +85,7 @@ describe("computeRuleAdjustments(T1)", () => {
         title: "朝会",
         timezone: TZ,
         changed: true,
+        sampleCount: 3,
         previousStartTime: "09:00",
         previousEndTime: "09:30",
         newStartTime: "09:15",
@@ -142,30 +143,14 @@ describe("computeRuleAdjustments(T3)", () => {
 });
 
 describe("computeRuleAdjustments(T4)", () => {
-  it("T4: 新旧の差がいずれも15分未満 Then changed:false(境界値: 丸め単位未満の差は無視)", () => {
-    // 丸め後の新しい値は必ず15分刻みになるため、15分未満の差を作るには
-    // 現在の登録値自体を15分刻みでない値にする(手動編集等で起こりうる値として検証)
+  it("T4: 丸め後の差が5分未満なら変更しない", () => {
     const rule = makeRule({ startTime: "09:07", endTime: "09:37" });
-    const entries = [
-      ruleEntry("rule-1", "2026-07-06 09:15", 30),
-      ruleEntry("rule-1", "2026-07-13 09:15", 30),
-      ruleEntry("rule-1", "2026-07-20 09:15", 30),
-    ];
-
-    const result = computeRuleAdjustments([rule], entries, NOW);
-
-    // 開始: 09:07(547分)→ 中央値丸め後09:15(555分)。差8分 <15分
-    // 所要: 30分→丸め後30分。差0分 <15分 → どちらも無視されchanged:false
-    expect(result).toEqual([
-      {
-        ruleId: "rule-1",
-        title: "朝会",
-        timezone: TZ,
-        changed: false,
-        previousStartTime: "09:07",
-        previousEndTime: "09:37",
-      },
-    ]);
+    const entries = [6, 13, 20].map((day) =>
+      ruleEntry("rule-1", `2026-07-${String(day).padStart(2, "0")} 09:05`, 30),
+    );
+    expect(computeRuleAdjustments([rule], entries, NOW)[0]).toMatchObject({
+      changed: false,
+    });
   });
 });
 
@@ -358,11 +343,88 @@ describe("computeRuleAdjustments(T12)", () => {
         title: "夕会",
         timezone: TZ,
         changed: true,
+        sampleCount: 3,
         previousStartTime: "18:00",
         previousEndTime: "18:30",
         newStartTime: "18:15",
         newEndTime: "18:45",
       },
     ]);
+  });
+});
+
+describe("5分単位の調整", () => {
+  const entries = (start: string, duration: number) =>
+    [6, 13, 20].map((day) =>
+      ruleEntry(
+        "rule-1",
+        `2026-07-${String(day).padStart(2, "0")} ${start}`,
+        duration,
+      ),
+    );
+
+  it("開始時刻の差がちょうど5分なら調整し、実績件数を返す", () => {
+    expect(
+      computeRuleAdjustments([makeRule()], entries("09:05", 30), NOW)[0],
+    ).toMatchObject({
+      changed: true,
+      newStartTime: "09:05",
+      newEndTime: "09:35",
+      sampleCount: 3,
+    });
+  });
+  it("所要時間だけ変わる場合、開始時刻の小さな差は維持する", () => {
+    const rule = makeRule({ startTime: "09:02", endTime: "09:32" });
+    expect(
+      computeRuleAdjustments([rule], entries("09:00", 35), NOW)[0],
+    ).toMatchObject({
+      changed: true,
+      newStartTime: "09:02",
+      newEndTime: "09:37",
+    });
+  });
+  it("開始時刻だけ変わる場合、所要時間の小さな差は維持する", () => {
+    const rule = makeRule({ endTime: "09:32" });
+    expect(
+      computeRuleAdjustments([rule], entries("09:05", 30), NOW)[0],
+    ).toMatchObject({
+      changed: true,
+      newStartTime: "09:05",
+      newEndTime: "09:37",
+    });
+  });
+  it("実績が短くても最短5分とする", () => {
+    expect(
+      computeRuleAdjustments([makeRule()], entries("09:00", 1), NOW)[0],
+    ).toMatchObject({
+      changed: true,
+      newStartTime: "09:00",
+      newEndTime: "09:05",
+    });
+  });
+  it.each([
+    [{ startsOn: "2026-08-14", endsOn: null }],
+    [{ startsOn: "2026-08-01", endsOn: "2026-08-14" }],
+  ])("休止中・休止予約・再開待ちの予定を調整しない: %j", (pause) => {
+    expect(
+      computeRuleAdjustments(
+        [makeRule({ pauses: [pause] })],
+        entries("09:05", 30),
+        NOW,
+      ),
+    ).toEqual([]);
+  });
+  it("再開日になると調整できる", () => {
+    expect(
+      computeRuleAdjustments(
+        [
+          makeRule({
+            pauses: [{ startsOn: "2026-08-01", endsOn: "2026-08-13" }],
+          }),
+        ],
+        entries("09:05", 30),
+        NOW,
+      )[0]?.changed,
+    ).toBe(true);
   });
 });

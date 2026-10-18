@@ -109,8 +109,8 @@ describe("computeSuggestions(S1)", () => {
         pattern: "weekly",
         weekdays: [2],
         dates: ["2026-07-14"],
-        startTime: "10:00", // 中央値 10:02.5 → 15分丸めで 10:00
-        endTime: "10:30", // 所要中央値 32.5分 → 30分
+        startTime: "10:05", // 中央値 10:02.5 → 5分丸めで 10:05
+        endTime: "10:40", // 所要中央値 32.5分 → 35分
         occurrenceCount: 2,
       },
     ]);
@@ -138,7 +138,7 @@ describe("computeSuggestions(S3)", () => {
     );
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]?.title).toBe("設計");
-    // 中央値 10:30 は15分単位のためそのまま
+    // 中央値 10:30 は5分単位のためそのまま
     expect(suggestions[0]?.startTime).toBe("10:30");
   });
 
@@ -332,7 +332,7 @@ describe("computeSuggestions(S9)", () => {
 });
 
 describe("computeSuggestions(S10)", () => {
-  it("S10: 開始時刻の中央値が15分単位に四捨五入される", () => {
+  it("S10: 開始時刻の中央値が5分単位に四捨五入される", () => {
     const suggestions = computeSuggestions(
       input({
         entries: [
@@ -341,8 +341,8 @@ describe("computeSuggestions(S10)", () => {
         ],
       }),
     );
-    // 9:07 → 15分丸めで 9:00
-    expect(suggestions[0]?.startTime).toBe("09:00");
+    // 9:07 → 5分丸めで 9:05
+    expect(suggestions[0]?.startTime).toBe("09:05");
 
     const suggestions2 = computeSuggestions(
       input({
@@ -352,11 +352,11 @@ describe("computeSuggestions(S10)", () => {
         ],
       }),
     );
-    // 17:08 → 15分丸めで 17:15
-    expect(suggestions2[0]?.startTime).toBe("17:15");
+    // 17:08 → 5分丸めで 17:10
+    expect(suggestions2[0]?.startTime).toBe("17:10");
   });
 
-  it("S10: 所要時間は15分単位に丸め、最低15分になる", () => {
+  it("S10: 所要時間は5分単位に丸め、最低5分になる", () => {
     const suggestions = computeSuggestions(
       input({
         entries: [
@@ -365,9 +365,9 @@ describe("computeSuggestions(S10)", () => {
         ],
       }),
     );
-    // 所要5分 → 丸めると0分になるため最低15分
+    // 所要5分は5分のまま
     expect(suggestions[0]?.startTime).toBe("09:00");
-    expect(suggestions[0]?.endTime).toBe("09:15");
+    expect(suggestions[0]?.endTime).toBe("09:05");
   });
 });
 
@@ -693,7 +693,7 @@ describe("computeSuggestions(S31)", () => {
 });
 
 describe("computeSuggestions(S32)", () => {
-  it("S32: 束ねのunion中央値が15分丸め・所要は最低15分", () => {
+  it("S32: 束ねのunion中央値が5分丸め・所要は最低5分", () => {
     const suggestions = computeSuggestions(
       input({
         viewDate: NEXT_WEEK,
@@ -708,9 +708,9 @@ describe("computeSuggestions(S32)", () => {
       }),
     );
     expect(suggestions).toHaveLength(1);
-    // 09:05 → 15分丸めで 09:00、所要5分 → 丸め0 → 最低15分
-    expect(suggestions[0]?.startTime).toBe("09:00");
-    expect(suggestions[0]?.endTime).toBe("09:15");
+    // 開始09:05、所要5分はそのまま
+    expect(suggestions[0]?.startTime).toBe("09:05");
+    expect(suggestions[0]?.endTime).toBe("09:10");
   });
 });
 

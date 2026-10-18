@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { buildGoogleAuthorizationUrl } from "@/lib/google/connect-options";
+import {
+  buildGoogleAuthorizationUrl,
+  STATE_COOKIE,
+} from "@/lib/google/connect-options";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { createClient } from "@/lib/supabase/server";
 
 // Googleカレンダー連携(任意)の起点。ログイン手段(メール)とは無関係な
 // 独立したOAuth2認可フローを開始する(仕様書P1-3の設計判断)。
 
-export const STATE_COOKIE = "google_oauth_state";
 const STATE_COOKIE_MAX_AGE_SECONDS = 600; // 10分
 
 export async function GET(request: NextRequest) {
