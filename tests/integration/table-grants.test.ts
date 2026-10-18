@@ -21,6 +21,7 @@ const EXPECTED_AUTHENTICATED: Record<string, string[]> = {
   time_entries: ["DELETE", "INSERT", "SELECT", "UPDATE"],
   recurring_rules: ["DELETE", "INSERT", "SELECT", "UPDATE"],
   recurring_exceptions: ["DELETE", "INSERT", "SELECT", "UPDATE"],
+  recurring_rule_pauses: ["DELETE", "INSERT", "SELECT", "UPDATE"],
   // google_tokens / pro_interest_events / push_subscriptions は
   // service role 専用のため一切付けない
 };
