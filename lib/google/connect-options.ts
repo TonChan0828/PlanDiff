@@ -1,3 +1,5 @@
+export const STATE_COOKIE = "google_oauth_state";
+
 // Google Calendar連携(任意)のOAuth2認可URL生成(単体テスト対象: S15)
 // Supabase Authを経由しない独立したOAuth2フロー(仕様書P1-3の設計判断)
 

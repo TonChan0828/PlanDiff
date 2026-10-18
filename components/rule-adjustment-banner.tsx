@@ -39,6 +39,11 @@ export function RuleAdjustmentBanner({
               minutesOf(notice.newEndTime) - minutesOf(notice.newStartTime),
             ),
           )}
+          {notice.sampleCount !== undefined ? (
+            <span className="text-ink-muted mt-1 block text-xs">
+              {M.ruleAdjustmentReason(notice.sampleCount)}
+            </span>
+          ) : null}
         </p>
       ))}
     </div>

@@ -35,6 +35,20 @@ export type RecurringPattern = "daily" | "weekly" | "weekdays";
 /** ルールの由来(P10-1)。'suggestion' = 提案の「毎週にする」経由で作成 */
 export type RecurringRuleOrigin = "manual" | "suggestion";
 
+export interface RecurringRulePause {
+  /** ルールのタイムゾーンでの開始日（含む）と終了日（含まない）。null は休止継続中 */
+  startsOn: string;
+  endsOn: string | null;
+}
+
+export interface RulePauseSuggestion {
+  ruleId: string;
+  title: string;
+  missedCount: number;
+  lastRecordedAt: string | null;
+  timezone: string;
+}
+
 export interface RecurringRuleSummary {
   id: string;
   title: string;
@@ -52,10 +66,13 @@ export interface RecurringRuleSummary {
   origin: RecurringRuleOrigin;
   /** 学習補正(P10-1)の直近再計算日時。UTCのISO文字列。未学習は null */
   lastLearnedAt: string | null;
+  /** 休止期間。旧呼び出し元との互換性のため省略時は休止なし */
+  pauses?: RecurringRulePause[];
 }
 
 /** 提案経由の定期予定の自動調整(P10-1)。変更が実際にあった1件ぶんの通知データ */
 export interface RuleAdjustmentNotice {
+  sampleCount?: number;
   ruleId: string;
   title: string;
   timezone: string;
@@ -67,4 +84,26 @@ export interface RuleAdjustmentNotice {
   newStartTime: string;
   /** "HH:mm" 形式 */
   newEndTime: string;
+}
+
+/** 休止予約も含む。再開予約日は、その日になるまで学習・休止提案を止める。 */
+export function isRulePaused(rule: RecurringRuleSummary, now: Date): boolean {
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: rule.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  return (rule.pauses ?? []).some(
+    (pause) => !pause.endsOn || pause.endsOn > date,
+  );
+}
+
+export function isOccurrencePaused(
+  rule: RecurringRuleSummary,
+  date: string,
+): boolean {
+  return (rule.pauses ?? []).some(
+    (pause) => date >= pause.startsOn && (!pause.endsOn || date < pause.endsOn),
+  );
 }

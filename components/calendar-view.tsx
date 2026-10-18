@@ -82,6 +82,7 @@ import {
   type GoogleConnectionStatus,
 } from "@/components/google-connection-banner";
 import type { RecurringRulePanelValues } from "@/components/recurring-rule-panel";
+import { RulePauseReview } from "@/components/rule-pause-review";
 import { RuleAdjustmentBanner } from "@/components/rule-adjustment-banner";
 import { RunningTimerBar } from "@/components/running-timer-bar";
 import {
@@ -96,6 +97,7 @@ import {
   parseRecurringEventId,
   type RecurringRuleSummary,
   type RuleAdjustmentNotice,
+  type RulePauseSuggestion,
 } from "@/lib/calendar/recurring-id";
 import {
   buildCalendarPath,
@@ -174,6 +176,8 @@ interface CalendarViewProps {
   suggestionEntries?: TimeEntryItem[];
   /** 提案経由の定期予定の自動学習補正(P10-1)で今回のロードで変更があった分の通知 */
   ruleAdjustments?: RuleAdjustmentNotice[];
+  pauseSuggestions?: RulePauseSuggestion[];
+  reviewNow?: string;
   /** オンボーディング完了直後など、初回描画で予定作成パネルを開く */
   startCreating?: boolean;
 }
@@ -189,6 +193,8 @@ export function CalendarView({
   recurringRules = [],
   suggestionEntries = [],
   ruleAdjustments = [],
+  pauseSuggestions = [],
+  reviewNow,
   startCreating = false,
 }: CalendarViewProps) {
   const router = useRouter();
@@ -964,6 +970,13 @@ export function CalendarView({
         ) : null}
 
         <RuleAdjustmentBanner notices={ruleAdjustments} />
+        {reviewNow ? (
+          <RulePauseReview
+            suggestions={pauseSuggestions}
+            rules={recurringRules}
+            now={reviewNow}
+          />
+        ) : null}
 
         {view === "day" && selectedDate && now ? (
           <WeekStrip

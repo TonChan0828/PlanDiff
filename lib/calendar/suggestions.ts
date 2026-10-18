@@ -14,8 +14,8 @@ import type { TimeEntryItem } from "@/lib/timer/types";
 const LOOKBACK_DAYS = 28;
 const CLUSTER_WINDOW_MINUTES = 60;
 const MIN_OCCURRENCE_DAYS = 2;
-const ROUND_UNIT_MINUTES = 15;
-const MIN_DURATION_MINUTES = 15;
+const ROUND_UNIT_MINUTES = 5;
+const MIN_DURATION_MINUTES = 5;
 const MAX_SUGGESTIONS = 3;
 const DAY_MINUTES = 24 * 60;
 // 平日/毎日/複数曜日にまとめる最小曜日数(これ未満は個別カード)

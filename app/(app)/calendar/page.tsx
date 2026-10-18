@@ -8,6 +8,7 @@ import {
   applyRuleAdjustments,
   computeRuleAdjustments,
 } from "@/lib/calendar/rule-learning";
+import { fetchRulePauseSuggestions } from "@/lib/calendar/rule-pausing";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
 import { shouldRedirectToOnboarding } from "@/lib/onboarding/status";
@@ -116,16 +117,25 @@ export default async function CalendarPage({
         )
       : recurringRules;
 
-  const [events, timeEntries, runningEntry, tokenResult, suggestionEntries] =
-    await Promise.all([
-      fetchSyncedEvents(supabase, baseDate),
-      fetchTimeEntries(supabase, baseDate),
-      fetchRunningEntry(supabase),
-      googleEnabled
-        ? getGoogleRefreshToken(sessionUser.id)
-        : Promise.resolve(null),
-      fetchSuggestionSourceEntries(supabase, baseDate),
-    ]);
+  const [
+    events,
+    timeEntries,
+    runningEntry,
+    tokenResult,
+    suggestionEntries,
+    pauseSuggestions,
+  ] = await Promise.all([
+    fetchSyncedEvents(supabase, baseDate),
+    fetchTimeEntries(supabase, baseDate),
+    fetchRunningEntry(supabase),
+    googleEnabled
+      ? getGoogleRefreshToken(sessionUser.id)
+      : Promise.resolve(null),
+    fetchSuggestionSourceEntries(supabase, baseDate),
+    hasSuggestionOriginRules
+      ? fetchRulePauseSuggestions(supabase)
+      : Promise.resolve([]),
+  ]);
   const googleConnected =
     googleEnabled &&
     tokenResult !== null &&
@@ -148,6 +158,8 @@ export default async function CalendarPage({
         recurringRules={finalRecurringRules}
         suggestionEntries={suggestionEntries}
         ruleAdjustments={ruleAdjustments}
+        pauseSuggestions={pauseSuggestions}
+        reviewNow={now.toISOString()}
       />
     </main>
   );

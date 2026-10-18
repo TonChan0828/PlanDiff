@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isOccurrencePaused } from "@/lib/calendar/recurring-id";
+
 import { TZDate } from "@date-fns/tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSessionUser } from "@/lib/supabase/session-user";
@@ -345,7 +347,11 @@ export async function updateRecurringRule(
   }
   const { data, error } = await client
     .from("recurring_rules")
-    .update(toRuleRow(validated))
+    .update({
+      ...toRuleRow(validated),
+      inactivity_since: new Date().toISOString(),
+      pause_review_after: null,
+    })
     .eq("id", ruleId)
     .select("id");
   if (error || !data || data.length === 0) {
@@ -468,10 +474,11 @@ interface RecurringRuleRow {
   ends_on: string | null;
   origin: RecurringRuleOrigin;
   last_learned_at: string | null;
+  recurring_rule_pauses?: { starts_on: string; ends_on: string | null }[];
 }
 
 const RULE_SELECT_COLUMNS =
-  "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on, origin, last_learned_at";
+  "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on, origin, last_learned_at, recurring_rule_pauses(starts_on, ends_on)";
 
 /** DBの行をUI表示用の形(HH:mmに正規化)へ変換する */
 function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
@@ -487,6 +494,10 @@ function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
     endsOn: rule.ends_on,
     origin: rule.origin,
     lastLearnedAt: rule.last_learned_at,
+    pauses: (rule.recurring_rule_pauses ?? []).map((pause) => ({
+      startsOn: pause.starts_on,
+      endsOn: pause.ends_on,
+    })),
   };
 }
 
@@ -625,7 +636,10 @@ export async function materializeRecurringInstances(
     const occurrences = expandOccurrences(ruleInput, rangeStart, rangeEnd);
     const excluded = exceptionsByRule.get(rule.id) ?? new Set<string>();
     for (const occurrence of occurrences) {
-      if (excluded.has(occurrence.occurrenceDate)) {
+      if (
+        excluded.has(occurrence.occurrenceDate) ||
+        isOccurrencePaused(rule, occurrence.occurrenceDate)
+      ) {
         continue;
       }
       rows.push({

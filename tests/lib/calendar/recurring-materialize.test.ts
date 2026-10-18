@@ -199,6 +199,7 @@ describe("materializeRecurringInstances の戻り値(S7・S8)", () => {
         timezone: "Asia/Tokyo",
         startsOn: "2026-01-01",
         endsOn: null,
+        pauses: [],
       },
       {
         id: "rule-2",
@@ -210,6 +211,7 @@ describe("materializeRecurringInstances の戻り値(S7・S8)", () => {
         timezone: "Asia/Tokyo",
         startsOn: "2026-01-01",
         endsOn: "2026-12-31",
+        pauses: [],
       },
     ]);
   });
@@ -308,5 +310,38 @@ describe("P16-data 定期予定の削除例外を全件確認する", () => {
     expect(console.error).toHaveBeenCalledWith(
       "繰り返し予定の削除例外を読み込めませんでした",
     );
+  });
+});
+
+describe("休止期間の予定展開", () => {
+  it("休止中の回を生成せず、終了日から生成する。過去表示でも休止期間を維持する", async () => {
+    const { client, upserted } = createMaterializeMock({ rules: [ruleRow()] });
+    const rules = [
+      {
+        id: "rule-1",
+        title: "朝会",
+        pattern: "daily" as const,
+        weekdays: null,
+        startTime: "09:00",
+        endTime: "09:30",
+        timezone: "Asia/Tokyo",
+        startsOn: "2026-01-01",
+        endsOn: null,
+        origin: "suggestion" as const,
+        lastLearnedAt: null,
+        pauses: [{ startsOn: "2026-03-11", endsOn: "2026-03-14" }],
+      },
+    ];
+    await materializeRecurringInstances(
+      client,
+      new Date(RANGE.timeMin),
+      RANGE,
+      rules,
+    );
+    const ids = upserted.flat().map((row) => row.google_event_id);
+    expect(ids).toContain("rec:rule-1:2026-03-10");
+    expect(ids).not.toContain("rec:rule-1:2026-03-11");
+    expect(ids).not.toContain("rec:rule-1:2026-03-13");
+    expect(ids).toContain("rec:rule-1:2026-03-14");
   });
 });

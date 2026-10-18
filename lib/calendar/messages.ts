@@ -110,6 +110,28 @@ export const CALENDAR_MESSAGES = {
   suggestionAddError: "予定の追加に失敗しました",
   suggestionMakeWeeklyError: "繰り返し予定の作成に失敗しました",
   // 提案経由の定期予定の自動学習補正(P10-1)
+  pauseSuggestionsHeading: "記録が途絶えた予定",
+  pauseSuggestion: (count: number) =>
+    `直近${count}回の予定に記録がありません。休止しますか？`,
+  pauseLastRecorded: (date: string) => `最後の記録：${date}`,
+  pauseNoRecords: "この予定に紐づく記録はありません",
+  pauseRecordHint:
+    "予定に紐づく記録を確認しています。記録を忘れている場合は継続してください。",
+  pauseAction: "休止する",
+  pauseSnoozeAction: "14日後に再確認",
+  pausedRulesHeading: "休止中の予定",
+  pauseStartsTomorrow:
+    "翌日から予定の表示を休止します。過去の予定・実績は残ります。",
+  pauseResumeAction: "翌日から再開する",
+  pauseActive: "今後の予定の表示を休止しています。過去の予定・実績は残ります。",
+  pauseRuleEnded:
+    "終了日を過ぎた予定です。再開するには終了日を編集してください。",
+  pauseResumeScheduled: "翌日から再開予定です",
+  pauseError: "予定の変更を保存できませんでした。もう一度お試しください。",
+  pausePending: "保存中…",
+  pauseRetry: "再試行",
+  ruleAdjustmentReason: (count: number) =>
+    `直近6週間の実績${count}件をもとに調整`,
   ruleLearningStopToggle: "自動調整を止める",
   ruleLearningStopHint: "実績にあわせて開始時刻・所要時間を自動調整しています",
   ruleLearningStopError: "自動調整の停止に失敗しました",
