@@ -163,16 +163,27 @@ async function createE2EUser(): Promise<E2EUser> {
 }
 
 export const test = base.extend<{ testUser: E2EUser }>({
-  testUser: async ({}, setFixture) => {
+  testUser: async ({ page }, setFixture) => {
     const testUser = await createE2EUser();
     try {
       await setFixture(testUser);
     } finally {
-      const { error } = await testUser.admin.auth.admin.deleteUser(
-        testUser.userId,
-      );
-      if (error) {
-        throw new Error(`Could not delete local E2E user: ${error.message}`);
+      // Complete authorized requests before removing their user, even on failure.
+      try {
+        if (!page.isClosed())
+          await page.waitForLoadState("networkidle", { timeout: 10_000 });
+      } finally {
+        try {
+          if (!page.isClosed()) await page.close();
+        } finally {
+          const { error } = await testUser.admin.auth.admin.deleteUser(
+            testUser.userId,
+          );
+          if (error)
+            throw new Error(
+              `Could not delete local E2E user: ${error.message}`,
+            );
+        }
       }
     }
   },

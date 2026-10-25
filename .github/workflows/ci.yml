@@ -73,6 +73,8 @@ jobs:
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
+      APP_ORIGIN: "http://127.0.0.1:3000"
+      PRO_INTEREST_HMAC_SECRET: "local-ci-only-security-test-secret-32-bytes"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

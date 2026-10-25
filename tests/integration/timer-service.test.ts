@@ -460,8 +460,18 @@ describe("P16-data タイマー切替の原子性と権限", () => {
     const before = await fetchAllEntries(userA.id);
     // NOT NULL違反をINSERT段階で発生させ、停止が先行確定しないことを確認する。
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const result = await startTimer(userA.client, {
-      title: null as unknown as string,
+    // The public service now rejects null before reaching SQL. Inject the invalid
+    // parameter only at the RPC boundary to keep testing DB rollback and logging.
+    const failingClient = {
+      auth: userA.client.auth,
+      rpc: () =>
+        userA.client.rpc("start_timer", {
+          p_title: null,
+          p_google_event_id: null,
+        }),
+    } as unknown as typeof userA.client;
+    const result = await startTimer(failingClient, {
+      title: "失敗する計測",
       googleEventId: null,
     });
     expect(result).toEqual({ ok: false });
@@ -484,8 +494,8 @@ describe("P16-data タイマー切替の原子性と権限", () => {
       ),
     );
     expect(results.every((result) => result.ok)).toBe(true);
-    const rows = (await fetchAllEntries(userA.id)).sort(
-      (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+    const rows = (await fetchAllEntries(userA.id)).sort((a, b) =>
+      String(a.start_at).localeCompare(String(b.start_at)),
     );
     expect(rows).toHaveLength(8);
     expect(rows.filter((row) => row.end_at === null)).toHaveLength(1);

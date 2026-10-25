@@ -1,4 +1,5 @@
 import "server-only";
+import { isIdentifier } from "@/lib/security/input";
 
 import { TZDate } from "@date-fns/tz";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -227,6 +228,7 @@ export async function disableRuleLearning(
   client: SupabaseClient,
   ruleId: string,
 ): Promise<{ ok: boolean }> {
+  if (!isIdentifier(ruleId)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };

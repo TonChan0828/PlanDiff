@@ -1,4 +1,5 @@
 import "server-only";
+import { isRecord, isDateOnly, isIdentifier } from "@/lib/security/input";
 
 import { isOccurrencePaused } from "@/lib/calendar/recurring-id";
 
@@ -181,7 +182,7 @@ export function expandOccurrences(
 // --- ルールCRUD(Server Actionから呼ぶ)。P2-5の app-events.ts と同じパターン ---
 
 const MAX_TITLE_LENGTH = 200;
-const TIME_PATTERN = /^\d{2}:\d{2}$/;
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface RecurringRuleFormInput {
@@ -229,9 +230,32 @@ function isValidTimeZone(timezone: string): boolean {
 /** ルール入力のサーバー側バリデーション。不合格は null(呼び出し側は書き込まない) */
 export function validateRecurringRuleInput(
   input: RecurringRuleFormInput,
+  unchangedTitle?: string,
 ): ValidatedRecurringRule | null {
-  const title = input.title.trim();
-  if (title.length === 0 || title.length > MAX_TITLE_LENGTH) {
+  if (
+    !isRecord(input) ||
+    typeof input.title !== "string" ||
+    !["daily", "weekly", "weekdays"].includes(input.pattern) ||
+    typeof input.startTime !== "string" ||
+    typeof input.endTime !== "string" ||
+    typeof input.timezone !== "string" ||
+    input.timezone.length > 100 ||
+    !isDateOnly(input.startsOn) ||
+    !(input.endsOn === null || isDateOnly(input.endsOn)) ||
+    !(input.weekdays === null || Array.isArray(input.weekdays)) ||
+    !(
+      input.origin === undefined ||
+      input.origin === "manual" ||
+      input.origin === "suggestion"
+    )
+  )
+    return null;
+  const title =
+    input.title === unchangedTitle ? input.title : input.title.trim();
+  if (
+    title.length === 0 ||
+    (Array.from(title).length > MAX_TITLE_LENGTH && title !== unchangedTitle)
+  ) {
     return null;
   }
   if (
@@ -254,6 +278,14 @@ export function validateRecurringRuleInput(
       return null;
     }
   }
+  if (
+    input.weekdays !== null &&
+    (input.weekdays.length > 7 ||
+      input.weekdays.some(
+        (day) => !Number.isInteger(day) || day < 0 || day > 6,
+      ))
+  )
+    return null;
   let weekdays: number[] | null = null;
   if (input.pattern === "weekly") {
     const raw = input.weekdays ?? [];
@@ -337,11 +369,25 @@ export async function updateRecurringRule(
   ruleId: string,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
+  if (!isIdentifier(ruleId)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
   }
-  const validated = validateRecurringRuleInput(input);
+  let unchangedTitle: string | undefined;
+  if (
+    isRecord(input) &&
+    typeof input.title === "string" &&
+    Array.from(input.title).length > 200
+  ) {
+    const { data } = await client
+      .from("recurring_rules")
+      .select("title")
+      .eq("id", ruleId)
+      .maybeSingle();
+    unchangedTitle = data?.title;
+  }
+  const validated = validateRecurringRuleInput(input, unchangedTitle);
   if (!validated) {
     return { ok: false };
   }
@@ -381,6 +427,7 @@ export async function deleteRecurringRule(
   client: SupabaseClient,
   ruleId: string,
 ): Promise<RecurringRuleResult> {
+  if (!isIdentifier(ruleId)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
@@ -416,6 +463,7 @@ export async function deleteRecurringOccurrence(
   client: SupabaseClient,
   eventId: string,
 ): Promise<RecurringRuleResult> {
+  if (!isIdentifier(eventId)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
@@ -444,8 +492,16 @@ export async function deleteRecurringOccurrence(
       user_id: sessionUser.id,
       occurrence_date: parsed.occurrenceDate,
     });
-  if (insertError && insertError.code !== "23505") {
-    return { ok: false };
+  if (insertError) {
+    if (insertError.code !== "23505") return { ok: false };
+    const { data: existing, error } = await client
+      .from("recurring_exceptions")
+      .select("id")
+      .eq("rule_id", parsed.ruleId)
+      .eq("user_id", sessionUser.id)
+      .eq("occurrence_date", parsed.occurrenceDate)
+      .maybeSingle();
+    if (error || !existing) return { ok: false };
   }
 
   const { data: deleted, error: deleteError } = await client

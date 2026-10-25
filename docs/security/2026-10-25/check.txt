@@ -1,0 +1,90 @@
+
+> plandiff@0.1.0 check
+> npm run typecheck && npm run lint && npm test && npm run build
+
+
+> plandiff@0.1.0 typecheck
+> tsc --noEmit
+
+
+> plandiff@0.1.0 lint
+> eslint
+
+
+> plandiff@0.1.0 test
+> vitest run
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.12 /Users/show/workspace/portfolio/PlanDiff
+
+
+ Test Files  148 passed (148)
+      Tests  973 passed (973)
+   Start at  11:05:06
+   Duration  33.28s (transform 4.59s, setup 10.11s, import 108.01s, tests 37.44s, environment 109.05s)
+
+
+> plandiff@0.1.0 build
+> next build
+
+▲ Next.js 16.4.3 (Turbopack)
+- Environments: .env.local
+⚠ Warning: Next.js ignored package-lock.json in /Users/show because it is outside the current Git repository (/Users/show/workspace/portfolio/PlanDiff).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.ts took 51ms
+- Experiments (use with caution):
+  · optimizePackageImports
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 657ms
+  Running TypeScript ...
+  Finished TypeScript in 1699ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/22) ...
+  Generating static pages using 9 workers (5/22)
+  Generating static pages using 9 workers (10/22)
+  Generating static pages using 9 workers (16/22)
+✓ Generating static pages using 9 workers (22/22) in 197ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/calendar/sync
+├ ƒ /api/cron/security-health
+├ ƒ /api/cron/stale-timers
+├ ƒ /api/google/callback
+├ ƒ /api/google/connect
+├ ƒ /api/monitoring/errors
+├ ƒ /api/notifications/subscribe
+├ ƒ /api/pro-interest
+├ ○ /apple-icon
+├ ƒ /auth/confirm
+├ ƒ /auth/confirm-recovery
+├ ƒ /calendar
+├ ƒ /forgot-password
+├ ○ /icon-192
+├ ○ /icon-512
+├ ○ /icon.svg
+├ ƒ /login
+├ ○ /manifest.webmanifest
+├ ƒ /onboarding
+├ ƒ /pricing
+├ ƒ /privacy
+├ ƒ /reset-password
+├ ƒ /settings
+├ ƒ /signup
+├ ƒ /summary
+├ ƒ /terms
+└ ƒ /track
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

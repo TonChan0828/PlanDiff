@@ -1,16 +1,23 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/pro-interest/route";
-import { createAdminClient, createAnonClient } from "./helpers";
+import { createAdminClient, createAnonClient, createDbSql } from "./helpers";
 
 // 仕様書: docs/specs/P4-4_料金ページ.md S8〜S10
 // POST /api/pro-interest 〜 pro_interest_events(RLS)の結合検証
 
 const admin = createAdminClient();
+const sql = createDbSql();
+process.env.APP_ORIGIN = "http://localhost";
+process.env.PRO_INTEREST_HMAC_SECRET =
+  "local-integration-test-only-hmac-secret";
+afterAll(async () => {
+  await sql.end();
+});
 
 function postRequest(body: string): Request {
   return new Request("http://localhost/api/pro-interest", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin: "http://localhost" },
     body,
   });
 }
@@ -24,6 +31,7 @@ async function countRows(): Promise<number> {
 }
 
 beforeEach(async () => {
+  await sql`truncate private.pro_interest_limits`;
   const { error } = await admin
     .from("pro_interest_events")
     .delete()

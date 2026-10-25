@@ -30,6 +30,7 @@ export function FreeTimerBar({ onStart, pending }: FreeTimerBarProps) {
     >
       <input
         type="text"
+        maxLength={200}
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         placeholder={T.freePlaceholder}

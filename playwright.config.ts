@@ -37,6 +37,7 @@ export default defineConfig({
       ...process.env,
       TZ: "Asia/Tokyo",
       NEXT_TELEMETRY_DISABLED: "1",
+      SECURITY_LOCAL_TESTS: "1",
       NEXT_PUBLIC_SUPABASE_URL:
         process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321",
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
