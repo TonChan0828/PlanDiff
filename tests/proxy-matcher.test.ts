@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { needsSessionRefresh } from "@/lib/security/headers";
 import { config } from "@/proxy";
 
 // 仕様書: docs/specs/P6-1_サーバー往復の集約.md S14・S15
@@ -13,9 +14,10 @@ function passesProxy(pathname: string): boolean {
 
 describe("Proxy を通さないパス(S14)", () => {
   it.each(["/", "/pricing", "/privacy", "/terms"])(
-    "S14: %s は Proxy を通らない(認証往復が入らない)",
+    "S14: %s は CSP のため Proxy を通るが認証往復が入らない",
     (pathname) => {
-      expect(passesProxy(pathname)).toBe(false);
+      expect(passesProxy(pathname)).toBe(true);
+      expect(needsSessionRefresh(pathname)).toBe(false);
     },
   );
 

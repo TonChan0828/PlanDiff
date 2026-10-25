@@ -112,30 +112,35 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
 
 export type ProInterestEventType = "view" | "click";
 
-/**
- * 料金ページの興味クリック計測イベントを記録する(仕様書P4-4)。
- * pro_interest_events はポリシーなしRLSのため service role でのみ書き込める。
- * 成功で true。失敗はエラー種別のみログに残す。
- */
+/** S-5: rate check and event insertion are a single service-only RPC. */
 export async function recordProInterestEvent(
   eventType: ProInterestEventType,
-): Promise<boolean> {
+  sourceKey: string,
+): Promise<{ ok: true; allowed: boolean; retryAfter: number } | { ok: false }> {
   try {
-    const admin = createAdminClient();
-    const { error } = await admin
-      .from("pro_interest_events")
-      .insert({ event_type: eventType });
-    if (error) {
-      console.error("pro_interest_eventsへの記録に失敗しました:", error.code);
-      return false;
-    }
-    return true;
-  } catch (cause) {
-    console.error(
-      "pro_interest_eventsへの記録に失敗しました:",
-      cause instanceof Error ? cause.name : "unknown",
+    const { data, error } = await createAdminClient().rpc(
+      "record_pro_interest_limited",
+      {
+        p_event_type: eventType,
+        p_source_key: sourceKey,
+      },
     );
-    return false;
+    const row = data?.[0];
+    if (
+      error ||
+      !row ||
+      typeof row.allowed !== "boolean" ||
+      !Number.isInteger(row.retry_after) ||
+      row.retry_after < 0 ||
+      row.retry_after > 60
+    ) {
+      console.error("pro_interest.record_failed");
+      return { ok: false };
+    }
+    return { ok: true, allowed: row.allowed, retryAfter: row.retry_after };
+  } catch {
+    console.error("pro_interest.record_failed");
+    return { ok: false };
   }
 }
 

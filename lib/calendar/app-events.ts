@@ -1,4 +1,5 @@
 import "server-only";
+import { isRecord, isTimestamp, isIdentifier } from "@/lib/security/input";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSessionUser } from "@/lib/supabase/session-user";
@@ -27,9 +28,23 @@ interface ValidatedAppEvent {
   endAtIso: string;
 }
 
-function validate(input: AppEventInput): ValidatedAppEvent | null {
-  const title = input.title.trim();
-  if (title.length === 0 || title.length > MAX_TITLE_LENGTH) {
+function validate(
+  input: AppEventInput,
+  unchangedTitle?: string,
+): ValidatedAppEvent | null {
+  if (
+    !isRecord(input) ||
+    typeof input.title !== "string" ||
+    !isTimestamp(input.startAt) ||
+    !isTimestamp(input.endAt)
+  )
+    return null;
+  const title =
+    input.title === unchangedTitle ? input.title : input.title.trim();
+  if (
+    title.length === 0 ||
+    (Array.from(title).length > MAX_TITLE_LENGTH && title !== unchangedTitle)
+  ) {
     return null;
   }
   const start = new Date(input.startAt);
@@ -76,11 +91,25 @@ export async function updateAppEvent(
   id: string,
   input: AppEventInput,
 ): Promise<AppEventResult> {
+  if (!isIdentifier(id)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
   }
-  const validated = validate(input);
+  let unchangedTitle: string | undefined;
+  if (
+    isRecord(input) &&
+    typeof input.title === "string" &&
+    Array.from(input.title).length > 200
+  ) {
+    const { data } = await client
+      .from("synced_events")
+      .select("title")
+      .eq("id", id)
+      .maybeSingle();
+    unchangedTitle = data?.title;
+  }
+  const validated = validate(input, unchangedTitle);
   if (!validated) {
     return { ok: false };
   }
@@ -105,6 +134,7 @@ export async function deleteAppEvent(
   client: SupabaseClient,
   id: string,
 ): Promise<AppEventResult> {
+  if (!isIdentifier(id)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };

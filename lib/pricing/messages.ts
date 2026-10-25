@@ -13,7 +13,7 @@ export const PRICING_MESSAGES = {
   proPlannedNote: "以下はすべて提供予定の機能です。",
   interestButton: "Proに興味あり",
   interestHint:
-    "クリックはPro開発の後押しになります(送信されるのはクリックの事実だけです)",
+    "クリックはPro開発の後押しになります。不正送信の防止に接続元の情報を一時的に利用します",
   interestThanks: "興味を受け付けました。ありがとうございます!",
   interestError: "送信に失敗しました。時間をおいてもう一度お試しください",
   ctaTitle: "まずはFreeで、今日のズレから。",
@@ -41,5 +41,6 @@ export const PRO_FEATURES = [
 // POST /api/pro-interest のエラー文言(P4-4b)
 export const PRO_INTEREST_API_ERRORS = {
   invalidRequest: "不正なリクエストです",
+  rateLimited: "送信が集中しています。少し待ってからお試しください",
   recordFailed: "記録に失敗しました",
 } as const;

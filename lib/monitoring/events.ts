@@ -34,6 +34,7 @@ const SAFE_ROUTES = new Set([
   "/api/google/callback",
   "/api/notifications/subscribe",
   "/api/cron/stale-timers",
+  "/api/cron/security-health",
   "/api/pro-interest",
   "/api/monitoring/errors",
 ]);

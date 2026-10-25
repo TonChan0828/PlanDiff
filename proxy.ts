@@ -1,47 +1,53 @@
+import { randomBytes } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  buildContentSecurityPolicy,
+  needsSessionRefresh,
+} from "@/lib/security/headers";
 
-// セッショントークンの検証・更新(Next 16 では Middleware は Proxy に改名)。
-// 認可の判定はここでは行わない((app)/layout.tsx のセッション検証が担う)。
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
+  const nonce = randomBytes(16).toString("base64");
+  const csp = buildContentSecurityPolicy(
+    nonce,
+    process.env.NODE_ENV === "development",
+  );
+  function nextResponse() {
+    const headers = new Headers(request.headers);
+    headers.set("x-nonce", nonce);
+    headers.set("Content-Security-Policy", csp);
+    const response = NextResponse.next({ request: { headers } });
+    response.headers.set("Content-Security-Policy", csp);
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
+  let response = nextResponse();
+  // Policy applies to every page, but public pages never need an Auth round trip.
+  if (!needsSessionRefresh(request.nextUrl.pathname)) return response;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    throw new Error(
-      "Supabaseの環境変数(NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)が設定されていません",
-    );
-  }
-
+  if (!url || !anonKey)
+    throw new Error("Supabaseの環境変数が設定されていません");
   const supabase = createServerClient(url, anonKey, {
     cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
+      getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value),
         );
-        supabaseResponse = NextResponse.next({ request });
+        response = nextResponse();
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options),
+          response.cookies.set(name, value, options),
         );
       },
     },
   });
-
-  // 期限切れセッションの更新。結果はcookieとしてレスポンスに反映される
   await supabase.auth.getUser();
-
-  return supabaseResponse;
+  return response;
 }
 
-// マーケティングの静的ページ(/ /pricing /privacy /terms)は認証に関係しないため除外する。
-// 除外しないと、LP等を開くたびにSupabase Authへの往復が1回入ってから配信される(P6-1)。
-// 認証が絡むページ(/login /signup /reset-password /forgot-password)と /api は除外しない。
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|pricing$|privacy$|terms$|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|js|css|woff2?)$).*)",
   ],
 };

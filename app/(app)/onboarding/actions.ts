@@ -7,6 +7,8 @@ import { getSessionUser } from "@/lib/supabase/session-user";
 
 // オンボーディング完了(仕様書P4-1 S5・S8)。「はじめる」「スキップ」共通で呼ぶ
 export async function completeOnboardingAction(formData?: FormData) {
+  if (formData !== undefined && !(formData instanceof FormData))
+    redirect("/onboarding?error=save_failed");
   const supabase = await createClient();
   const sessionUser = await getSessionUser(supabase);
   if (!sessionUser) {

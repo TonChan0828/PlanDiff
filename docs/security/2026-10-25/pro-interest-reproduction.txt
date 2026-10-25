@@ -1,0 +1,26 @@
+// @vitest-environment node
+import { expect, it, vi } from "vitest";
+const record = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+vi.mock("@/lib/supabase/admin", () => ({ recordProInterestEvent: record }));
+import { POST } from "@/app/api/pro-interest/route";
+it("audit: anonymous cross-origin text/plain requests all reach the write helper", async () => {
+  record.mockClear();
+  for (let i = 0; i < 100; i++) {
+    const response = await POST(new Request("https://audit.invalid/api/pro-interest", {
+      method: "POST",
+      headers: { "content-type": "text/plain", origin: "https://external.invalid" },
+      body: JSON.stringify({ event: "click" }),
+    }));
+    expect(response.status).toBe(204);
+  }
+  expect(record).toHaveBeenCalledTimes(100);
+});
+it("audit: a 1 MiB irrelevant field is accepted and reaches the write helper", async () => {
+  record.mockClear();
+  const response = await POST(new Request("https://audit.invalid/api/pro-interest", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event: "view", extra: "a".repeat(1024 * 1024) }),
+  }));
+  expect(response.status).toBe(204);
+  expect(record).toHaveBeenCalledWith("view");
+});

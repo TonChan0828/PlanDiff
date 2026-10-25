@@ -1,3 +1,4 @@
+import { readBoundedJson } from "@/lib/security/request";
 import { NextResponse, type NextRequest } from "next/server";
 import { addDays, isAfter, isValid, parseISO } from "date-fns";
 import { fetchPrimaryEvents } from "@/lib/google/calendar";
@@ -57,8 +58,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const body: unknown = await request.json().catch(() => null);
-  const range = parseSyncRange(body);
+  const body = await readBoundedJson(request, 4096);
+  if (!body.ok)
+    return NextResponse.json(
+      { error: "invalid_range" },
+      { status: body.status },
+    );
+  const range = parseSyncRange(body.value);
   if (!range) {
     return NextResponse.json({ error: "invalid_range" }, { status: 400 });
   }

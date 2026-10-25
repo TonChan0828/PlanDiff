@@ -1,4 +1,5 @@
 import "server-only";
+import { isRecord, isIdentifier, isTimestamp } from "@/lib/security/input";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSessionUser } from "@/lib/supabase/session-user";
@@ -65,11 +66,37 @@ export async function startTimer(
   client: SupabaseClient,
   input: StartTimerInput,
 ): Promise<TimerResult> {
+  if (
+    !isRecord(input) ||
+    typeof input.title !== "string" ||
+    !(input.googleEventId === null || isIdentifier(input.googleEventId))
+  )
+    return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
   }
 
+  if (Array.from(input.title).length > 200) {
+    const { data: event } = input.googleEventId
+      ? await client
+          .from("synced_events")
+          .select("id")
+          .eq("google_event_id", input.googleEventId)
+          .eq("title", input.title)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+    if (!event) {
+      const { data: entry } = await client
+        .from("time_entries")
+        .select("id")
+        .eq("title", input.title)
+        .limit(1)
+        .maybeSingle();
+      if (!entry) return { ok: false };
+    }
+  }
   // 停止とINSERTはDBの1トランザクションで行う。INSERT失敗時に既存計測も維持される。
   return callTimerRpc(client, "start_timer", {
     p_title: input.title,
@@ -102,6 +129,23 @@ export async function updateTimeEntry(
   id: string,
   input: UpdateTimeEntryInput,
 ): Promise<TimerResult> {
+  if (
+    !isIdentifier(id) ||
+    !isRecord(input) ||
+    typeof input.title !== "string" ||
+    !isTimestamp(input.startAt) ||
+    !isTimestamp(input.endAt) ||
+    Date.parse(input.endAt) < Date.parse(input.startAt)
+  )
+    return { ok: false };
+  if (Array.from(input.title).length > 200) {
+    const { data: existing } = await client
+      .from("time_entries")
+      .select("title")
+      .eq("id", id)
+      .maybeSingle();
+    if (!existing || existing.title !== input.title) return { ok: false };
+  }
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
@@ -130,6 +174,7 @@ export async function updateRunningStart(
   client: SupabaseClient,
   startAtIso: string,
 ): Promise<TimerResult> {
+  if (!isTimestamp(startAtIso)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
@@ -157,6 +202,7 @@ export async function deleteTimeEntry(
   client: SupabaseClient,
   id: string,
 ): Promise<TimerResult> {
+  if (!isIdentifier(id)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
