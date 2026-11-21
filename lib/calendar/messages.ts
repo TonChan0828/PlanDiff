@@ -131,7 +131,7 @@ export const CALENDAR_MESSAGES = {
   pausePending: "保存中…",
   pauseRetry: "再試行",
   ruleAdjustmentReason: (count: number) =>
-    `直近6週間の実績${count}件をもとに調整`,
+    `直近6週間の実績${count}回分をもとに調整`,
   ruleLearningStopToggle: "自動調整を止める",
   ruleLearningStopHint: "実績にあわせて開始時刻・所要時間を自動調整しています",
   ruleLearningStopError: "自動調整の停止に失敗しました",

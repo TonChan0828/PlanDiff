@@ -76,14 +76,18 @@ export default async function CalendarPage({
     redirect("/onboarding");
   }
 
-  // 提案経由の定期予定の自動学習補正(P10-1)。origin='suggestion'のルールが1件もなければ
+  // 定期予定の自動学習補正(P10-1/P10-3)。自動調整が有効なルールが1件もなければ
   // 実績の追加取得ごとスキップする。調整が実際にあった場合のみ再実体化し、
   // 今日以降のsynced_eventsを新しい値で作り直す(古い値のままにしない)
   const now = new Date();
+  const hasAutoAdjustRules = recurringRules.some(
+    (rule) => rule.autoAdjustEnabled,
+  );
+  // 休止提案(P10-2)の対象は提案経由のルールのまま(P10-3のスコープ外)
   const hasSuggestionOriginRules = recurringRules.some(
     (rule) => rule.origin === "suggestion",
   );
-  const ruleAdjustments = hasSuggestionOriginRules
+  const ruleAdjustments = hasAutoAdjustRules
     ? await applyRuleAdjustments(
         supabase,
         computeRuleAdjustments(

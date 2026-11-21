@@ -31,7 +31,7 @@ interface RecurringRulePanelProps {
   onClose: () => void;
   pending: boolean;
   error: string | null;
-  /** P10-1: 提案経由ルール(origin='suggestion')の自動学習補正を止める */
+  /** P10-1/P10-3: 自動調整が有効なルールの学習補正を止める */
   onDisableLearning?: () => Promise<{ ok: boolean }>;
 }
 
@@ -59,8 +59,7 @@ export function RecurringRulePanel({
     string | null
   >(null);
 
-  const showLearningToggle =
-    initial.origin === "suggestion" && !learningDisabled;
+  const showLearningToggle = initial.autoAdjustEnabled && !learningDisabled;
 
   const handleDisableLearning = async () => {
     if (!onDisableLearning || disablingLearning) {

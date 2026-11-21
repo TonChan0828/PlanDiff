@@ -41,6 +41,7 @@ const rule: RecurringRuleSummary = {
   timezone: "Asia/Tokyo",
   origin: "suggestion",
   lastLearnedAt: null,
+  autoAdjustEnabled: true,
   pauses: [{ startsOn: "2026-10-01", endsOn: null }],
 };
 beforeEach(() => {

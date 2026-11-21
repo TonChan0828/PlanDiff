@@ -14,6 +14,8 @@ vi.mock("@/lib/timer/entries", () => ({
   fetchTimeEntries: vi.fn().mockResolvedValue([]),
   fetchRunningEntry: vi.fn().mockResolvedValue(null),
   fetchSuggestionSourceEntries: vi.fn().mockResolvedValue([]),
+  // P10-3: 手動作成のルールも学習対象になったため、学習用の実績取得も通る
+  fetchRuleLearningEntries: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 
@@ -52,6 +54,7 @@ const RULE = {
   endsOn: null,
   origin: "manual" as const,
   lastLearnedAt: null,
+  autoAdjustEnabled: true,
 };
 
 function mockClient(onboardedAt: string | null) {
@@ -71,6 +74,8 @@ function mockClient(onboardedAt: string | null) {
         }),
       }),
     }),
+    // P10-3: 学習判定の保存(apply_recurring_rule_learning)。調整なしの記録だけ成功させる
+    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
   } as unknown as Awaited<ReturnType<typeof createClient>>;
 }
 

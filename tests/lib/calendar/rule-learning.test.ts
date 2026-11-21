@@ -59,6 +59,7 @@ function makeRule(
     startsOn: "2026-01-01",
     endsOn: null,
     origin: "suggestion",
+    autoAdjustEnabled: true,
     lastLearnedAt: null,
     ...overrides,
   };
@@ -229,9 +230,10 @@ describe("computeRuleAdjustments(T8)", () => {
   });
 });
 
-describe("computeRuleAdjustments(T9)", () => {
-  it("T9: origin='manual'のルール Then 対象外(誤って渡されても処理しない)", () => {
-    const rule = makeRule({ origin: "manual" });
+describe("computeRuleAdjustments(T9 → P10-3 U2)", () => {
+  // P10-3で対象判定を origin から autoAdjustEnabled へ変更した(仕様書P10-3)
+  it("U2: autoAdjustEnabled=falseのルール Then 結果に含まれない", () => {
+    const rule = makeRule({ autoAdjustEnabled: false });
     const entries = [
       ruleEntry("rule-1", "2026-07-06 09:15", 45),
       ruleEntry("rule-1", "2026-07-13 09:15", 45),
@@ -426,5 +428,133 @@ describe("5分単位の調整", () => {
         NOW,
       )[0]?.changed,
     ).toBe(true);
+  });
+});
+
+// 仕様書: docs/specs/P10-3_学習補正の対象拡大と再計測の集約.md U1〜U8
+describe("P10-3 学習補正の対象拡大と再計測の集約", () => {
+  it("U1: origin='manual'でも有効なら学習され、開始が早まり所要が延びる(本番例の再現)", () => {
+    const rule = makeRule({
+      origin: "manual",
+      startTime: "19:30",
+      endTime: "22:15",
+    });
+    const entries = [
+      ruleEntry("rule-1", "2026-07-06 18:48", 225),
+      ruleEntry("rule-1", "2026-07-07 18:50", 228),
+      ruleEntry("rule-1", "2026-07-08 18:53", 230),
+    ];
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result).toMatchObject({
+      changed: true,
+      sampleCount: 3,
+      newStartTime: "18:50",
+      newEndTime: "22:40",
+    });
+  });
+
+  it("U3: 1回に2件の実績 Then 開始は早い方・所要は合計の1サンプルになる", () => {
+    const rule = makeRule({ startTime: "09:00", endTime: "09:20" });
+    const entries = ["2026-07-06", "2026-07-07", "2026-07-08"].flatMap(
+      (day) => [
+        ruleEntry("rule-1", `${day} 09:00`, 20),
+        ruleEntry("rule-1", `${day} 09:40`, 20),
+      ],
+    );
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result).toMatchObject({
+      changed: true,
+      sampleCount: 3,
+      newStartTime: "09:00",
+      newEndTime: "09:40",
+    });
+  });
+
+  it("U4: 実績は4件だが回数は2回 Then changed:false(回数で数える)", () => {
+    const rule = makeRule({ startTime: "09:00", endTime: "09:20" });
+    const entries = ["2026-07-06", "2026-07-07"].flatMap((day) => [
+      ruleEntry("rule-1", `${day} 09:00`, 30),
+      ruleEntry("rule-1", `${day} 09:40`, 30),
+    ]);
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result?.changed).toBe(false);
+  });
+
+  it("U5: 断片を含むちょうど3回 Then 判定され sampleCount は3", () => {
+    const rule = makeRule({ startTime: "09:00", endTime: "09:30" });
+    const entries = [
+      ruleEntry("rule-1", "2026-07-06 09:00", 30),
+      ruleEntry("rule-1", "2026-07-06 10:00", 30),
+      ruleEntry("rule-1", "2026-07-07 09:00", 60),
+      ruleEntry("rule-1", "2026-07-08 09:00", 60),
+    ];
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result).toMatchObject({
+      changed: true,
+      sampleCount: 3,
+      newStartTime: "09:00",
+      newEndTime: "10:00",
+    });
+  });
+
+  it("U6: 開始が遅く所要が短い3回 Then 遅く・短くなる方向にも調整される", () => {
+    const rule = makeRule({ startTime: "09:00", endTime: "10:00" });
+    const entries = [
+      ruleEntry("rule-1", "2026-07-06 09:20", 30),
+      ruleEntry("rule-1", "2026-07-07 09:20", 30),
+      ruleEntry("rule-1", "2026-07-08 09:20", 30),
+    ];
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result).toMatchObject({
+      changed: true,
+      newStartTime: "09:20",
+      newEndTime: "09:50",
+    });
+  });
+
+  it("U7: 最初の断片が42日より前 Then その回は対象外(範囲は最初の開始で判定)", () => {
+    const rule = makeRule({ startTime: "09:00", endTime: "09:30" });
+    // NOW(2026-08-13 12:00)の42日前は 2026-07-02 12:00
+    const straddling = [
+      ruleEntry("rule-1", "2026-07-02 11:50", 30),
+      ruleEntry("rule-1", "2026-07-02 12:30", 30),
+    ];
+    const entries = [
+      ...straddling,
+      ruleEntry("rule-1", "2026-07-06 09:00", 60),
+      ruleEntry("rule-1", "2026-07-07 09:00", 60),
+    ];
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result?.changed).toBe(false);
+  });
+
+  it("U8: 夜間の回もルールのTZ(Asia/Tokyo)で集約される(ホストTZ非依存。TZ=UTC/Kiritimatiで実行)", () => {
+    const rule = makeRule({ startTime: "22:00", endTime: "23:00" });
+    const entries = ["2026-07-06", "2026-07-07", "2026-07-08"].flatMap(
+      (day) => [
+        ruleEntry("rule-1", `${day} 21:30`, 40),
+        ruleEntry("rule-1", `${day} 22:30`, 40),
+      ],
+    );
+
+    const [result] = computeRuleAdjustments([rule], entries, NOW);
+
+    expect(result).toMatchObject({
+      changed: true,
+      newStartTime: "21:30",
+      newEndTime: "22:50",
+    });
   });
 });

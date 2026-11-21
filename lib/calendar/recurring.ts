@@ -529,12 +529,13 @@ interface RecurringRuleRow {
   starts_on: string;
   ends_on: string | null;
   origin: RecurringRuleOrigin;
+  auto_adjust_enabled: boolean;
   last_learned_at: string | null;
   recurring_rule_pauses?: { starts_on: string; ends_on: string | null }[];
 }
 
 const RULE_SELECT_COLUMNS =
-  "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on, origin, last_learned_at, recurring_rule_pauses(starts_on, ends_on)";
+  "id, title, pattern, weekdays, start_time, end_time, timezone, starts_on, ends_on, origin, auto_adjust_enabled, last_learned_at, recurring_rule_pauses(starts_on, ends_on)";
 
 /** DBの行をUI表示用の形(HH:mmに正規化)へ変換する */
 function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
@@ -549,6 +550,7 @@ function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
     startsOn: rule.starts_on,
     endsOn: rule.ends_on,
     origin: rule.origin,
+    autoAdjustEnabled: rule.auto_adjust_enabled,
     lastLearnedAt: rule.last_learned_at,
     pauses: (rule.recurring_rule_pauses ?? []).map((pause) => ({
       startsOn: pause.starts_on,

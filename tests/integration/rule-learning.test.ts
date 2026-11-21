@@ -19,7 +19,8 @@ import {
   type TestUser,
 } from "./helpers";
 
-// 仕様書: docs/specs/P10-1_提案経由予定の学習補正.md T13〜T19, T19b
+// 仕様書: docs/specs/P10-1_提案経由予定の学習補正.md T13〜T19
+//         docs/specs/P10-3_学習補正の対象拡大と再計測の集約.md I1〜I5(T16/T19bを置き換え)
 // 提案経由の定期予定(recurring_rules.origin='suggestion')の自動学習補正を、
 // ローカルSupabaseで検証する。
 
@@ -55,6 +56,7 @@ async function insertRuleDirect(
   input: RecurringRuleFormInput,
   origin: "manual" | "suggestion",
   lastLearnedAt: string | null = null,
+  autoAdjustEnabled = true,
 ): Promise<string> {
   const { data, error } = await admin
     .from("recurring_rules")
@@ -70,6 +72,7 @@ async function insertRuleDirect(
       ends_on: input.endsOn,
       origin,
       last_learned_at: lastLearnedAt,
+      auto_adjust_enabled: autoAdjustEnabled,
     })
     .select("id")
     .single();
@@ -124,7 +127,9 @@ async function insertSyncedEventDirect(
 async function fetchRuleRow(ruleId: string) {
   const { data, error } = await admin
     .from("recurring_rules")
-    .select("id, origin, start_time, end_time, last_learned_at")
+    .select(
+      "id, origin, auto_adjust_enabled, start_time, end_time, last_learned_at",
+    )
     .eq("id", ruleId)
     .single();
   expect(error).toBeNull();
@@ -252,20 +257,63 @@ describe("学習補正の適用(T13/T14/T15)", () => {
   });
 });
 
-describe("origin='manual'は対象外(T16)", () => {
-  it("T16: origin='manual'のルール Then computeRuleAdjustmentsの対象に含まれず更新されない", async () => {
+describe("作成経路を問わない学習(P10-3 I1/I2)", () => {
+  it("I1: origin='manual'・有効なルールと3回分の実績 When applyRuleAdjustments Then 更新され今日以降の予定が作り直される", async () => {
     const ruleId = await insertRuleDirect(userA, BASE_INPUT, "manual");
-    await insertLinkedEntry(userA, ruleId, "2026-07-06", 9, 15, 45);
+    // 中断→再計測の断片を含む3回分(1回目は 09:15+20分 と 09:45+25分 → 合計45分)
+    await insertLinkedEntry(userA, ruleId, "2026-07-06", 9, 15, 20);
+    await insertLinkedEntry(userA, ruleId, "2026-07-06", 9, 45, 25);
     await insertLinkedEntry(userA, ruleId, "2026-07-13", 9, 15, 45);
     await insertLinkedEntry(userA, ruleId, "2026-07-20", 9, 15, 45);
+    await insertSyncedEventDirect(userA, ruleId, "2026-08-20", 9, 0);
 
     const rules = await fetchRecurringRules(userA.client);
     const entries = await fetchTimeEntriesFor(userA);
     const adjustments = computeRuleAdjustments(rules, entries, NOW);
+    const notices = await applyRuleAdjustments(userA.client, adjustments, NOW);
 
-    expect(adjustments.find((a) => a.ruleId === ruleId)).toBeUndefined();
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({
+      ruleId,
+      sampleCount: 3,
+      newStartTime: "09:15",
+      newEndTime: "10:00",
+    });
+    const row = await fetchRuleRow(ruleId);
+    expect(row.origin).toBe("manual");
+    expect(row.start_time).toBe("09:15:00");
+    expect(row.end_time).toBe("10:00:00");
+    expect(row.last_learned_at).not.toBeNull();
+    const { data: future } = await admin
+      .from("synced_events")
+      .select("id")
+      .eq("google_event_id", `${RECURRING_ID_PREFIX}${ruleId}:2026-08-20`);
+    expect(future).toHaveLength(0);
+  });
 
-    await applyRuleAdjustments(userA.client, adjustments, NOW);
+  it("I2: auto_adjust_enabled=falseのルール When apply_recurring_rule_learning Then falseを返しルールは変わらない", async () => {
+    const ruleId = await insertRuleDirect(
+      userA,
+      BASE_INPUT,
+      "suggestion",
+      null,
+      false,
+    );
+
+    const { data, error } = await userA.client.rpc(
+      "apply_recurring_rule_learning",
+      {
+        p_rule_id: ruleId,
+        p_previous_start: "09:00",
+        p_previous_end: "09:30",
+        p_new_start: "09:15",
+        p_new_end: "10:00",
+        p_now: NOW.toISOString(),
+      },
+    );
+
+    expect(error).toBeNull();
+    expect(data).toBe(false);
     const row = await fetchRuleRow(ruleId);
     expect(row.start_time).toBe("09:00:00");
     expect(row.end_time).toBe("09:30:00");
@@ -302,6 +350,26 @@ describe("originのセット(T18/T19)", () => {
     expect(rows![0]!.origin).toBe("suggestion");
   });
 
+  it("I5: 新規作成した定期予定(手動・提案の両方) Then auto_adjust_enabledはtrue", async () => {
+    expect((await createRecurringRule(userA.client, BASE_INPUT)).ok).toBe(true);
+    expect(
+      (
+        await createRecurringRule(userA.client, {
+          ...BASE_INPUT,
+          title: "提案由来",
+          origin: "suggestion",
+        })
+      ).ok,
+    ).toBe(true);
+
+    const { data: rows } = await userA.client
+      .from("recurring_rules")
+      .select("auto_adjust_enabled")
+      .eq("user_id", userA.id);
+    expect(rows).toHaveLength(2);
+    expect(rows!.every((row) => row.auto_adjust_enabled === true)).toBe(true);
+  });
+
   it("T19: 手動作成(origin省略)でcreateRecurringRule Then originは'manual'(既定)のまま", async () => {
     const result = await createRecurringRule(userA.client, BASE_INPUT);
     expect(result.ok).toBe(true);
@@ -315,24 +383,25 @@ describe("originのセット(T18/T19)", () => {
   });
 });
 
-describe("学習停止トグルの反映(T19b)", () => {
-  it("T19b: origin='suggestion'のルール When disableRuleLearning Then originが'manual'に更新される", async () => {
+describe("学習停止トグルの反映(P10-3 I3/I4)", () => {
+  it("I3: 有効なルール When disableRuleLearning Then auto_adjust_enabled=false、originは変わらない", async () => {
     const ruleId = await insertRuleDirect(userA, BASE_INPUT, "suggestion");
 
     const result = await disableRuleLearning(userA.client, ruleId);
 
     expect(result.ok).toBe(true);
     const row = await fetchRuleRow(ruleId);
-    expect(row.origin).toBe("manual");
+    expect(row.auto_adjust_enabled).toBe(false);
+    expect(row.origin).toBe("suggestion");
   });
 
-  it("T19b: 他ユーザーのルールIDを渡した場合 Then RLSによりok:falseでoriginは変化しない", async () => {
-    const ruleIdA = await insertRuleDirect(userA, BASE_INPUT, "suggestion");
+  it("I4: 他ユーザーのルールIDを渡した場合 Then RLSによりok:falseで対象行は変わらない", async () => {
+    const ruleIdA = await insertRuleDirect(userA, BASE_INPUT, "manual");
 
     const result = await disableRuleLearning(userB.client, ruleIdA);
 
     expect(result.ok).toBe(false);
     const row = await fetchRuleRow(ruleIdA);
-    expect(row.origin).toBe("suggestion");
+    expect(row.auto_adjust_enabled).toBe(true);
   });
 });

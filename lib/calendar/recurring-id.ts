@@ -63,7 +63,10 @@ export interface RecurringRuleSummary {
   startsOn: string;
   /** "YYYY-MM-DD" 形式。nullは無期限 */
   endsOn: string | null;
+  /** 作成経路の記録。学習の対象判定には使わない(P10-3) */
   origin: RecurringRuleOrigin;
+  /** 自動調整(学習補正)の有効・無効。「自動調整を止める」でfalseになる(P10-3) */
+  autoAdjustEnabled: boolean;
   /** 学習補正(P10-1)の直近再計算日時。UTCのISO文字列。未学習は null */
   lastLearnedAt: string | null;
   /** 休止期間。旧呼び出し元との互換性のため省略時は休止なし */
