@@ -145,7 +145,7 @@ export async function deleteRecurringOccurrenceAction(
 }
 
 // 提案経由の定期予定の自動学習補正(P10-1)の停止トグル。
-// origin='manual'に戻すだけで、今日以降のインスタンスの再実体化は次回ロード時に行われる。
+// auto_adjust_enabled=falseにするだけで(P10-3)、今日以降のインスタンスの再実体化は次回ロード時に行われる。
 
 export async function disableRuleLearningAction(
   ruleId: string,

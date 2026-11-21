@@ -25,6 +25,7 @@ const rule = {
   endsOn: null,
   origin: "manual" as const,
   lastLearnedAt: null,
+  autoAdjustEnabled: true,
 };
 function Panel({ kind, pending = false }: { kind: string; pending?: boolean }) {
   const common = {

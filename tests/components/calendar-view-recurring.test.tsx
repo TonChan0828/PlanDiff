@@ -91,6 +91,7 @@ const ruleSummary = {
   endsOn: null,
   origin: "manual" as const,
   lastLearnedAt: null,
+  autoAdjustEnabled: true,
 };
 
 function renderView(overrides?: {

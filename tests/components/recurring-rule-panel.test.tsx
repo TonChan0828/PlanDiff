@@ -22,6 +22,7 @@ const SUGGESTION_RULE: RecurringRuleSummary = {
   endsOn: null,
   origin: "suggestion",
   lastLearnedAt: null,
+  autoAdjustEnabled: true,
 };
 
 const MANUAL_RULE: RecurringRuleSummary = {
@@ -60,9 +61,18 @@ describe("学習停止トグル(T20)", () => {
   });
 });
 
-describe("学習停止トグル(T21)", () => {
-  it("T21: origin='manual'の編集パネル Then トグルは表示されない", () => {
+// P10-3で表示条件を origin から autoAdjustEnabled へ変更した(T21を置き換え)
+describe("学習停止トグル(P10-3 C1/C2)", () => {
+  it("C1: origin='manual'でも自動調整が有効なら When 描画 Then トグルが表示される", () => {
     renderPanel(MANUAL_RULE, vi.fn());
+
+    expect(
+      screen.getByRole("switch", { name: M.ruleLearningStopToggle }),
+    ).toBeInTheDocument();
+  });
+
+  it("C2: 自動調整が無効なルール Then トグルは表示されない", () => {
+    renderPanel({ ...SUGGESTION_RULE, autoAdjustEnabled: false }, vi.fn());
 
     expect(
       screen.queryByRole("switch", { name: M.ruleLearningStopToggle }),

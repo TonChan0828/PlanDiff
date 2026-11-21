@@ -13,7 +13,7 @@ import { getSessionUser } from "@/lib/supabase/session-user";
 import type { TimeEntryItem } from "@/lib/timer/types";
 
 // 提案経由の定期予定の自動学習補正(P10-1)。仕様書: docs/specs/P10-1_提案経由予定の学習補正.md
-// computeRuleAdjustments は純粋関数(DB非依存)。origin='suggestion' の定期予定について、
+// computeRuleAdjustments は純粋関数(DB非依存)。自動調整が有効な定期予定について、
 // 紐づく実績("rec:<ruleId>:"プレフィックス)の中央値をもとに開始時刻・所要時間の
 // 調整要否を判定する。computeSuggestions(P5-2)と同じ「中央値→5分丸め」の哲学を踏襲する。
 // ルールの由来を問わずタイムゾーンは常にルール自身が持つ値を使うため、
@@ -40,6 +40,42 @@ export interface RuleAdjustment {
   newStartTime?: string;
   /** "HH:mm" 形式。changed=trueのときのみ */
   newEndTime?: string;
+}
+
+/** 予定1回分(同じ google_event_id)の実績をまとめた学習サンプル(P10-3) */
+interface OccurrenceSample {
+  /** その回で最も早い実績の開始(UTCミリ秒) */
+  startMs: number;
+  /** その回の各実績の所要の合計(分) */
+  durationMinutes: number;
+}
+
+/**
+ * 同じ予定(googleEventId)に紐づく実績を1回ぶんのサンプルにまとめる(P10-3)。
+ * 中断→再計測(P5-4)で1回が複数の実績に分かれても、断片を1件ずつ数えないようにする。
+ * 入力は同じルールに紐づく完了実績のみ(googleEventId は非null)。
+ */
+function aggregateOccurrences(entries: TimeEntryItem[]): OccurrenceSample[] {
+  // 重なった実績(二重記録など)も単純に合計する。タイマーは同時に1本しか動かない
+  // (partial unique index)ため、通常の計測では重なりは手動編集時にしか生じない。
+  const byOccurrence = new Map<string, OccurrenceSample>();
+  for (const entry of entries) {
+    const startMs = new Date(entry.startAt).getTime();
+    const durationMinutes =
+      (new Date(entry.endAt).getTime() - startMs) / 60_000;
+    const key = entry.googleEventId ?? "";
+    const current = byOccurrence.get(key);
+    byOccurrence.set(
+      key,
+      current
+        ? {
+            startMs: Math.min(current.startMs, startMs),
+            durationMinutes: current.durationMinutes + durationMinutes,
+          }
+        : { startMs, durationMinutes },
+    );
+  }
+  return [...byOccurrence.values()];
 }
 
 /** ソート済み数列の中央値(偶数件は中間2値の平均) */
@@ -77,8 +113,8 @@ function needsRelearn(lastLearnedAt: string | null, now: Date): boolean {
 }
 
 /**
- * origin='suggestion' の定期予定について、紐づく実績から調整要否を判定する。
- * 対象外(origin='manual'・再学習間隔未満)のルールは結果に含まれない。
+ * 自動調整が有効な定期予定について、紐づく実績から調整要否を判定する(P10-3で作成経路を問わなくなった)。
+ * 対象外(autoAdjustEnabled=false・休止中・再学習間隔未満)のルールは結果に含まれない。
  */
 export function computeRuleAdjustments(
   rules: RecurringRuleSummary[],
@@ -89,7 +125,7 @@ export function computeRuleAdjustments(
   const lookbackMs = now.getTime() - ADJUSTMENT_LOOKBACK_DAYS * MS_PER_DAY;
 
   for (const rule of rules) {
-    if (rule.origin !== "suggestion" || isRulePaused(rule, now)) {
+    if (!rule.autoAdjustEnabled || isRulePaused(rule, now)) {
       continue;
     }
     if (!needsRelearn(rule.lastLearnedAt, now)) {
@@ -97,13 +133,13 @@ export function computeRuleAdjustments(
     }
 
     const prefix = `${RECURRING_ID_PREFIX}${rule.id}:`;
-    const linked = entries.filter((entry) => {
-      if (!entry.googleEventId || !entry.googleEventId.startsWith(prefix)) {
-        return false;
-      }
-      const startMs = new Date(entry.startAt).getTime();
-      return startMs >= lookbackMs && startMs <= now.getTime();
-    });
+    // 42日の範囲は「その回の最初の開始」で判定する(断片単位で切らない)
+    const occurrences = aggregateOccurrences(
+      entries.filter((entry) => entry.googleEventId?.startsWith(prefix)),
+    ).filter(
+      (occurrence) =>
+        occurrence.startMs >= lookbackMs && occurrence.startMs <= now.getTime(),
+    );
 
     const base: RuleAdjustment = {
       ruleId: rule.id,
@@ -114,27 +150,19 @@ export function computeRuleAdjustments(
       previousEndTime: rule.endTime,
     };
 
-    if (linked.length < MIN_SAMPLES_FOR_ADJUSTMENT) {
+    if (occurrences.length < MIN_SAMPLES_FOR_ADJUSTMENT) {
       results.push(base);
       continue;
     }
 
-    const startMinutesList = linked
-      .map((entry) => {
-        const local = new TZDate(
-          new Date(entry.startAt).getTime(),
-          rule.timezone,
-        );
+    const startMinutesList = occurrences
+      .map((occurrence) => {
+        const local = new TZDate(occurrence.startMs, rule.timezone);
         return local.getHours() * 60 + local.getMinutes();
       })
       .sort((a, b) => a - b);
-    const durationMinutesList = linked
-      .map(
-        (entry) =>
-          (new Date(entry.endAt).getTime() -
-            new Date(entry.startAt).getTime()) /
-          60_000,
-      )
+    const durationMinutesList = occurrences
+      .map((occurrence) => occurrence.durationMinutes)
       .sort((a, b) => a - b);
 
     const currentStartMinutes = minutesOf(rule.startTime);
@@ -167,7 +195,7 @@ export function computeRuleAdjustments(
     results.push({
       ...base,
       changed: true,
-      sampleCount: linked.length,
+      sampleCount: occurrences.length,
       newStartTime: formatTime(newStartMinutes),
       newEndTime: formatTime(newEndMinutes),
     });
@@ -223,7 +251,7 @@ export async function applyRuleAdjustments(
   return notices;
 }
 
-/** 定期予定の自動学習補正を停止する(origin を 'manual' に戻す)。停止トグル用 */
+/** 定期予定の自動学習補正を停止する(auto_adjust_enabled=false。origin は作成経路の記録として残す。P10-3) */
 export async function disableRuleLearning(
   client: SupabaseClient,
   ruleId: string,
@@ -235,7 +263,7 @@ export async function disableRuleLearning(
   }
   const { data, error } = await client
     .from("recurring_rules")
-    .update({ origin: "manual" })
+    .update({ auto_adjust_enabled: false })
     .eq("id", ruleId)
     .select("id");
   if (error || !data || data.length === 0) {

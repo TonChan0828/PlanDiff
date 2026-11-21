@@ -329,6 +329,7 @@ describe("休止期間の予定展開", () => {
         endsOn: null,
         origin: "suggestion" as const,
         lastLearnedAt: null,
+        autoAdjustEnabled: true,
         pauses: [{ startsOn: "2026-03-11", endsOn: "2026-03-14" }],
       },
     ];

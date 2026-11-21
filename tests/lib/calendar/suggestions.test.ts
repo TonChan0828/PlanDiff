@@ -76,6 +76,7 @@ function rule(
     endsOn: null,
     origin: "manual",
     lastLearnedAt: null,
+    autoAdjustEnabled: true,
   };
 }
 

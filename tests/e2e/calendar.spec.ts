@@ -106,6 +106,33 @@ test("375px: 定期予定の編集で詳細シートを閉じて回の編集を�
   await expect(editDialog.getByLabel("タイトル")).toHaveValue("定期予定 E2E");
 });
 
+// P10-3: 手動作成の定期予定でも「自動調整を止める」が375px幅に収まって表示される
+test("375px: 手動作成の定期予定の全体編集に自動調整の停止トグルを表示する", async ({
+  page,
+  testUser,
+}) => {
+  await signInAndOpenCalendar(
+    page,
+    testUser.email,
+    testUser.password,
+    testUser.date,
+  );
+  const details = await openDayDetails(page);
+  await details
+    .getByRole("button", { name: "定期予定 E2Eの予定を編集" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "編集する範囲を選んでください" })
+    .getByRole("button", { name: "繰り返し全体" })
+    .click();
+  const panel = page.getByRole("dialog", { name: "繰り返し全体" });
+  const toggle = panel.getByRole("switch", { name: "自動調整を止める" });
+  await expect(toggle).toBeVisible();
+  const box = await toggle.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+});
+
 test("375px: 日またぎ実績の削除確認でフォーカスを閉じ込めEscapeで戻る", async ({
   page,
   testUser,
