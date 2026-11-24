@@ -1,5 +1,10 @@
 import "server-only";
-import { isRecord, isDateOnly, isIdentifier } from "@/lib/security/input";
+import {
+  isRecord,
+  isDateOnly,
+  isIdentifier,
+  isUuid,
+} from "@/lib/security/input";
 
 import { isOccurrencePaused } from "@/lib/calendar/recurring-id";
 
@@ -369,7 +374,7 @@ export async function updateRecurringRule(
   ruleId: string,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
-  if (!isIdentifier(ruleId)) return { ok: false };
+  if (!isUuid(ruleId)) return { ok: false };
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
     return { ok: false };
@@ -391,35 +396,27 @@ export async function updateRecurringRule(
   if (!validated) {
     return { ok: false };
   }
-  const { data, error } = await client
-    .from("recurring_rules")
-    .update({
-      ...toRuleRow(validated),
-      inactivity_since: new Date().toISOString(),
-      pause_review_after: null,
-    })
-    .eq("id", ruleId)
-    .select("id");
-  if (error || !data || data.length === 0) {
+  // ルール更新と、今日以降の実体化済みインスタンス・例外の削除(再実体化でルールどおりに戻る。
+  // 過去の行には触れない。仕様書P5-1)は1つのDB関数で確定する。
+  // 別々のリクエストだと後段の削除が失敗しても成功を返し、古い予定が残るため(G-108)
+  const { utcThresholdIso, dateOnly } = todayBoundary(validated.timezone);
+  const row = toRuleRow(validated);
+  const { data, error } = await client.rpc("update_recurring_rule", {
+    p_rule_id: ruleId,
+    p_title: row.title,
+    p_pattern: row.pattern,
+    p_weekdays: row.weekdays,
+    p_start_time: row.start_time,
+    p_end_time: row.end_time,
+    p_timezone: row.timezone,
+    p_starts_on: row.starts_on,
+    p_ends_on: row.ends_on,
+    p_threshold: utcThresholdIso,
+    p_today: dateOnly,
+  });
+  if (error || data !== true) {
     return { ok: false };
   }
-
-  // 今日以降の実体化済みインスタンス・例外を削除する(再実体化でルールどおりに戻る)。
-  // 過去の行には触れない(仕様書P5-1)
-  const { utcThresholdIso, dateOnly } = todayBoundary(validated.timezone);
-  const prefix = `${RECURRING_ID_PREFIX}${ruleId}:`;
-  await client
-    .from("synced_events")
-    .delete()
-    .eq("source", "app")
-    .like("google_event_id", `${prefix}%`)
-    .gte("start_at", utcThresholdIso);
-  await client
-    .from("recurring_exceptions")
-    .delete()
-    .eq("rule_id", ruleId)
-    .gte("occurrence_date", dateOnly);
-
   return { ok: true };
 }
 

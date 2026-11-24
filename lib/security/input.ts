@@ -10,6 +10,15 @@ export function isIdentifier(value: unknown): value is string {
     !/[\u0000-\u001f\u007f]/.test(value)
   );
 }
+/** DBの uuid 列に渡す前の形式検査。RPCの uuid 引数に不正値が届いてDBエラーになるのを避ける */
+export function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
 export function isDateOnly(value: unknown): value is string {
   if (
     typeof value !== "string" ||
