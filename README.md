@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## CI
+
+`main` へマージするには、最新の `main` を取り込んだプルリクエストで次の GitHub Actions ジョブがすべて成功する必要があります。
+
+- `check` はワークフローの構文、依存関係の脆弱性、コード整形、型、ESLint、単体テスト、本番用ビルドを確認します。
+- `Integration and migration tests (local Supabase)` は使い捨てのデータベースに全マイグレーションを適用し、結合テストを実行します。
+- `Mobile browser tests (local Supabase)` は本番用ビルドでモバイルブラウザーの操作を検証します。
+
+ジョブ名は [GitHub のマージ条件](https://github.com/TonChan0828/PlanDiff/rules) と一致させます。本番データベースのマイグレーション履歴は、マージ後に別のワークフローで確認します。[本番デプロイの運用手順](docs/運用/P17-2_本番migration適用前デプロイゲート.md)
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
