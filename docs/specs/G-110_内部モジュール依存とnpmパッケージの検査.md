@@ -21,7 +21,8 @@
   2. `lib-not-to-ui`: `lib/**` から `app/**` `components/**` への参照
   3. `components-not-to-app`: `components/**` から `app/**` への参照。**例外**: Server Action(`app/**/actions.ts` 等、`"use server"` を持つファイル)は
      Next.js の規約上クライアントから参照するため許可する(実装時に実測し、例外の一覧をルール内にコメントで残す)
-  4. `no-orphans`: どこからも参照されない本番ファイル(Next.js の規約ファイル `page` `layout` `route` `proxy` 等は除外)
+  4. (採用しない)`no-orphans`: 型だけの参照を依存に数えない設定のため、`lib/timer/types.ts` のような型専用ファイルが孤立と誤判定される(実測で確認)。
+     未使用ファイルの検出は、型参照も使用と数える knip に任せる
 - 実装前に現状の依存グラフを実測し、既存の違反が出る場合は**直せるものは本 PR で直し**、直せないものだけを理由つきで
   `forbidden` の許可リストに入れる(隠さず記録する)
 
