@@ -99,17 +99,52 @@ export function isStartInRange(startAt: string, range: SummaryRange): boolean {
   return start >= range.start && start < range.end;
 }
 
+/** 期間が進行中か(開始 ≤ asOf < 終了)。途中経過の表示を出すかの判定に使う(G-90) */
+export function isPartialPeriod(range: SummaryRange, asOf: Date): boolean {
+  return asOf >= range.start && asOf < range.end;
+}
+
+/**
+ * 「経過した予定」だけを残す(G-90)。開始が asOf 以前、または紐づく実績が1件でもある予定。
+ * 前倒しで着手した未来の予定を除くと、その実績が「割り込み」に化けて紐づきが消えるため、
+ * 着手済みも含める。ヒーロー集計と日別グラフで共用し、両者の総和を一致させる。
+ */
+export function selectElapsedPlans(
+  plansInRange: SummaryPlanEvent[],
+  actualsInRange: SummaryActualEntry[],
+  asOf: Date,
+): SummaryPlanEvent[] {
+  const startedEventIds = new Set(
+    actualsInRange.flatMap((entry) =>
+      entry.googleEventId ? [entry.googleEventId] : [],
+    ),
+  );
+  return plansInRange.filter(
+    (event) =>
+      parseISO(event.startAt) <= asOf ||
+      startedEventIds.has(event.googleEventId),
+  );
+}
+
+/**
+ * @param asOf 指定すると「ここまでの集計」になり、まだ始まっていない予定(未着手で開始が asOf より後)を
+ *   計画・件数・内訳から除く。省略時は期間内の全予定を数える。
+ */
 export function computeGapSummary(
   planEvents: SummaryPlanEvent[],
   actualEntries: SummaryActualEntry[],
   range: SummaryRange,
+  asOf?: Date,
 ): GapSummary {
-  const plansInRange = planEvents.filter((event) =>
-    isStartInRange(event.startAt, range),
-  );
   const actualsInRange = actualEntries.filter((entry) =>
     isStartInRange(entry.startAt, range),
   );
+  const plansInPeriod = planEvents.filter((event) =>
+    isStartInRange(event.startAt, range),
+  );
+  const plansInRange = asOf
+    ? selectElapsedPlans(plansInPeriod, actualsInRange, asOf)
+    : plansInPeriod;
 
   const planByEventId = new Map(
     plansInRange.map((event) => [event.googleEventId, event]),

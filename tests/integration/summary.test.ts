@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addDays, startOfDay, startOfWeek } from "date-fns";
+import { addDays, addMinutes, startOfDay, startOfWeek } from "date-fns";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { computeGapSummary } from "@/lib/summary/aggregate";
 import { formatSummaryCounts } from "@/lib/summary/format";
@@ -63,14 +63,18 @@ async function seedEntry(
   expect(error).toBeNull();
 }
 
-async function buildSummary(user: TestUser, range: typeof TODAY_RANGE) {
+async function buildSummary(
+  user: TestUser,
+  range: typeof TODAY_RANGE,
+  asOf?: Date,
+) {
   const [planEvents, timeEntries, runningEntry] = await Promise.all([
     fetchSyncedEvents(user.client, NOW),
     fetchTimeEntries(user.client, NOW),
     fetchRunningEntry(user.client),
   ]);
   const actualInputs = actualBlockInputs(timeEntries, runningEntry, NOW);
-  return computeGapSummary(planEvents, actualInputs, range);
+  return computeGapSummary(planEvents, actualInputs, range, asOf);
 }
 
 beforeAll(async () => {
@@ -251,5 +255,25 @@ describe("予定単位のズレ%・開始遅延のデータ取得〜集計(結�
     expect(summary.items).toHaveLength(1);
     expect(summary.items[0]?.gapPercent).toBe(37);
     expect(summary.items[0]?.startDelayMinutes).toBe(14);
+  });
+});
+
+describe("途中経過の集計(G-90 A13)", () => {
+  it("A13: 今日の10:20時点では、夜の未開始の予定がズレに入らない", async () => {
+    const day = TODAY_RANGE.start;
+    const at = (hour: number, minute = 0) =>
+      addMinutes(day, hour * 60 + minute);
+    await seedEvent(userA, "g90-morning", "朝", at(9), at(10));
+    await seedEvent(userA, "g90-night", "夜", at(18, 25), at(23, 5));
+    await seedEntry(userA, "g90-morning", "朝", at(9), at(9, 51));
+
+    const partial = await buildSummary(userA, TODAY_RANGE, at(10, 20));
+    const full = await buildSummary(userA, TODAY_RANGE);
+
+    expect(partial.planCount).toBe(1);
+    expect(partial.planTotalMinutes).toBe(60);
+    expect(partial.gapMinutes).toBe(51 - 60);
+    expect(full.planCount).toBe(2);
+    expect(full.planTotalMinutes).toBe(60 + 280);
   });
 });

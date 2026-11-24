@@ -7,6 +7,7 @@ import {
 import {
   durationMinutes,
   isStartInRange,
+  selectElapsedPlans,
   type GapSummaryItem,
   type InterruptionItem,
   type SummaryActualEntry,
@@ -40,6 +41,7 @@ export function computeDailyGapSeries(
   planEvents: SummaryPlanEvent[],
   actualEntries: SummaryActualEntry[],
   range: SummaryRange,
+  asOf?: Date,
 ): DailyGapPoint[] {
   const dayCount = differenceInCalendarDays(range.end, range.start);
   if (dayCount <= 0) {
@@ -71,7 +73,15 @@ export function computeDailyGapSeries(
     return index >= 0 && index < dayCount ? index : null;
   };
 
-  for (const event of planEvents) {
+  // asOf 指定時は、ヒーロー集計と同じ「経過した予定」だけを計画に入れる(総和の一致のため。G-90)
+  const plans = asOf
+    ? selectElapsedPlans(
+        planEvents.filter((event) => isStartInRange(event.startAt, range)),
+        actualEntries.filter((entry) => isStartInRange(entry.startAt, range)),
+        asOf,
+      )
+    : planEvents;
+  for (const event of plans) {
     const index = dayIndexOf(event.startAt);
     const point = index === null ? undefined : points[index];
     if (!point) continue;

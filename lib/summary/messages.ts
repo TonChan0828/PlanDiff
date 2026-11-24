@@ -20,6 +20,13 @@ export const SUMMARY_MESSAGES = {
   gapHeroWeek: "今週のズレ",
   planShort: "計画",
   actualShort: "実績",
+  // G-90: 途中経過の表示
+  partialBadge: "途中経過",
+  partialAsOf: "現時点まで",
+  partialProgress: (elapsed: number, total: number) =>
+    `経過した予定 ${elapsed}件 / 全 ${total}件`,
+  partialUpcoming: (count: number, planClock: string) =>
+    `このあと 予定 ${count}件(計画 ${planClock})`,
   // P5-3: 件数ステータス行
   countsPlan: "予定",
   countsUnit: "件",
