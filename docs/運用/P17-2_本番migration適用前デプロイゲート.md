@@ -31,7 +31,7 @@ SupabaseではCI用に権限を絞ったScoped Personal Access Tokenを使う。
 2. checkが成功するまでVercelはbuildを本番ドメインへaliasしない。
 3. checkが失敗したらGitHub Actions runを開き、不一致または認証設定を確認する。CLIの接続・出力エラーは秘密情報を伏せた固定エラーとして表示される。
 4. 未適用migrationが原因なら、SQLと対象環境を確認し、必要に応じて `npx supabase db push --linked --dry-run` で適用予定を確認する。その後、本番適用を承認された利用者が `npx supabase db push --linked` を実行する。
-5. 同じcommitに紐づく失敗したActions runを **Re-run jobs** する。ただし、Vercel 側で check が「失敗」と確定した deployment は、Re-run で成功しても自動では本番ドメインへ昇格しないことがある(2026-10-25 に確認。2026-11-21 は自動で昇格済みだった)。
+5. 同じcommitに紐づく失敗したActions runを **Re-run jobs** する。ただし、Vercel 側で check が「失敗」と確定した deployment は、Re-run で成功しても自動では本番ドメインへ昇格しないことがある(2026-10-25 に確認。2026-11-21 は Re-run のあとの `vercel promote` が 409(昇格済み)だったが、自動で昇格したのか、別の手順によるのかはログから分からない)。
    そのため、Re-run のあとに必ず次で確認する:
    - `vercel inspect plandiff.vercel.app` で、本番ドメインが対象の deployment を指しているかを見る
    - 指していなければ `vercel promote <deployment-url>` で昇格する。`409 already the current production deployment` は昇格済みを意味する
@@ -49,13 +49,15 @@ SupabaseではCI用に権限を絞ったScoped Personal Access Tokenを使う。
 migration を含むリリースの前後(特に本番へ `db push` した直後)に、読み取りのみのコマンドで本番と migration の差を見る。
 
 ```
-npx supabase db diff --linked --schema public
+npx supabase db diff --linked --schema public,private
 ```
 
 - 本番へは書き込まない(本番の現状と、migration から再現したスキーマを比較するだけ)。比較用に Docker のコンテナを一時的に起動する
-- 「No schema changes found」なら、`public` スキーマに履歴外のずれはない
+- 前提: `supabase link` 済みであること、Docker が起動していること(比較用の一時コンテナを使う)、本番の DB に接続できること
+- `--schema` に指定したスキーマだけを比較する。RLS のヘルパー関数は `private` に置く方針なので、`public,private` の両方を指定する。それ以外のスキーマ(`auth` など Supabase の管理分)は対象外
+- 「No schema changes found」なら、指定したスキーマに履歴外のずれはない
 - 差分が出たら、本番を直接変更した変更か、migration の漏れかを確認し、migration を追加して揃える(ダッシュボードで直さない)
-- 2026-11-24 に実行し、`public` スキーマは差分なし(G-111)
+- 2026-11-24 に `--schema public` と `--schema public,private` で実行し、どちらも差分なし(G-111)
 
 ## Vercel の設定の確認方法
 
@@ -63,8 +65,11 @@ Deployment Checks の登録は Dashboard でしか確認できない(API では�
 
 - 場所: Vercel → Project(plandiff)→ **Settings → Deployment Checks**
 - 正しい状態: GitHub の check として `Production migration history`(workflow `Production migration readiness`)が登録され、本番(Production)の公開の必須条件になっている
-- 実績での確認: 失敗側は 2026-10-25(migration 未適用のまま merge した deployment の公開が保留された)。成功側は 2026-11-21 と 2026-11-24(migration 適用後の merge は、workflow の成功直後に本番ドメインへ反映された)。
-  2026-11-24 の `ef3d1fe` は workflow 完了 14:06:31(UTC)の1秒後に alias が完了している。deployment の `checks` には `deployment-alias` しか出ないため、Dashboard の画面で登録を直接確認すること
+- **2026-11-24 時点で、この画面での登録確認は未了**(ブラウザが Vercel 未ログインで、API でも読めないため)。以下の実績は間接的な根拠で、登録を保証しない
+  - 失敗側: 2026-10-25。migration 未適用のまま merge した deployment の公開が保留された(`docs/logs/2026-10-25.md`)
+  - 2026-11-21: merge 時はゲートが失敗し、migration を適用して Re-run で成功させた。そのあとの `vercel promote` は 409(昇格済み)だった。自動か手動かはログから分からない
+  - 成功側: 2026-11-24 の `ef3d1fe`(migration 適用済みで merge)。workflow 完了 14:06:31(UTC)の1秒後に alias が完了した。ただしビルド時間もほぼ同じ約22秒なので、**ゲートが待機した決定的な証拠ではない**
+  - deployment の `checks` には `deployment-alias` しか出ないため、Dashboard の画面で登録を直接確認すること
 
 Supabase GitHub IntegrationがDashboardで別途有効な場合、このWorkflowとは独立してmigrationを適用することがある。本PRはその外部設定を確認・変更しない。Deployment Checkはremote履歴が一致するまでアプリの昇格を保留する。
 
