@@ -29,7 +29,9 @@ module.exports = {
       from: { path: "^components/" },
       to: {
         path: "^app/",
-        pathNot: ["^app/.*actions\\.ts$"],
+        // dependency-cruiser は入れ子の量指定子を含む正規表現を拒否するため、単純なパターンに分ける。
+        // `/actions.ts` と `-actions.ts` だけを許可し、transactions.ts のような名前は許可しない
+        pathNot: ["/actions\\.ts$", "-actions\\.ts$"],
       },
     },
   ],

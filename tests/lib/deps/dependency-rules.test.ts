@@ -54,6 +54,12 @@ describe("依存関係のルール(G-110)", () => {
     );
   });
 
+  it("E4: 名前が actions.ts で終わるだけのファイル(transactions.ts)への参照は違反になる", async () => {
+    expect(await violationsOf("component-to-lookalike")).toContain(
+      "components-not-to-app",
+    );
+  });
+
   it("E4: components から Server Action(actions.ts)への参照は許可される", async () => {
     expect(await violationsOf("component-to-actions")).toEqual([]);
   });
