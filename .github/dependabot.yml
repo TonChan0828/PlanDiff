@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Actions は SHA 固定(PR #115)。固定した SHA の更新を週1回、1つの PR にまとめる。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]
+  # npm はセキュリティ更新だけを対象にする。通常のバージョン更新 PR は作らない
+  # (open-pull-requests-limit: 0)。通常の更新は S 系の仕様で計画的に行うため、自動 PR の乱立を避ける。
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "chore(deps)"
