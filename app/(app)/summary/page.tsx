@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SummaryActualBreakdown } from "@/components/summary-actual-breakdown";
 import { SummaryDailyGapChart } from "@/components/summary-daily-gap-chart";
+import {
+  SummaryPartialBadge,
+  SummaryPartialProgress,
+} from "@/components/summary-partial";
 import { fetchSyncedEventsInRange } from "@/lib/calendar/events";
 import { materializeRecurringInstances } from "@/lib/calendar/recurring";
 import { toDateParam } from "@/lib/calendar/view-date";
@@ -10,6 +14,7 @@ import {
   computeGapSummary,
   groupInterruptionsByTitle,
   groupItemsByTitle,
+  isPartialPeriod,
 } from "@/lib/summary/aggregate";
 import {
   computeActualBreakdown,
@@ -244,13 +249,25 @@ export default async function SummaryPage({
   }
   const [planEvents, timeEntries, runningEntry] = loaded;
   const actualInputs = actualBlockInputs(timeEntries, runningEntry, now);
-  const summary = computeGapSummary(planEvents, actualInputs, resolved.range);
+  // 期間の途中では、まだ始まっていない予定をズレの分母に入れない(G-90)。
+  // 「これから」の件数・計画時間は、期間全体の集計との差で求める
+  const isPartial = isPartialPeriod(resolved.range, now);
+  const asOf = isPartial ? now : undefined;
+  const summary = computeGapSummary(
+    planEvents,
+    actualInputs,
+    resolved.range,
+    asOf,
+  );
+  const fullSummary = isPartial
+    ? computeGapSummary(planEvents, actualInputs, resolved.range)
+    : summary;
 
   // 日別のズレは2日以上の期間でのみ出す(単日だと棒1本になり、
   // diffヒーローと同じ数字の重複表示にしかならないため。P7-1)
   const showDailyChart = resolved.dayCount >= 2;
   const dailyPoints = showDailyChart
-    ? computeDailyGapSeries(planEvents, actualInputs, resolved.range)
+    ? computeDailyGapSeries(planEvents, actualInputs, resolved.range, asOf)
     : [];
 
   // 時間の内訳は期間の長さによらず出す(単日でも「今日の時間の使い道」として意味を持つ。P7-2)
@@ -277,9 +294,12 @@ export default async function SummaryPage({
           {/* diffヒーロー(D-3): ズレを主役に。正=柿・負=群青・ゼロ=墨、
           ズレありのときだけハッチ下線(オーバーレイと同じ紋章)を敷く */}
           <section className="border-line bg-surface flex flex-col items-center gap-1 rounded-lg border p-5">
-            <p className="text-ink-muted self-start text-xs font-bold">
-              {HERO_HEADINGS[resolved.key]}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 self-start">
+              <p className="text-ink-muted text-xs font-bold">
+                {HERO_HEADINGS[resolved.key]}
+              </p>
+              {isPartial ? <SummaryPartialBadge /> : null}
+            </div>
             <p
               data-testid="gap-hero-value"
               className={`font-mono text-5xl leading-tight font-semibold tracking-tight tabular-nums ${
@@ -320,6 +340,16 @@ export default async function SummaryPage({
             >
               {formatSummaryCounts(summary)}
             </p>
+            {isPartial ? (
+              <SummaryPartialProgress
+                elapsedCount={summary.planCount}
+                totalCount={fullSummary.planCount}
+                upcomingCount={fullSummary.planCount - summary.planCount}
+                upcomingMinutes={
+                  fullSummary.planTotalMinutes - summary.planTotalMinutes
+                }
+              />
+            ) : null}
           </section>
         </div>
 
