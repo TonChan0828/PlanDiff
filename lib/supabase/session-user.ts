@@ -1,6 +1,7 @@
 import "server-only";
 
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 
 // auth.getUser() の重複往復を抑えるヘルパー(P6-1)。
 // 仕様書: docs/specs/P6-1_サーバー往復の集約.md
@@ -18,10 +19,12 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 // キーはリクエストごとに生成されるクライアントインスタンスなので、
 // ユーザーをまたいで共有されることはなく、リクエスト終了後はGC対象になる。
-const userByClient = new WeakMap<SupabaseClient, Promise<User | null>>();
+const userByClient = new WeakMap<AppSupabaseClient, Promise<User | null>>();
 
 /** 本人のユーザー情報を返す。未ログイン・検証失敗はいずれも null(例外にしない) */
-export function getSessionUser(client: SupabaseClient): Promise<User | null> {
+export function getSessionUser(
+  client: AppSupabaseClient,
+): Promise<User | null> {
   const cached = userByClient.get(client);
   if (cached) {
     return cached;

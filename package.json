@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "db:types": "node scripts/generate-db-types.mjs",
     "check:deps": "depcruise app components lib proxy.ts instrumentation.ts instrumentation-client.ts --config .dependency-cruiser.cjs",
     "check:packages": "knip",
     "check": "npm run typecheck && npm run lint && npm run check:deps && npm run check:packages && npm test && npm run build",

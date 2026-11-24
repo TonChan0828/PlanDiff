@@ -30,6 +30,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ジョブ名は [GitHub のマージ条件](https://github.com/TonChan0828/PlanDiff/rules) と一致させます。本番データベースのマイグレーション履歴は、マージ後に別のワークフローで確認します。[本番デプロイの運用手順](docs/運用/P17-2_本番migration適用前デプロイゲート.md)
 
+## データベース型
+
+`lib/supabase/database.types.ts` は、マイグレーションを適用したローカルデータベースから生成します(自動生成。手で編集しません)。マイグレーションを追加・変更したら、ローカルの Supabase を起動して `supabase db reset --local` のあと `npm run db:types` を実行し、差分を同じ PR に含めます。CI は同じ手順で再生成し、コミット済みの型とずれていれば失敗します。
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

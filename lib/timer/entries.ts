@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 import { addDays, startOfWeek, subDays } from "date-fns";
 import {
   computeSyncRange,
@@ -15,7 +15,7 @@ import type { RunningEntry, TimeEntryItem } from "@/lib/timer/types";
 
 /** 確定済み実績(end_at NOT NULL)を「基準日を含む週 ± 1週間」で取得する */
 export async function fetchTimeEntries(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   baseDate: Date,
 ): Promise<TimeEntryItem[]> {
   return fetchTimeEntriesInRange(client, computeSyncRange(baseDate));
@@ -23,7 +23,7 @@ export async function fetchTimeEntries(
 
 /** 任意期間の確定済み実績を取得する(P5-9)。期間と重なる実績を返す */
 export async function fetchTimeEntriesInRange(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   range: SyncRange,
 ): Promise<TimeEntryItem[]> {
   // PostgRESTのmax_rowsによる無言の切り捨てを避けるためページングで全件取得する(P6-0)。
@@ -62,7 +62,7 @@ export async function fetchTimeEntriesInRange(
  * 取得失敗時は空配列を返し、提案セクションを出さないだけに留める(カレンダー本体を妨げない)。
  */
 export async function fetchSuggestionSourceEntries(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   baseDate: Date,
 ): Promise<TimeEntryItem[]> {
   const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
@@ -95,7 +95,7 @@ export async function fetchSuggestionSourceEntries(
  * 取得失敗時は空配列を返し、学習補正を行わないだけに留める(カレンダー本体を妨げない)。
  */
 export async function fetchRuleLearningEntries(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   now: Date,
 ): Promise<TimeEntryItem[]> {
   const timeMin = subDays(now, 43).toISOString();
@@ -121,7 +121,7 @@ export async function fetchRuleLearningEntries(
 
 /** 実行中タイマー(end_at IS NULL)。期間に関係なく最大1件(partial unique indexで保証) */
 export async function fetchRunningEntry(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
 ): Promise<RunningEntry | null> {
   const { data, error } = await client
     .from("time_entries")

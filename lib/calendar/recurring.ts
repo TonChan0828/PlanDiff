@@ -9,7 +9,7 @@ import {
 import { isOccurrencePaused } from "@/lib/calendar/recurring-id";
 
 import { TZDate } from "@date-fns/tz";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { nullableRpcArg, type AppSupabaseClient } from "@/lib/supabase/types";
 import { getSessionUser } from "@/lib/supabase/session-user";
 import { fetchAllPages } from "@/lib/supabase/paged-fetch";
 import { computeSyncRange, type SyncRange } from "@/lib/google/sync-range";
@@ -350,7 +350,7 @@ export function todayBoundary(
 }
 
 export async function createRecurringRule(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
   const sessionUser = await getSessionUser(client);
@@ -370,7 +370,7 @@ export async function createRecurringRule(
 }
 
 export async function updateRecurringRule(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   ruleId: string,
   input: RecurringRuleFormInput,
 ): Promise<RecurringRuleResult> {
@@ -405,12 +405,12 @@ export async function updateRecurringRule(
     p_rule_id: ruleId,
     p_title: row.title,
     p_pattern: row.pattern,
-    p_weekdays: row.weekdays,
+    p_weekdays: nullableRpcArg(row.weekdays),
     p_start_time: row.start_time,
     p_end_time: row.end_time,
     p_timezone: row.timezone,
     p_starts_on: row.starts_on,
-    p_ends_on: row.ends_on,
+    p_ends_on: nullableRpcArg(row.ends_on),
     p_threshold: utcThresholdIso,
     p_today: dateOnly,
   });
@@ -421,7 +421,7 @@ export async function updateRecurringRule(
 }
 
 export async function deleteRecurringRule(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   ruleId: string,
 ): Promise<RecurringRuleResult> {
   if (!isIdentifier(ruleId)) return { ok: false };
@@ -457,7 +457,7 @@ export async function deleteRecurringRule(
 }
 
 export async function deleteRecurringOccurrence(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   eventId: string,
 ): Promise<RecurringRuleResult> {
   if (!isIdentifier(eventId)) return { ok: false };
@@ -561,7 +561,7 @@ function toRuleSummary(rule: RecurringRuleRow): RecurringRuleSummary {
  * `/calendar` では materializeRecurringInstances の戻り値を使うため呼ばない(P6-1)。
  */
 export async function fetchRecurringRules(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
 ): Promise<RecurringRuleSummary[]> {
   const { data, error } = await client
     .from("recurring_rules")
@@ -599,7 +599,7 @@ function toUtcDateString(iso: string, dayOffset: number): string {
  * 更新前の内容を返してしまう(既存の書き込みを拾えない)ことを避けるために必要。
  */
 export async function materializeRecurringInstances(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   baseDate: Date,
   range: SyncRange = computeSyncRange(baseDate),
   prefetchedRules?: RecurringRuleSummary[],

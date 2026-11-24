@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import type { Database } from "@/lib/supabase/database.types";
 
 // Server Component / Route Handler / Server Action 用のSupabaseクライアント。
 // cache() で包み、1リクエスト内では同一インスタンスを共有する(cookieの読み取りも1回で済み、
@@ -16,7 +17,7 @@ export const createClient = cache(async function createClient() {
 
   const cookieStore = await cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

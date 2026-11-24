@@ -2,7 +2,7 @@ import "server-only";
 import { isIdentifier } from "@/lib/security/input";
 
 import { TZDate } from "@date-fns/tz";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { nullableRpcArg, type AppSupabaseClient } from "@/lib/supabase/types";
 import {
   RECURRING_ID_PREFIX,
   isRulePaused,
@@ -213,7 +213,7 @@ export function computeRuleAdjustments(
  * 実際に変更が適用された分のみ通知データとして返す(お知らせ帯の表示に使う)。
  */
 export async function applyRuleAdjustments(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   adjustments: RuleAdjustment[],
   now: Date = new Date(),
 ): Promise<RuleAdjustmentNotice[]> {
@@ -225,8 +225,12 @@ export async function applyRuleAdjustments(
       p_rule_id: adjustment.ruleId,
       p_previous_start: adjustment.previousStartTime,
       p_previous_end: adjustment.previousEndTime,
-      p_new_start: adjustment.changed ? adjustment.newStartTime : null,
-      p_new_end: adjustment.changed ? adjustment.newEndTime : null,
+      p_new_start: nullableRpcArg(
+        adjustment.changed ? (adjustment.newStartTime ?? null) : null,
+      ),
+      p_new_end: nullableRpcArg(
+        adjustment.changed ? (adjustment.newEndTime ?? null) : null,
+      ),
       p_now: nowIso,
     });
     if (error || data !== true) continue;
@@ -253,7 +257,7 @@ export async function applyRuleAdjustments(
 
 /** 定期予定の自動学習補正を停止する(auto_adjust_enabled=false。origin は作成経路の記録として残す。P10-3) */
 export async function disableRuleLearning(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   ruleId: string,
 ): Promise<{ ok: boolean }> {
   if (!isIdentifier(ruleId)) return { ok: false };
