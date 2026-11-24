@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 import {
   computeSyncRange,
   toRangeLiteral,
@@ -26,7 +26,7 @@ export interface SyncedEvent {
 }
 
 export async function fetchSyncedEvents(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   baseDate: Date,
 ): Promise<SyncedEvent[]> {
   return fetchSyncedEventsInRange(client, computeSyncRange(baseDate));
@@ -34,7 +34,7 @@ export async function fetchSyncedEvents(
 
 /** 任意期間の予定を取得する(P5-9)。期間と重なる予定を返す */
 export async function fetchSyncedEventsInRange(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   range: SyncRange,
 ): Promise<SyncedEvent[]> {
   // PostgRESTのmax_rowsによる無言の切り捨てを避けるためページングで全件取得する(P6-0)。

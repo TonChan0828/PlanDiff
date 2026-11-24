@@ -1,12 +1,12 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 
 // P4-1: オンボーディング完了をprofiles.onboarded_atに記録する。
 // 認証ユーザー自身のクライアント(RLS)経由で呼ぶこと。.select("id")で
 // 更新行数を確認し、RLSに阻まれた場合(0行)は失敗として扱う
 export async function markOnboardingComplete(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   userId: string,
 ): Promise<boolean> {
   const { data, error } = await client

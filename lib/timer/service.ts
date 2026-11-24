@@ -1,7 +1,7 @@
 import "server-only";
 import { isRecord, isIdentifier, isTimestamp } from "@/lib/security/input";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { nullableRpcArg, type AppSupabaseClient } from "@/lib/supabase/types";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
 // タイマー操作のコアロジック(P2-2)。Server Actionから呼ぶ。
@@ -43,13 +43,16 @@ function logTimerRpcFailure(
 
 /** RPCのDBエラーや通信例外を、サービス層の失敗結果へ揃える */
 async function callTimerRpc(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   name: "start_timer" | "stop_timer",
   args?: { p_title: string; p_google_event_id: string | null },
 ): Promise<TimerResult> {
   try {
     const { error } = args
-      ? await client.rpc(name, args)
+      ? await client.rpc(name, {
+          p_title: args.p_title,
+          p_google_event_id: nullableRpcArg(args.p_google_event_id),
+        })
       : await client.rpc(name);
     if (error) {
       logTimerRpcFailure(name, normalizeTimerRpcErrorCode(error));
@@ -63,7 +66,7 @@ async function callTimerRpc(
 }
 
 export async function startTimer(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   input: StartTimerInput,
 ): Promise<TimerResult> {
   if (
@@ -105,7 +108,9 @@ export async function startTimer(
 }
 
 /** 実行中エントリを停止して実績として確定する。実行中がなければ何もせず成功(冪等) */
-export async function stopTimer(client: SupabaseClient): Promise<TimerResult> {
+export async function stopTimer(
+  client: AppSupabaseClient,
+): Promise<TimerResult> {
   if (!(await getSessionUser(client))) {
     return { ok: false };
   }
@@ -125,7 +130,7 @@ export interface UpdateTimeEntryInput {
 
 /** 確定済み実績のタイトル・開始/終了時刻を更新する。実行中エントリは対象外 */
 export async function updateTimeEntry(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   id: string,
   input: UpdateTimeEntryInput,
 ): Promise<TimerResult> {
@@ -171,7 +176,7 @@ const START_AT_FUTURE_TOLERANCE_MS = 60 * 1000;
 
 /** 実行中エントリ(end_at IS NULL)の開始時刻を変更する。確定済み実績は対象外(D-4) */
 export async function updateRunningStart(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   startAtIso: string,
 ): Promise<TimerResult> {
   if (!isTimestamp(startAtIso)) return { ok: false };
@@ -199,7 +204,7 @@ export async function updateRunningStart(
 
 /** 確定済み実績を削除する。実行中エントリは対象外 */
 export async function deleteTimeEntry(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   id: string,
 ): Promise<TimerResult> {
   if (!isIdentifier(id)) return { ok: false };

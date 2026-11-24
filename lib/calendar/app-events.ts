@@ -1,7 +1,7 @@
 import "server-only";
 import { isRecord, isTimestamp, isIdentifier } from "@/lib/security/input";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
 // アプリ内予定(P2-5)のCRUDロジック。Server Actionから呼ぶ。
@@ -64,7 +64,7 @@ function validate(
 }
 
 export async function createAppEvent(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   input: AppEventInput,
 ): Promise<AppEventResult> {
   const sessionUser = await getSessionUser(client);
@@ -87,7 +87,7 @@ export async function createAppEvent(
 }
 
 export async function updateAppEvent(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   id: string,
   input: AppEventInput,
 ): Promise<AppEventResult> {
@@ -131,7 +131,7 @@ export async function updateAppEvent(
 }
 
 export async function deleteAppEvent(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   id: string,
 ): Promise<AppEventResult> {
   if (!isIdentifier(id)) return { ok: false };

@@ -14,7 +14,8 @@ description: Use when creating or changing ANY database table, column, index, RL
 2. マイグレーションSQLを書く。**同一マイグレーション内で** RLS有効化とポリシーまで完結させる(RLSなしの状態をコミットに残さない)
 3. ローカルで検証: `npx supabase db reset`(全マイグレーション再適用)→ エラーがないこと
 4. `npx supabase db diff` で意図しない差分がないことを確認
-5. アプリコード(型・クライアント)を変更する
+5. `npm run db:types` でDB型を再生成し、`lib/supabase/database.types.ts` の差分を同じコミットに含める(CIが差分を検出する)。RPCの引数にnullを渡す場合は `nullableRpcArg`(`lib/supabase/types.ts`)を使う
+6. アプリコード(型・クライアント)を変更する
 
 ## このプロジェクトのRLSパターン(必須)
 
@@ -53,3 +54,4 @@ create policy "<table>_select_own" on public.<table>
 - [ ] SECURITY DEFINER 関数に `set search_path` がある
 - [ ] `npx supabase db reset` が通る
 - [ ] マイグレーション適用後に既存テストが全件通る
+- [ ] `npm run db:types` を実行し、生成された型をコミットに含めた

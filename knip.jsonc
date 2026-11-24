@@ -17,4 +17,6 @@
   // app/globals.css の `@import "tailwindcss"` と postcss.config.mjs から使う。
   // knip は CSS の import を追わないため、未使用と誤判定される。
   "ignoreDependencies": ["tailwindcss"],
+  // Supabase CLI は npm パッケージではなく、CI では supabase/setup-cli で導入する(npm run db:types が呼ぶ)。
+  "ignoreBinaries": ["supabase"],
 }

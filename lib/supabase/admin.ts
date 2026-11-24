@@ -1,8 +1,7 @@
 import "server-only";
-import {
-  createClient as createSupabaseClient,
-  type SupabaseClient,
-} from "@supabase/supabase-js";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 
 // service role クライアント。RLSを迂回するサーバー専用処理
 // (google_tokens・アカウント削除・pro_interest_events)に限定して使う。
@@ -10,7 +9,7 @@ import {
 // 生成コストを避けるため、プロセス内で1インスタンスを使い回す(P6-1)。
 // service role クライアントはセッションを持たない(persistSession: false)ため、
 // リクエストをまたいで共有しても利用者の文脈が混ざることはない。
-let adminClient: SupabaseClient | null = null;
+let adminClient: AppSupabaseClient | null = null;
 
 // 通知ドメイン(lib/notifications/store.ts)からも使うため export する。
 // admin.ts は既に3ドメインを抱えており、通知の関数まで足すと責務が薄まるため、
@@ -27,7 +26,7 @@ export function createAdminClient() {
       "Supabaseの環境変数(NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)が設定されていません",
     );
   }
-  adminClient = createSupabaseClient(url, serviceRoleKey, {
+  adminClient = createSupabaseClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return adminClient;
