@@ -44,18 +44,17 @@ export function SummaryPartialProgress({
         data-testid="gap-hero-progress"
         className="text-ink-muted text-center text-xs tabular-nums"
       >
-        {S.partialProgress} {elapsedCount}
-        {S.countsUnit} / {S.partialProgressOf} {totalCount}
-        {S.countsUnit}
+        {S.partialProgress(elapsedCount, totalCount)}
       </p>
       {upcomingCount > 0 ? (
         <p
           data-testid="gap-hero-upcoming"
           className="text-ink-muted text-center text-xs tabular-nums"
         >
-          {S.partialUpcoming} {upcomingCount}
-          {S.countsUnit}({S.partialUpcomingPlan}{" "}
-          {formatClockMinutes(upcomingMinutes)})
+          {S.partialUpcoming(
+            upcomingCount,
+            formatClockMinutes(upcomingMinutes),
+          )}
         </p>
       ) : null}
     </>

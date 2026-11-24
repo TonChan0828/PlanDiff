@@ -3,6 +3,8 @@ import { test, expect } from "./fixtures";
 // 仕様書: docs/specs/G-90_サマリーの途中経過と最終結果の分離.md A14
 // 期間「今日〜明後日」は現在時刻がいつでも途中経過になる。
 // 今日の0時台の予定は経過済み、明日の正午の予定は「これから」として分けて表示される。
+// 前提: playwright.config.ts が TZ と timezoneId を Asia/Tokyo に固定している。
+// テスト側の「今日」とサーバー側(TZ Cookie)の「今日」を揃えるため、TZ を変えて実行しない。
 test("375px: 期間の途中では、途中経過のバッジと進み具合・このあとの予定が出る", async ({
   page,
   testUser,
@@ -72,4 +74,22 @@ test("375px: 期間の途中では、途中経過のバッジと進み具合・�
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("375px: 過去の期間では、途中経過の表示を出さない", async ({
+  page,
+  testUser,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("メールアドレス").fill(testUser.email);
+  await page.getByLabel("パスワード").fill(testUser.password);
+  await page.getByRole("button", { name: "ログイン", exact: true }).click();
+  await expect(page).toHaveURL(/\/calendar(?:\?|$)/);
+
+  await page.goto("/summary?range=custom&from=2026-01-05&to=2026-01-06");
+
+  await expect(page.getByTestId("gap-hero-value")).toBeVisible();
+  await expect(page.getByTestId("gap-hero-partial-badge")).toHaveCount(0);
+  await expect(page.getByTestId("gap-hero-progress")).toHaveCount(0);
+  await expect(page.getByTestId("gap-hero-upcoming")).toHaveCount(0);
 });
