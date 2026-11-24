@@ -45,6 +45,9 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run lint
+      # 依存方向・循環と、未使用/未宣言の npm パッケージ(G-110)
+      - run: npm run check:deps
+      - run: npm run check:packages
       - run: npm test
       - run: npm run build
 

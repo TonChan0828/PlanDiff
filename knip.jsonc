@@ -1,0 +1,20 @@
+{
+  // 仕様書: docs/specs/G-110_内部モジュール依存とnpmパッケージの検査.md
+  // 未使用・未宣言の npm パッケージと未使用ファイルを検査する(未使用の export は対象外)。
+  // proxy.ts / instrumentation.ts / playwright.config.ts などは Next.js・Playwright のプラグインが
+  // エントリとして認識するため、ここには書かない。
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.ts",
+    "scripts/**/*.mjs",
+    "tests/**/*.{ts,tsx}",
+    "*.{ts,mjs}",
+  ],
+  "entry": ["scripts/*.mjs", "tests/**/*.{ts,tsx}", "vitest.config*.ts"],
+  "exclude": ["exports", "types", "enumMembers", "duplicates"],
+  // app/globals.css の `@import "tailwindcss"` と postcss.config.mjs から使う。
+  // knip は CSS の import を追わないため、未使用と誤判定される。
+  "ignoreDependencies": ["tailwindcss"],
+}

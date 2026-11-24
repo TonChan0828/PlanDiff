@@ -14,7 +14,9 @@
     "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "check:deps": "depcruise app components lib proxy.ts instrumentation.ts instrumentation-client.ts --config .dependency-cruiser.cjs",
+    "check:packages": "knip",
+    "check": "npm run typecheck && npm run lint && npm run check:deps && npm run check:packages && npm test && npm run build",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -42,13 +44,16 @@
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.11",
+    "dependency-cruiser": "18.9.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "jsdom": "^29.1.1",
+    "knip": "6.48.0",
     "postgres": "^3.4.9",
     "prettier": "^3.9.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
+    "tinyglobby": "0.2.17",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.9"
