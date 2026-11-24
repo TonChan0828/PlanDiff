@@ -5,12 +5,35 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  # Share a group across updates to each PR, but keep every main push separate.
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate GitHub Actions workflows
+        shell: bash
+        run: |
+          archive=actionlint_1.7.12_linux_amd64.tar.gz
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v1.7.12/$archive"
+          printf '%s  %s\n' \
+            '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
+            "$RUNNER_TEMP/$archive" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -28,17 +51,20 @@ jobs:
   integration:
     name: Integration and migration tests (local Supabase)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.107.0
       - name: Start disposable local Supabase
@@ -70,19 +96,22 @@ jobs:
   e2e:
     name: Mobile browser tests (local Supabase)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
       APP_ORIGIN: "http://127.0.0.1:3000"
       PRO_INTEREST_HMAC_SECRET: "local-ci-only-security-test-secret-32-bytes"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.107.0
       - name: Install Chromium and Linux dependencies
@@ -113,7 +142,7 @@ jobs:
       - run: npm run test:e2e
       - name: Upload browser diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-diagnostics
           path: |
