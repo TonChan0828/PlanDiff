@@ -1,4 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// 現在時刻に依存しないよう、モジュール評価より前に時刻まで固定する(CLAUDE.md R-1)。
+// G-90 の途中経過の集計は「開始が現在より後の予定」を除くため、実時刻だと早朝に予定が除かれて落ちる。
+// 夜の23:30にすると、日中の予定がすべて経過した扱いになる。
+vi.hoisted(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(new Date(2026, 10, 24, 23, 30, 0));
+});
 import { render, screen } from "@testing-library/react";
 import { startOfDay } from "date-fns";
 
