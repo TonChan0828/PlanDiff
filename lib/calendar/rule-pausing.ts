@@ -1,11 +1,11 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/types";
 import type { RulePauseSuggestion } from "@/lib/calendar/recurring-id";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
 export async function fetchRulePauseSuggestions(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
 ): Promise<RulePauseSuggestion[]> {
   const { data, error } = await client.rpc("get_recurring_pause_suggestions");
   // 読み取り失敗を「未記録」として扱わない。候補の表示だけを省略する。
@@ -30,7 +30,7 @@ export async function fetchRulePauseSuggestions(
 export type RulePauseAction = "pause" | "resume" | "snooze";
 
 export async function setRulePause(
-  client: SupabaseClient,
+  client: AppSupabaseClient,
   ruleId: string,
   action: RulePauseAction,
 ): Promise<{ ok: boolean }> {
