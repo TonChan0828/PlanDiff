@@ -598,11 +598,22 @@ function toUtcDateString(iso: string, dayOffset: number): string {
  * 再実体化する際、Next.jsのfetchリクエストメモ化により直前と同一のSELECTが
  * 更新前の内容を返してしまう(既存の書き込みを拾えない)ことを避けるために必要。
  */
+export interface MaterializeOptions {
+  /**
+   * 既存の行を上書きするルール(G-112)。既定は上書きしない(ignoreDuplicates)。
+   * 自動調整の直後に、調整したルールの今日以降の行を新しい値へそろえるために使う。
+   */
+  overwriteRuleIds?: string[];
+  /** 上書き対象にする行の開始時刻の下限(この時刻以降の行だけ上書きする) */
+  overwriteFrom?: Date;
+}
+
 export async function materializeRecurringInstances(
   client: AppSupabaseClient,
   baseDate: Date,
   range: SyncRange = computeSyncRange(baseDate),
   prefetchedRules?: RecurringRuleSummary[],
+  options?: MaterializeOptions,
 ): Promise<RecurringRuleSummary[]> {
   const sessionUser = await getSessionUser(client);
   if (!sessionUser) {
@@ -712,15 +723,32 @@ export async function materializeRecurringInstances(
     return summaries;
   }
 
-  const { error: upsertError } = await client
-    .from("synced_events")
-    .upsert(rows, {
-      onConflict: "user_id,google_event_id",
-      ignoreDuplicates: true,
-    });
-  if (upsertError) {
-    // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
-    console.error("繰り返し予定の実体化に失敗しました", upsertError);
+  const overwriteRuleIds = new Set(options?.overwriteRuleIds ?? []);
+  const overwriteFromMs = options?.overwriteFrom?.getTime();
+  const shouldOverwrite = (row: (typeof rows)[number]) =>
+    overwriteFromMs !== undefined &&
+    overwriteRuleIds.has(
+      parseRecurringEventId(row.google_event_id)?.ruleId ?? "",
+    ) &&
+    new Date(row.start_at).getTime() >= overwriteFromMs;
+  const overwriteRows = rows.filter(shouldOverwrite);
+  const insertOnlyRows = rows.filter((row) => !shouldOverwrite(row));
+
+  // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
+  for (const [batch, ignoreDuplicates] of [
+    [insertOnlyRows, true],
+    [overwriteRows, false],
+  ] as const) {
+    if (batch.length === 0) continue;
+    const { error: upsertError } = await client
+      .from("synced_events")
+      .upsert(batch as typeof rows, {
+        onConflict: "user_id,google_event_id",
+        ignoreDuplicates,
+      });
+    if (upsertError) {
+      console.error("繰り返し予定の実体化に失敗しました", upsertError);
+    }
   }
   return summaries;
 }
