@@ -3,11 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarView } from "@/components/calendar-view";
 import { fetchSyncedEvents } from "@/lib/calendar/events";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
-import { materializeRecurringInstances } from "@/lib/calendar/recurring";
-import {
-  applyRuleAdjustments,
-  computeRuleAdjustments,
-} from "@/lib/calendar/rule-learning";
+import { prepareRecurringEvents } from "@/lib/calendar/recurring-sync";
 import { fetchRulePauseSuggestions } from "@/lib/calendar/rule-pausing";
 import { parseDateParam } from "@/lib/calendar/view-date";
 import { isGoogleIntegrationEnabled } from "@/lib/google/integration-flag";
@@ -16,7 +12,6 @@ import { getGoogleRefreshToken } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/supabase/session-user";
 import {
-  fetchRuleLearningEntries,
   fetchRunningEntry,
   fetchSuggestionSourceEntries,
   fetchTimeEntries,
@@ -61,65 +56,38 @@ export default async function CalendarPage({
   const googleEnabled = isGoogleIntegrationEnabled();
 
   // オンボ判定の profiles 取得は実体化と独立なので並列化する(P6-1)。
-  // 繰り返し予定の実体化はfetchSyncedEventsの直前に完了させる必要がある(P5-1)ため、
-  // 読み取りの Promise.all より前に置く点は変えない。
+  // 定期予定の準備(実体化 → 自動調整 → 再実体化)は prepareRecurringEvents にまとめてある(G-112)。
+  // 実体化は fetchSyncedEvents の直前に完了させる必要がある(P5-1)ため、読み取りの Promise.all より前に置く。
+  // 自動調整は書き込みなので、オンボーディング済みと分かってから行う(canAdjust)。
   // redirect() は例外を投げるため Promise.all の中では呼ばず、解決後に判定する
-  const [profileResult, recurringRules] = await Promise.all([
+  const now = new Date();
+  // Supabase のクエリは then() のたびにリクエストを送る。Promise に一度だけ変換し、
+  // Promise.all と canAdjust の両方で同じ結果を使い回す(プロフィールの取得を二重に送らない)
+  const profilePromise = Promise.resolve(
     supabase
       .from("profiles")
       .select("onboarded_at")
       .eq("id", sessionUser.id)
       .single(),
-    materializeRecurringInstances(supabase, baseDate),
+  );
+  const [profileResult, prepared] = await Promise.all([
+    profilePromise,
+    prepareRecurringEvents(supabase, {
+      baseDate,
+      now,
+      canAdjust: profilePromise.then(
+        (result) => !shouldRedirectToOnboarding(result.data),
+      ),
+    }),
   ]);
   if (shouldRedirectToOnboarding(profileResult.data)) {
     redirect("/onboarding");
   }
-
-  // 定期予定の自動学習補正(P10-1/P10-3)。自動調整が有効なルールが1件もなければ
-  // 実績の追加取得ごとスキップする。調整が実際にあった場合のみ再実体化し、
-  // 今日以降のsynced_eventsを新しい値で作り直す(古い値のままにしない)
-  const now = new Date();
-  const hasAutoAdjustRules = recurringRules.some(
-    (rule) => rule.autoAdjustEnabled,
-  );
+  const { recurringRules: finalRecurringRules, ruleAdjustments } = prepared;
   // 休止提案(P10-2)の対象は提案経由のルールのまま(P10-3のスコープ外)
-  const hasSuggestionOriginRules = recurringRules.some(
+  const hasSuggestionOriginRules = finalRecurringRules.some(
     (rule) => rule.origin === "suggestion",
   );
-  const ruleAdjustments = hasAutoAdjustRules
-    ? await applyRuleAdjustments(
-        supabase,
-        computeRuleAdjustments(
-          recurringRules,
-          await fetchRuleLearningEntries(supabase, now),
-          now,
-        ),
-        now,
-      )
-    : [];
-  // Next.jsのfetchリクエストメモ化により、recurring_rulesへ全く同じSELECTを
-  // 同一レンダー内で再度投げても更新前の内容が返ってしまう。そのため再実体化は
-  // DBを読み直さず、既知のルール一覧に今回の調整結果をマージした値を明示的に渡す
-  const finalRecurringRules =
-    ruleAdjustments.length > 0
-      ? await materializeRecurringInstances(
-          supabase,
-          baseDate,
-          undefined,
-          recurringRules.map((rule) => {
-            const notice = ruleAdjustments.find((n) => n.ruleId === rule.id);
-            return notice
-              ? {
-                  ...rule,
-                  startTime: notice.newStartTime,
-                  endTime: notice.newEndTime,
-                  lastLearnedAt: now.toISOString(),
-                }
-              : rule;
-          }),
-        )
-      : recurringRules;
 
   const [
     events,

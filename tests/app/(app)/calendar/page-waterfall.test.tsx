@@ -114,6 +114,54 @@ describe("並列化してもオンボ判定が変わらないこと(S10・S11)",
     expect(redirectMock).toHaveBeenCalledWith("/onboarding");
   });
 
+  it("G-112: onboarded_at が null のユーザーには、自動調整の書き込み(rpc)を行わない", async () => {
+    const client = mockClient(null);
+    createClientMock.mockResolvedValue(client);
+    materializeMock.mockResolvedValue([RULE]);
+
+    await CalendarPage({ searchParams: Promise.resolve({}) });
+
+    expect(redirectMock).toHaveBeenCalledWith("/onboarding");
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("G-112: オンボ済みなら、自動調整が有効なルールの学習判定(rpc)を行う", async () => {
+    const client = mockClient("2026-07-01T00:00:00Z");
+    createClientMock.mockResolvedValue(client);
+    materializeMock.mockResolvedValue([RULE]);
+
+    render(await CalendarPage({ searchParams: Promise.resolve({}) }));
+
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("G-112: プロフィールの取得は1回だけ送る(クエリの then を1回しか呼ばない)", async () => {
+    // Supabase のクエリは then() のたびにリクエストを送る。then の呼び出し回数 = 送信回数
+    let thenCalls = 0;
+    const query = {
+      then: (
+        resolve: (value: unknown) => unknown,
+        reject: (reason: unknown) => unknown,
+      ) => {
+        thenCalls += 1;
+        return Promise.resolve({
+          data: { onboarded_at: "2026-07-01T00:00:00Z" },
+        }).then(resolve, reject);
+      },
+    };
+    const client = mockClient("2026-07-01T00:00:00Z");
+    vi.mocked(client.from).mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({ single: vi.fn().mockReturnValue(query) }),
+      }),
+    } as never);
+    createClientMock.mockResolvedValue(client);
+
+    render(await CalendarPage({ searchParams: Promise.resolve({}) }));
+
+    expect(thenCalls).toBe(1);
+  });
+
   it("S11: 実体化が失敗(空配列)してもオンボ判定は従来どおり機能する", async () => {
     createClientMock.mockResolvedValue(mockClient(null));
     materializeMock.mockResolvedValue([]);
