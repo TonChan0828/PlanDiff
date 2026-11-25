@@ -86,7 +86,22 @@ jobs:
       - name: Verify generated database types are up to date
         shell: bash
         run: |
-          npm run db:types
+          # 型の生成は pg-meta の Docker イメージを取得する。レジストリの取得量制限
+          # (`Data limit exceeded`)などの一時的な失敗でCIが落ちないよう、生成だけを再試行する。
+          # ずれの判定(下の git diff)は再試行しない。
+          generated=0
+          for attempt in 1 2 3; do
+            if npm run db:types; then
+              generated=1
+              break
+            fi
+            echo "::warning::型の生成に失敗しました(試行 ${attempt}/3)。一時的な失敗の可能性があるため、待って再試行します。"
+            sleep $((attempt * 30))
+          done
+          if [ "$generated" -ne 1 ]; then
+            echo "::error::型の生成に3回失敗しました。ログのレジストリ・Docker のエラーを確認してください。" >&2
+            exit 1
+          fi
           if ! git diff --exit-code -- lib/supabase/database.types.ts; then
             echo "::error::lib/supabase/database.types.ts がマイグレーションと一致しません。npm run db:types を実行して差分をコミットしてください。" >&2
             exit 1
