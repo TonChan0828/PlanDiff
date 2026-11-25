@@ -14,14 +14,14 @@ vi.mock("@/lib/calendar/layout", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/calendar/layout")>();
   return { ...actual, layoutDayEvents: vi.fn(actual.layoutDayEvents) };
 });
-vi.mock("@/app/(app)/calendar/timer-actions", () => ({
+vi.mock("@/lib/timer/actions", () => ({
   startTimerAction: vi.fn(),
   stopTimerAction: vi.fn(),
   updateTimeEntryAction: vi.fn(),
   deleteTimeEntryAction: vi.fn(),
   updateRunningStartAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/calendar/event-actions", () => ({
+vi.mock("@/lib/calendar/actions", () => ({
   createAppEventAction: vi.fn(),
   updateAppEventAction: vi.fn(),
   deleteAppEventAction: vi.fn(),

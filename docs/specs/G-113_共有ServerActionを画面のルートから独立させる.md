@@ -28,7 +28,7 @@
 ### Server Action の移動(挙動は変えない)
 
 - `app/(app)/calendar/timer-actions.ts` → `lib/timer/actions.ts`(タイマー操作。`startTimerAction` など5件)
-- `app/(app)/calendar/event-actions.ts` → `lib/calendar/actions.ts`(予定・定期予定の操作。`createAppEventAction` など10件)
+- `app/(app)/calendar/event-actions.ts` → `lib/calendar/actions.ts`(予定・定期予定の操作。`createAppEventAction` など9件)
 - ファイルの内容は変えない(`"use server"`・関数名・引数・戻り値・認証確認 → service → `revalidatePath` の順序を維持)
   - 認証がなければ `redirect("/login")`
   - 成功時のみ `revalidatePath("/calendar")` と `revalidatePath("/track")`
@@ -63,7 +63,7 @@
 - A1 [単体]: Given 未ログイン When `startTimerAction` など5件のタイマー操作を呼ぶ Then `redirect("/login")` が呼ばれ、service は呼ばれない
 - A2 [単体]: Given ログイン済みで service が成功 When タイマー操作を呼ぶ Then service の結果をそのまま返し、`/calendar` と `/track` を再検証する
 - A3 [単体]: Given service が失敗(`ok: false`) When タイマー操作を呼ぶ Then 再検証しない
-- A4 [単体]: 予定・定期予定の操作(`createAppEventAction` ほか10件)について、A1〜A3 と同じ振る舞い(認証・成功時のみ再検証)
+- A4 [単体]: 予定・定期予定の操作(`createAppEventAction` ほか9件)について、A1〜A3 と同じ振る舞い(認証・成功時のみ再検証)。再検証するパスは Action ごとに違う(`disableRuleLearningAction` は `/calendar` のみ、`setRulePauseAction` は `/summary` も)ため、現行の挙動を表にして固定する
 - A5 [単体・境界]: `updateRunningStartAction`・`deleteTimeEntryAction` の引数が service へそのまま渡る
 - A6 [画面]: 既存の画面テスト(calendar-view / track-view / plan-suggestions / rule-pause-review ほか)が、新しいパスのモックで全件合格する
 - A7 [検査]: `npm run check:deps` が合格する。`components/` から `app/(app)/calendar/` の Action を参照するフィクスチャは `components-not-to-app` で違反になる

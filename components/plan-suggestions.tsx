@@ -7,7 +7,7 @@ import { TZDate } from "@date-fns/tz";
 import {
   createAppEventAction,
   createRecurringRuleAction,
-} from "@/app/(app)/calendar/event-actions";
+} from "@/lib/calendar/actions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
 import {

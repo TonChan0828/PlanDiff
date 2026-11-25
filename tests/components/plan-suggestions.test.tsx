@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => routerMock }));
 
 const createAppEventAction = vi.fn();
 const createRecurringRuleAction = vi.fn();
-vi.mock("@/app/(app)/calendar/event-actions", () => ({
+vi.mock("@/lib/calendar/actions", () => ({
   createAppEventAction: (...args: unknown[]) => createAppEventAction(...args),
   createRecurringRuleAction: (...args: unknown[]) =>
     createRecurringRuleAction(...args),

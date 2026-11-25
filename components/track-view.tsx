@@ -10,9 +10,9 @@ import {
   startTimerAction,
   stopTimerAction,
   updateRunningStartAction,
-} from "@/app/(app)/calendar/timer-actions";
+} from "@/lib/timer/actions";
 import dynamic from "next/dynamic";
-import { createAppEventAction } from "@/app/(app)/calendar/event-actions";
+import { createAppEventAction } from "@/lib/calendar/actions";
 
 // 編集系パネルは「開いたときだけ」描画されるため、初回ロードから外す(P6-3)
 const AppEventPanel = dynamic(() =>
