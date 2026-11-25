@@ -56,14 +56,14 @@ import {
   disableRuleLearningAction,
   updateAppEventAction,
   updateRecurringRuleAction,
-} from "@/app/(app)/calendar/event-actions";
+} from "@/lib/calendar/actions";
 import {
   deleteTimeEntryAction,
   startTimerAction,
   stopTimerAction,
   updateRunningStartAction,
   updateTimeEntryAction,
-} from "@/app/(app)/calendar/timer-actions";
+} from "@/lib/timer/actions";
 import type {
   AppEventPanelValues,
   RecurringSubmitValues,

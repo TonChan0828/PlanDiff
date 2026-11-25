@@ -25,13 +25,13 @@ const {
   deleteRecurringOccurrenceActionMock: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => routerMock }));
-vi.mock("@/app/(app)/calendar/timer-actions", () => ({
+vi.mock("@/lib/timer/actions", () => ({
   startTimerAction: startTimerActionMock,
   stopTimerAction: vi.fn(),
   updateTimeEntryAction: vi.fn(),
   deleteTimeEntryAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/calendar/event-actions", () => ({
+vi.mock("@/lib/calendar/actions", () => ({
   createAppEventAction: createAppEventActionMock,
   updateAppEventAction: updateAppEventActionMock,
   deleteAppEventAction: deleteAppEventActionMock,

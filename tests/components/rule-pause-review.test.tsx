@@ -17,7 +17,7 @@ const { save, refresh } = vi.hoisted(() => ({
   save: vi.fn(),
   refresh: vi.fn(),
 }));
-vi.mock("@/app/(app)/calendar/event-actions", () => ({
+vi.mock("@/lib/calendar/actions", () => ({
   setRulePauseAction: save,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));

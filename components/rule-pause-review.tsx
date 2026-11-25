@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { setRulePauseAction } from "@/app/(app)/calendar/event-actions";
+import { setRulePauseAction } from "@/lib/calendar/actions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import {
   isRulePaused,

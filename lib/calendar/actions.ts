@@ -26,7 +26,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/supabase/session-user";
 
 // アプリ内予定のServer Action(P2-5)。認証確認 → lib/calendar/app-events → revalidate。
-// timer-actions.ts と同じパターン。DB書き込みはユーザー本人のRLSクライアントのみ。
+// lib/timer/actions.ts と同じパターン。DB書き込みはユーザー本人のRLSクライアントのみ。
 
 export async function createAppEventAction(
   input: AppEventInput,

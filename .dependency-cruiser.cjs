@@ -24,14 +24,15 @@ module.exports = {
     {
       name: "components-not-to-app",
       comment:
-        "components は app に依存しない。例外: Server Action(app 配下の actions.ts / *-actions.ts)は Next.js の規約上クライアントから参照する",
+        "components は app に依存しない。複数画面で使う操作(Server Action)は lib/<機能>/actions.ts に置く(G-113)。例外は、単一の画面だけが所有する Server Action(オンボーディング・設定)。新しい画面専用の Action を足すときは、ここへ追加する",
       severity: "error",
       from: { path: "^components/" },
       to: {
         path: "^app/",
-        // dependency-cruiser は入れ子の量指定子を含む正規表現を拒否するため、単純なパターンに分ける。
-        // `/actions.ts` と `-actions.ts` だけを許可し、transactions.ts のような名前は許可しない
-        pathNot: ["/actions\\.ts$", "-actions\\.ts$"],
+        pathNot: [
+          "^app/\\(app\\)/onboarding/actions\\.ts$",
+          "^app/\\(app\\)/settings/actions\\.ts$",
+        ],
       },
     },
   ],

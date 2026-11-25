@@ -60,7 +60,13 @@ describe("依存関係のルール(G-110)", () => {
     );
   });
 
-  it("E4: components から Server Action(actions.ts)への参照は許可される", async () => {
-    expect(await violationsOf("component-to-actions")).toEqual([]);
+  it("G-113: 共有の Server Action(app/calendar 配下の event-actions.ts)への参照は違反になる", async () => {
+    expect(await violationsOf("component-to-actions")).toContain(
+      "components-not-to-app",
+    );
+  });
+
+  it("G-113: 単一の画面が所有する Server Action(app/(app)/settings/actions.ts)への参照は許可される", async () => {
+    expect(await violationsOf("component-to-screen-actions")).toEqual([]);
   });
 });
