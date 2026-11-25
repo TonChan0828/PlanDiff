@@ -6,6 +6,7 @@ import {
   RECURRING_ID_PREFIX,
   type RecurringRuleFormInput,
 } from "@/lib/calendar/recurring";
+import { updateAppEvent } from "@/lib/calendar/app-events";
 import {
   prepareRecurringEvents,
   rematerializeAdjustedRules,
@@ -51,7 +52,11 @@ function jstIso(dateOnly: string, hour: number, minute: number): string {
   ).toISOString();
 }
 
-async function insertRule(user: TestUser): Promise<string> {
+async function insertRule(
+  user: TestUser,
+  startTime = BASE_INPUT.startTime,
+  endTime = BASE_INPUT.endTime,
+): Promise<string> {
   const { data, error } = await admin
     .from("recurring_rules")
     .insert({
@@ -59,8 +64,8 @@ async function insertRule(user: TestUser): Promise<string> {
       title: BASE_INPUT.title,
       pattern: BASE_INPUT.pattern,
       weekdays: BASE_INPUT.weekdays,
-      start_time: BASE_INPUT.startTime,
-      end_time: BASE_INPUT.endTime,
+      start_time: startTime,
+      end_time: endTime,
       timezone: BASE_INPUT.timezone,
       starts_on: BASE_INPUT.startsOn,
       ends_on: BASE_INPUT.endsOn,
@@ -73,10 +78,15 @@ async function insertRule(user: TestUser): Promise<string> {
   return data!.id as string;
 }
 
-/** 09:15 開始・45分の実績を3回分入れ、09:15〜10:00 への調整が出る状態にする */
-async function insertLearningEntries(user: TestUser, ruleId: string) {
+/** 指定の開始時刻・45分の実績を3回分入れる(既定は 09:15 開始 → 09:15〜10:00 への調整が出る) */
+async function insertLearningEntries(
+  user: TestUser,
+  ruleId: string,
+  hour = 9,
+  minute = 15,
+) {
   for (const date of ["2026-07-06", "2026-07-13", "2026-07-20"]) {
-    const startAt = jstIso(date, 9, 15);
+    const startAt = jstIso(date, hour, minute);
     const { error } = await admin.from("time_entries").insert({
       user_id: user.id,
       title: "朝会",
@@ -269,5 +279,81 @@ describe("定期予定の準備(G-112)", () => {
       .single();
     expect(rowB!.start_time).toBe("09:00:00");
     expect(await ruleEventRows(ruleB)).toEqual([]);
+  });
+
+  it("B13: 開始済みの回を個別編集していた場合、調整後の再実体化でその内容を上書きしない", async () => {
+    // 09:05 JST。今日の回(09:00 開始)はすでに始まっている
+    const now = new Date(new TZDate(2026, 7, 13, 9, 5, 0, TZ).getTime());
+    const ruleId = await insertRule(userA);
+    await insertLearningEntries(userA, ruleId);
+    await materializeRecurringInstances(userA.client, now);
+    const todayId = `${RECURRING_ID_PREFIX}${ruleId}:2026-08-13`;
+    const { data: todayRow } = await admin
+      .from("synced_events")
+      .select("id")
+      .eq("google_event_id", todayId)
+      .single();
+    // 「この予定のみ」の編集(updateAppEvent は rec: の行も更新できる)
+    const edited = await updateAppEvent(userA.client, todayRow!.id as string, {
+      title: "個別に編集した朝会",
+      startAt: jstIso("2026-08-13", 8, 0),
+      endAt: jstIso("2026-08-13", 8, 20),
+    });
+    expect(edited.ok).toBe(true);
+
+    const result = await prepareRecurringEvents(userA.client, {
+      baseDate: now,
+      now,
+    });
+
+    expect(result.ruleAdjustments).toHaveLength(1);
+    const { data: after } = await admin
+      .from("synced_events")
+      .select("title, start_at")
+      .eq("google_event_id", todayId)
+      .single();
+    expect(after!.title).toBe("個別に編集した朝会");
+    expect(new Date(after!.start_at as string).toISOString()).toBe(
+      jstIso("2026-08-13", 8, 0),
+    );
+  });
+
+  it("B14: 調整で開始が現在より前に早まる場合も、調整前の時刻で入り直した今日の行が新しい時刻にそろう", async () => {
+    // 09:10 JST。調整前の今日の回(09:15)はまだ始まっておらず、調整後(09:00)は過去になる
+    const now = new Date(new TZDate(2026, 7, 13, 9, 10, 0, TZ).getTime());
+    const ruleId = await insertRule(userA, "09:15", "10:00");
+    await insertLearningEntries(userA, ruleId, 9, 0);
+    await materializeRecurringInstances(userA.client, now);
+    const staleRules = await fetchRecurringRules(userA.client);
+    const adjustments = await applyRuleAdjustments(
+      userA.client,
+      computeRuleAdjustments(
+        await fetchRecurringRules(userA.client),
+        await fetchEntries(userA),
+        now,
+      ),
+      now,
+    );
+    expect(adjustments).toHaveLength(1);
+    // 別リクエストが、調整前のルールで今日の 09:15 の行を入れ直す
+    await materializeRecurringInstances(
+      userA.client,
+      now,
+      undefined,
+      staleRules,
+    );
+
+    await rematerializeAdjustedRules(userA.client, {
+      baseDate: now,
+      now,
+      rules: staleRules,
+      adjustments,
+    });
+
+    const todayRow = (await ruleEventRows(ruleId)).find((r) =>
+      r.id.endsWith(":2026-08-13"),
+    );
+    expect(todayRow).toBeDefined();
+    expect(hhmmUtc(todayRow!.startAt)).toBe("00:00"); // 09:00 JST
   });
 });

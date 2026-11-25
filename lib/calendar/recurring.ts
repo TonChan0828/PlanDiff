@@ -582,10 +582,25 @@ function toUtcDateString(iso: string, dayOffset: number): string {
 
 // --- 実体化(表示範囲の読み込み時に呼ぶ) ---
 
+export interface MaterializeOptions {
+  /**
+   * 既存の行を上書きするルール(G-112)。既定は上書きしない(ignoreDuplicates)。
+   * 自動調整の直後に、調整したルールの行を新しい値へそろえるために使う。
+   */
+  overwriteRuleIds?: string[];
+  /**
+   * 上書き対象にする**既存行の**開始時刻の下限。この時刻以降に始まる既存行だけを上書きする。
+   * 自動調整の RPC(apply_recurring_rule_learning)が削除する範囲(既存行の start_at >= now)と
+   * そろえるためで、新しく計算した行の時刻では判定しない。始まった回(個別編集した回を含む)は上書きしない。
+   */
+  overwriteFrom?: Date;
+}
+
 /**
  * 本人の繰り返しルールを表示範囲に展開し、
  * synced_events へ source='app' で冪等insertする(ON CONFLICT DO NOTHING)。
- * 既存行(個別編集済みの回を含む)は一切上書きしない。失敗してもページ全体は落とさない。
+ * 既存行(個別編集済みの回を含む)は上書きしない。ただし `options.overwriteRuleIds` を指定したルールの、
+ * 開始が `options.overwriteFrom` 以降の既存行だけは上書きする(G-112)。失敗してもページ全体は落とさない。
  *
  * 範囲は既定で「baseDateの週±1週間」。サマリーの任意期間表示(P5-9)では
  * 選択期間を `range` で明示して渡し、その期間ぶんも実体化する。
@@ -598,16 +613,6 @@ function toUtcDateString(iso: string, dayOffset: number): string {
  * 再実体化する際、Next.jsのfetchリクエストメモ化により直前と同一のSELECTが
  * 更新前の内容を返してしまう(既存の書き込みを拾えない)ことを避けるために必要。
  */
-export interface MaterializeOptions {
-  /**
-   * 既存の行を上書きするルール(G-112)。既定は上書きしない(ignoreDuplicates)。
-   * 自動調整の直後に、調整したルールの今日以降の行を新しい値へそろえるために使う。
-   */
-  overwriteRuleIds?: string[];
-  /** 上書き対象にする行の開始時刻の下限(この時刻以降の行だけ上書きする) */
-  overwriteFrom?: Date;
-}
-
 export async function materializeRecurringInstances(
   client: AppSupabaseClient,
   baseDate: Date,
@@ -723,16 +728,17 @@ export async function materializeRecurringInstances(
     return summaries;
   }
 
-  const overwriteRuleIds = new Set(options?.overwriteRuleIds ?? []);
-  const overwriteFromMs = options?.overwriteFrom?.getTime();
-  const shouldOverwrite = (row: (typeof rows)[number]) =>
-    overwriteFromMs !== undefined &&
-    overwriteRuleIds.has(
-      parseRecurringEventId(row.google_event_id)?.ruleId ?? "",
-    ) &&
-    new Date(row.start_at).getTime() >= overwriteFromMs;
-  const overwriteRows = rows.filter(shouldOverwrite);
-  const insertOnlyRows = rows.filter((row) => !shouldOverwrite(row));
+  // 上書きするのは、調整したルールの行のうち、DB にある**既存行**の開始が overwriteFrom 以降のものだけ。
+  // 調整の RPC が削除する範囲と同じで、そのあと別リクエストが調整前のルールで入れ直した行に当たる。
+  // 新しい行の時刻で判定しない理由: 開始済みの回や「この予定のみ」で個別編集した回を、ルールの値で
+  // 消さないため(新しい時刻が now 以降でも、既存行が過去なら触らない)。
+  const overwriteIds = await findOverwritableEventIds(client, rows, options);
+  const overwriteRows = rows.filter((row) =>
+    overwriteIds.has(row.google_event_id),
+  );
+  const insertOnlyRows = rows.filter(
+    (row) => !overwriteIds.has(row.google_event_id),
+  );
 
   // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
   for (const [batch, ignoreDuplicates] of [
@@ -751,4 +757,35 @@ export async function materializeRecurringInstances(
     }
   }
   return summaries;
+}
+
+/** 上書きの対象にする既存行の google_event_id を求める。対象がなければ空集合(DBへ問い合わせない) */
+async function findOverwritableEventIds(
+  client: AppSupabaseClient,
+  rows: { google_event_id: string }[],
+  options: MaterializeOptions | undefined,
+): Promise<Set<string>> {
+  const overwriteFrom = options?.overwriteFrom;
+  const ruleIds = new Set(options?.overwriteRuleIds ?? []);
+  if (!overwriteFrom || ruleIds.size === 0) {
+    return new Set();
+  }
+  const candidateIds = rows
+    .map((row) => row.google_event_id)
+    .filter((id) => ruleIds.has(parseRecurringEventId(id)?.ruleId ?? ""));
+  if (candidateIds.length === 0) {
+    return new Set();
+  }
+  const { data, error } = await client
+    .from("synced_events")
+    .select("google_event_id")
+    .eq("source", "app")
+    .in("google_event_id", candidateIds)
+    .gte("start_at", overwriteFrom.toISOString());
+  if (error || !data) {
+    // 既存行を確認できないときは上書きしない(個別編集を消すより、古い時刻が残るほうがよい)
+    console.error("上書き対象の既存の定期予定を確認できませんでした", error);
+    return new Set();
+  }
+  return new Set(data.map((row) => row.google_event_id));
 }

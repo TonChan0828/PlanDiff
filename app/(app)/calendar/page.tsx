@@ -61,17 +61,21 @@ export default async function CalendarPage({
   // 自動調整は書き込みなので、オンボーディング済みと分かってから行う(canAdjust)。
   // redirect() は例外を投げるため Promise.all の中では呼ばず、解決後に判定する
   const now = new Date();
-  const profileQuery = supabase
-    .from("profiles")
-    .select("onboarded_at")
-    .eq("id", sessionUser.id)
-    .single();
+  // Supabase のクエリは then() のたびにリクエストを送る。Promise に一度だけ変換し、
+  // Promise.all と canAdjust の両方で同じ結果を使い回す(プロフィールの取得を二重に送らない)
+  const profilePromise = Promise.resolve(
+    supabase
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", sessionUser.id)
+      .single(),
+  );
   const [profileResult, prepared] = await Promise.all([
-    profileQuery,
+    profilePromise,
     prepareRecurringEvents(supabase, {
       baseDate,
       now,
-      canAdjust: Promise.resolve(profileQuery).then(
+      canAdjust: profilePromise.then(
         (result) => !shouldRedirectToOnboarding(result.data),
       ),
     }),
