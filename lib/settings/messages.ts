@@ -40,6 +40,9 @@ export const SETTINGS_MESSAGES = {
   themeDark: "ダーク",
   themeSystem: "システムに合わせる",
 
-  // D-6: Structuredテーマ(コーラル×スレートブルーの暖色系)
-  themeStructured: "Structured",
+  // D-6: Structuredテーマ(コーラル×スレートブルーの暖色系)。表示名は日本語にそろえる(G-99)。
+  // 保存値とdata-themeは "structured" のまま
+  themeStructured: "あたたかい色",
+  themeStructuredDescription:
+    "「あたたかい色」は、暖色系の明るい配色です(端末のダーク設定に関係なく明るい表示になります)。",
 } as const;

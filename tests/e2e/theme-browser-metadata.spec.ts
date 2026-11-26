@@ -1,3 +1,4 @@
+import { expectNoHorizontalOverflow } from "./overflow";
 import { test, expect } from "./fixtures";
 
 const THEME_STORAGE_KEY = "plandiff-theme";
@@ -169,7 +170,18 @@ for (const theme of Object.keys(THEMES) as BrowserTheme[]) {
       originalTimeOrigin,
     );
 
-    await page.getByText("Structured", { exact: true }).click();
+    // G-99 F6: 375px の設定画面で、外観の選択肢と説明が横にはみ出さない
+    await expect(
+      page.getByText(/「あたたかい色」は、暖色系の明るい配色です/),
+    ).toBeVisible();
+    await expectNoHorizontalOverflow(
+      page.getByText(/「あたたかい色」は、暖色系の明るい配色です/),
+    );
+    await expectNoHorizontalOverflow(page.getByRole("group", { name: "外観" }));
+    await page.screenshot({
+      path: test.info().outputPath("theme-settings.png"),
+    });
+    await page.getByText("あたたかい色", { exact: true }).click();
     await expectThemeMetadata(page, "structured");
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(
       originalTimeOrigin,

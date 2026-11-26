@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { expectNoHorizontalOverflow } from "./overflow";
 
 test("S9: every public page has a fresh matching nonce and blocks untrusted inline scripts", async ({
   page,
@@ -92,11 +93,7 @@ test("S9/S10: protected pages retain nonce and working controls after sign in", 
     );
     expect(await page.locator("script[nonce]").count()).toBeGreaterThan(0);
     await expect(page.locator("body")).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBe(true);
+    await expectNoHorizontalOverflow(page.locator("main").first());
   }
   expect(violations).toEqual([]);
 });

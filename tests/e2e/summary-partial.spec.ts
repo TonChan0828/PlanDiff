@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { expectNoHorizontalOverflow } from "./overflow";
 
 // 仕様書: docs/specs/G-90_サマリーの途中経過と最終結果の分離.md A14
 // 期間「今日〜明後日」は現在時刻がいつでも途中経過になる。
@@ -69,11 +70,13 @@ test("375px: 期間の途中では、途中経過のバッジと進み具合・�
   await expect(page.getByTestId("gap-hero-upcoming")).toHaveText(
     "このあと 予定 1件(計画 1:00)",
   );
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
+  for (const id of [
+    "gap-hero-partial-badge",
+    "gap-hero-progress",
+    "gap-hero-upcoming",
+  ]) {
+    await expectNoHorizontalOverflow(page.getByTestId(id));
+  }
 });
 
 test("375px: 過去の期間では、途中経過の表示を出さない", async ({

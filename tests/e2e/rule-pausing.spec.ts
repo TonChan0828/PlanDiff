@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { expectNoHorizontalOverflow } from "./overflow";
 
 // 既存の使い捨てローカルユーザーで、375pxの実際の保存操作まで確認する。
 test("375px: 休止を提案し、翌日から休止・再開できる", async ({
@@ -37,11 +38,7 @@ test("375px: 休止を提案し、翌日から休止・再開できる", async (
   await expect(
     card.getByRole("button", { name: "14日後に再確認" }),
   ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
+  await expectNoHorizontalOverflow(card);
   await page.screenshot({
     path: "/tmp/plandiff-pause-mobile-light.png",
     fullPage: true,
@@ -62,15 +59,7 @@ test("375px: 休止を提案し、翌日から休止・再開できる", async (
   await expect(
     card.getByText(/^休止開始(予定)?: \d{4}\/\d+\/\d+$/),
   ).toBeVisible();
-  // カード内と、カードを入れているスクロール領域の両方で横はみ出しがないことを見る
-  // (カードが広がると、カード自体ではなく親の領域が横スクロールになる)
-  for (const target of [card, card.locator("..")]) {
-    expect(
-      await target.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth,
-      ),
-    ).toBe(true);
-  }
+  await expectNoHorizontalOverflow(card);
   await page.screenshot({ path: test.info().outputPath("paused-card.png") });
   const { data: pauses } = await testUser.admin
     .from("recurring_rule_pauses")

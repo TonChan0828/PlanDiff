@@ -1403,6 +1403,14 @@ function DayColumn({
   );
 }
 
+/** ブロックの時刻の表示。日をまたぐときは日付も出す。実行中は終了時刻がないため「記録中」とする */
+function blockTimeLabel(startAt: string, endAt: string, running = false) {
+  const start = parseISO(startAt);
+  const end = parseISO(endAt);
+  const pattern = isSameDay(start, end) ? "HH:mm" : "M/d HH:mm";
+  return `${format(start, pattern)}〜${running ? T.recording : format(end, pattern)}`;
+}
+
 function PlanBlock({
   block,
   showTime,
@@ -1443,6 +1451,16 @@ function PlanBlock({
         type="button"
         aria-label={tapLabel}
         aria-pressed={isRunning}
+        // 週表示はブロックが小さくタイトルが省略されるため、全文と時刻を title で読めるようにする(G-99)
+        title={
+          showTime
+            ? undefined
+            : M.blockTooltip(
+                block.title || M.untitled,
+                blockTimeLabel(block.startAt, block.endAt),
+                "",
+              )
+        }
         disabled={disabled}
         onClick={() => onTap(viewEvent)}
         className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left disabled:opacity-60 ${
@@ -1569,6 +1587,15 @@ function ActualBlock({
           ? `(${T.overrunLabel(gap.overrunMinutes)})`
           : "";
 
+  // 週表示の title には、読み上げ(aria-label)と同じ差分・フリーの情報を含める(G-99)
+  const tooltip = showTime
+    ? undefined
+    : M.blockTooltip(
+        block.title || M.untitled,
+        blockTimeLabel(block.startAt, block.endAt, !block.editable),
+        gapSuffix,
+      );
+
   const detailNode = showTime ? (
     <>
       {!gap.linked ? (
@@ -1602,21 +1629,37 @@ function ActualBlock({
     return (
       <li
         data-testid="actual-block"
+        title={tooltip}
         className={`absolute overflow-hidden border px-1 py-0.5 ${colorClassName} ${roundedClassName}`}
         style={positionStyle}
       >
-        {titleNode}
+        {tooltip ? (
+          // 操作できないブロックの title は支援技術で読まれないことが多いため、同じ内容を読み上げ用に持つ。
+          // 見えている省略表示は、二重に読まないよう読み上げから外す(G-99)
+          <>
+            <span className="sr-only">{tooltip}</span>
+            <div aria-hidden="true">{titleNode}</div>
+          </>
+        ) : (
+          titleNode
+        )}
       </li>
     );
   }
 
-  // 再計測(P5-4): ブロック全体は編集ボタンのため、入れ子を避けて兄弟要素として重ねる
+  // 再計測(P5-4): ブロック全体は編集ボタンのため、入れ子を避けて兄弟要素として重ねる。
+  // title は li に付け、重なる再計測ボタンの上でも同じ内容が出るようにする(G-99)
   // heightPercent由来の浮動小数点誤差(30分=27.999...px)を微小イプシロンで吸収する
   const blockPx = (block.heightPercent / 100) * 24 * HOUR_PX;
   const showRestart = blockPx >= RESTART_MIN_BLOCK_PX - 0.001;
 
   return (
-    <li data-testid="actual-block" className="absolute" style={positionStyle}>
+    <li
+      data-testid="actual-block"
+      title={tooltip}
+      className="absolute"
+      style={positionStyle}
+    >
       <button
         type="button"
         aria-label={`${T.editLabel(block.title)}${gapSuffix}`}
