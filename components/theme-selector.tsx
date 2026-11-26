@@ -78,6 +78,9 @@ export function ThemeSelector() {
           </label>
         ))}
       </div>
+      <p className="text-ink-muted text-xs leading-relaxed">
+        {M.themeStructuredDescription}
+      </p>
     </fieldset>
   );
 }

@@ -11,6 +11,9 @@ export const CALENDAR_MESSAGES = {
   syncError: "同期に失敗しました。時間をおいてもう一度お試しください",
   empty: "予定がありません",
   untitled: "(タイトルなし)",
+  // G-99: 週表示の省略されたブロックを、マウスを重ねて全文と時刻で読むための title
+  blockTooltip: (title: string, timeLabel: string, suffix: string) =>
+    `${title} ${timeLabel}${suffix}`,
   navPrev: "前へ",
   navNext: "次へ",
   navToday: "今日",

@@ -13,6 +13,27 @@ afterEach(() => {
   delete document.documentElement.dataset.theme;
 });
 
+describe("外観の表記(G-99 F1)", () => {
+  it("選択肢はすべて日本語で、「あたたかい色」の説明が出る", () => {
+    render(<ThemeSelector />);
+
+    for (const name of [
+      "ライト",
+      "ダーク",
+      "システムに合わせる",
+      "あたたかい色",
+    ]) {
+      expect(screen.getByRole("radio", { name })).toBeInTheDocument();
+    }
+    expect(
+      screen.getByText(
+        "「あたたかい色」は、暖色系の明るい配色です(端末のダーク設定に関係なく明るい表示になります)。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Structured")).not.toBeInTheDocument();
+  });
+});
+
 describe("ThemeSelector(S10〜S12 / D-6 S9〜S11)", () => {
   it("S9: 保存値なしでは4択が表示され「システムに合わせる」が選択済み", () => {
     render(<ThemeSelector />);
@@ -20,7 +41,9 @@ describe("ThemeSelector(S10〜S12 / D-6 S9〜S11)", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(4);
     expect(screen.getByRole("radio", { name: "ライト" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "ダーク" })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: "Structured" })).not.toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "あたたかい色" }),
+    ).not.toBeChecked();
     expect(
       screen.getByRole("radio", { name: "システムに合わせる" }),
     ).toBeChecked();
@@ -51,11 +74,11 @@ describe("ThemeSelector(S10〜S12 / D-6 S9〜S11)", () => {
     const user = userEvent.setup();
     render(<ThemeSelector />);
 
-    await user.click(screen.getByRole("radio", { name: "Structured" }));
+    await user.click(screen.getByRole("radio", { name: "あたたかい色" }));
 
     expect(document.documentElement.dataset.theme).toBe("structured");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("structured");
-    expect(screen.getByRole("radio", { name: "Structured" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "あたたかい色" })).toBeChecked();
   });
 
   it("S12: ダーク選択後にシステムへ戻すと属性が除去されsystemが保存される", async () => {
@@ -80,6 +103,6 @@ describe("ThemeSelector(S10〜S12 / D-6 S9〜S11)", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "structured");
     render(<ThemeSelector />);
 
-    expect(screen.getByRole("radio", { name: "Structured" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "あたたかい色" })).toBeChecked();
   });
 });
