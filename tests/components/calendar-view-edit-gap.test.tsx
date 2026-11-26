@@ -85,4 +85,51 @@ describe("カレンダーの実績ブロックから開く編集パネル(G-98)"
     expect(box.getByText("所要 +10分 超過")).toBeInTheDocument();
     expect(box.getByText("同じ予定の実績 2件の合計")).toBeInTheDocument();
   });
+
+  it("実行中タイマーも、サマリーと同じく同じ予定の実績として合計する", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <CalendarView
+        events={[
+          {
+            id: "row-1",
+            googleEventId: "g-1",
+            title: "設計レビュー",
+            startAt: iso(9),
+            endAt: iso(10),
+          },
+        ]}
+        timeEntries={[
+          {
+            id: "e1",
+            title: "設計レビュー",
+            googleEventId: "g-1",
+            startAt: iso(9),
+            endAt: iso(9, 40),
+          },
+        ]}
+        // 固定した現在時刻は 12:00。11:30 開始の実行中は 30 分
+        runningEntry={{
+          id: "running",
+          title: "設計レビュー",
+          googleEventId: "g-1",
+          startAt: iso(11, 30),
+        }}
+        viewParam="day"
+        dateParam="2026-07-07"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /^設計レビューの実績を編集/ }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    const box = within(
+      await within(dialog).findByRole("group", { name: "予定とのズレ" }),
+    );
+    // 40分 + 実行中30分 − 予定60分
+    expect(box.getByText("所要 +10分 超過")).toBeInTheDocument();
+    expect(box.getByText("同じ予定の実績 2件の合計")).toBeInTheDocument();
+  });
 });
