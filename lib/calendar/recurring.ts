@@ -728,33 +728,36 @@ export async function materializeRecurringInstances(
     return summaries;
   }
 
+  // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
+  const upsertEvents = async (
+    batch: typeof rows,
+    ignoreDuplicates: boolean,
+  ) => {
+    const { error } = await client.from("synced_events").upsert(batch, {
+      onConflict: "user_id,google_event_id",
+      ignoreDuplicates,
+    });
+    if (error) {
+      console.error("繰り返し予定の実体化に失敗しました", error);
+    }
+  };
+
+  // 先に全行を挿入のみで書き、そのあとで上書き対象を確認する。順序を逆にしてはいけない:
+  // 確認してから挿入するまでの間に、別リクエストが調整前の行を入れると、その行は上書き対象に入らず、
+  // 挿入も重複として無視されて残る(G-112。CIの同時表示テストで発生)。
+  // 先に挿入すれば全ての回に行が存在し、あとから届く古い挿入は無視されるため、確認の漏れがない。
+  await upsertEvents(rows, true);
+
   // 上書きするのは、調整したルールの行のうち、DB にある**既存行**の開始が overwriteFrom 以降のものだけ。
-  // 調整の RPC が削除する範囲と同じで、そのあと別リクエストが調整前のルールで入れ直した行に当たる。
+  // 調整の RPC が削除する範囲と同じで、別リクエストが調整前のルールで入れ直した行がここに当たる。
   // 新しい行の時刻で判定しない理由: 開始済みの回や「この予定のみ」で個別編集した回を、ルールの値で
   // 消さないため(新しい時刻が now 以降でも、既存行が過去なら触らない)。
   const overwriteIds = await findOverwritableEventIds(client, rows, options);
-  const overwriteRows = rows.filter((row) =>
-    overwriteIds.has(row.google_event_id),
-  );
-  const insertOnlyRows = rows.filter(
-    (row) => !overwriteIds.has(row.google_event_id),
-  );
-
-  // 実体化の失敗でページ全体を落とさない(既存分の表示は継続する)
-  for (const [batch, ignoreDuplicates] of [
-    [insertOnlyRows, true],
-    [overwriteRows, false],
-  ] as const) {
-    if (batch.length === 0) continue;
-    const { error: upsertError } = await client
-      .from("synced_events")
-      .upsert(batch as typeof rows, {
-        onConflict: "user_id,google_event_id",
-        ignoreDuplicates,
-      });
-    if (upsertError) {
-      console.error("繰り返し予定の実体化に失敗しました", upsertError);
-    }
+  if (overwriteIds.size > 0) {
+    await upsertEvents(
+      rows.filter((row) => overwriteIds.has(row.google_event_id)),
+      false,
+    );
   }
   return summaries;
 }
