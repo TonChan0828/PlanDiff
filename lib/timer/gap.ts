@@ -94,3 +94,55 @@ export function computeActualGaps(
 
   return result;
 }
+
+export interface PlanActualDiff {
+  /** 最も早い実績の開始 − 予定の開始(分)。正=遅れ・負=早い */
+  startDiffMinutes: number;
+  /** 同じ予定の実績の合計 − 予定の所要(分)。正=超過・負=不足 */
+  durationDiffMinutes: number;
+  /** 合計した実績の件数 */
+  entryCount: number;
+}
+
+/**
+ * 実績の編集フォームに出す、予定とのズレ(G-98)。定義はサマリー(P5-8)と同じで、
+ * 同じ予定の実績を合計する。分割した実績の1つを開いたとき、断片だけの大きな不足を出さないため。
+ * actuals の中の編集中の実績は、入力中の値(edited)に置き換える。
+ * 紐づかない、または編集中の値が不正(終了が開始より前など)なら null。
+ */
+export function computePlanActualDiff(
+  edited: ActualGapInput,
+  actuals: ActualGapInput[],
+  plan: PlanEventForGap,
+): PlanActualDiff | null {
+  if (edited.googleEventId !== plan.googleEventId) {
+    return null;
+  }
+  const duration = (entry: { startAt: string; endAt: string }) =>
+    differenceInMinutes(parseISO(entry.endAt), parseISO(entry.startAt));
+  const editedStartMs = parseISO(edited.startAt).getTime();
+  const editedEndMs = parseISO(edited.endAt).getTime();
+  // NaN との比較は false になるため、不正な日時もここで除かれる
+  if (!(editedEndMs >= editedStartMs)) {
+    return null;
+  }
+  const entries = [
+    ...actuals.filter(
+      (entry) =>
+        entry.googleEventId === plan.googleEventId && entry.id !== edited.id,
+    ),
+    edited,
+  ];
+  const earliestStartMs = Math.min(
+    ...entries.map((entry) => parseISO(entry.startAt).getTime()),
+  );
+  return {
+    startDiffMinutes: differenceInMinutes(
+      new Date(earliestStartMs),
+      parseISO(plan.startAt),
+    ),
+    durationDiffMinutes:
+      entries.reduce((sum, entry) => sum + duration(entry), 0) - duration(plan),
+    entryCount: entries.length,
+  };
+}

@@ -38,6 +38,17 @@ export const TIMER_MESSAGES = {
   delayLabel: (minutes: number) => `+${minutes}分 遅れ`,
   overrunLabel: (minutes: number) => `+${minutes}分 超過`,
   freeBadge: "フリー",
+  // 実績の編集フォームの予定とのズレ(G-98)。色に頼らず「遅れ・早い・超過・不足」の文言で区別する
+  planDiffHeading: "予定とのズレ",
+  planDiffPlan: (timeLabel: string, duration: string) =>
+    `予定 ${timeLabel}(${duration})`,
+  planDiffStartLate: (duration: string) => `開始 +${duration} 遅れ`,
+  planDiffStartEarly: (duration: string) => `開始 ${duration} 早い`,
+  planDiffStartOnTime: "開始 予定どおり",
+  planDiffOver: (duration: string) => `所要 +${duration} 超過`,
+  planDiffShort: (duration: string) => `所要 ${duration} 不足`,
+  planDiffOnTime: "所要 予定どおり",
+  planDiffTotalNote: (count: number) => `同じ予定の実績 ${count}件の合計`,
   // 実行中の開始時刻変更(D-4)。フィールド名は既存のeditStartField(開始時刻)を再利用する
   runningSinceLabel: (time: string) => `開始 ${time} を変更`,
   editStartTitle: "開始時刻を変更",
