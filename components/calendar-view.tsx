@@ -753,6 +753,7 @@ export function CalendarView({
     setEditingEntry({
       id: block.id,
       title: block.title,
+      googleEventId: block.googleEventId,
       startAt: block.startAt,
       endAt: block.endAt,
     });
@@ -764,6 +765,7 @@ export function CalendarView({
     setEditingEntry({
       id: entry.id,
       title: entry.title,
+      googleEventId: entry.googleEventId,
       startAt: entry.startAt,
       endAt: entry.endAt,
     });
@@ -1188,6 +1190,11 @@ export function CalendarView({
         <EditEntryPanel
           key={editingEntry.id}
           entry={editingEntry}
+          planContext={planDiffContextFor(
+            editingEntry.googleEventId,
+            events,
+            actualInputs,
+          )}
           onSave={handleSaveEdit}
           onDelete={handleDeleteEditing}
           onClose={handleCloseEdit}
@@ -1197,6 +1204,18 @@ export function CalendarView({
       ) : null}
     </div>
   );
+}
+
+/** 編集中の実績が紐づく予定が画面のデータにあれば、ズレの表示に必要な情報を返す(G-98) */
+function planDiffContextFor(
+  googleEventId: string | null | undefined,
+  events: CalendarViewEvent[],
+  actuals: ActualBlockInput[],
+) {
+  const plan = googleEventId
+    ? events.find((event) => event.googleEventId === googleEventId)
+    : undefined;
+  return plan ? { plan, actuals } : undefined;
 }
 
 function HourLines() {

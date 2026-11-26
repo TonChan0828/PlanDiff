@@ -7,6 +7,10 @@ import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
 import { DateTimeStepper } from "@/components/date-time-stepper";
+import {
+  PlanDiffSummary,
+  type PlanDiffContext,
+} from "@/components/plan-diff-summary";
 
 // 実績の手動編集パネル(P2-4)。確定済み実績のタイトル・開始/終了時刻の修正、削除を行う。
 // DateTimeStepper(P5-5)は端末ローカルタイムゾーンで表示し、保存時にUTCのISOへ変換する。
@@ -14,6 +18,8 @@ import { DateTimeStepper } from "@/components/date-time-stepper";
 export interface EditEntryPanelEntry {
   id: string;
   title: string;
+  /** 紐づく予定の id。フリー実績は null(G-98 のズレの欄の判定に使う) */
+  googleEventId?: string | null;
   /** UTCのISO文字列 */
   startAt: string;
   /** UTCのISO文字列 */
@@ -30,6 +36,8 @@ export interface EditEntrySaveInput {
 
 interface EditEntryPanelProps {
   entry: EditEntryPanelEntry;
+  /** 紐づく予定がある場合だけ渡す。ズレの欄を表示する(G-98) */
+  planContext?: PlanDiffContext;
   onSave: (input: EditEntrySaveInput) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -43,6 +51,7 @@ function toLocalInputValue(iso: string): string {
 
 export function EditEntryPanel({
   entry,
+  planContext,
   onSave,
   onDelete,
   onClose,
@@ -91,6 +100,21 @@ export function EditEntryPanel({
   };
 
   const displayedError = validationError ?? error;
+
+  // 入力欄は分までしか持たないため、未編集のときは元の値(秒を含む)で計算し、サマリーの値と一致させる。
+  // 時刻を変えたら、保存される値(分まで)で計算する
+  const unchanged =
+    startLocal === toLocalInputValue(entry.startAt) &&
+    endLocal === toLocalInputValue(entry.endAt);
+  const editedActual =
+    planContext && startLocal && endLocal
+      ? {
+          id: entry.id,
+          googleEventId: planContext.plan.googleEventId,
+          startAt: unchanged ? entry.startAt : startLocal,
+          endAt: unchanged ? entry.endAt : endLocal,
+        }
+      : null;
 
   return (
     <div
@@ -170,6 +194,9 @@ export function EditEntryPanel({
               onChange={setEndLocal}
               disabled={pending}
             />
+            {planContext ? (
+              <PlanDiffSummary context={planContext} edited={editedActual} />
+            ) : null}
             {displayedError ? (
               <p role="alert" className="text-danger text-sm">
                 {displayedError}
