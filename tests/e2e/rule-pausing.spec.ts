@@ -57,6 +57,17 @@ test("375px: 休止を提案し、翌日から休止・再開できる", async (
   await expect(
     card.getByRole("button", { name: "翌日から再開する" }),
   ).toBeVisible();
+  // G-93 D8: 休止中カードに繰り返し条件・時刻・休止開始日が出て、375px で横スクロールしない
+  await expect(card.getByText("毎日 09:00〜09:30")).toBeVisible();
+  await expect(
+    card.getByText(/^休止開始(予定)?: \d{4}\/\d+\/\d+$/),
+  ).toBeVisible();
+  expect(
+    await card.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("paused-card.png") });
   const { data: pauses } = await testUser.admin
     .from("recurring_rule_pauses")
     .select("starts_on, ends_on")
