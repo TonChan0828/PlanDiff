@@ -103,15 +103,50 @@ describe("休止中の予定カードの区別(G-93)", () => {
   });
 
   it("D4(境界): 「今日」はルールのタイムゾーンで判定する", () => {
-    // UTC では 10/18 だが、Pacific/Kiritimati(UTC+14)では 10/18 17:00。開始 10/19 は予定
+    // 2026-10-18T12:00Z は、UTC・日本では 10/18 だが、Pacific/Kiritimati(UTC+14)では 10/19 02:00。
+    // ルールのタイムゾーンで判定すれば、開始 10/19 は「今日」であって「予定」ではない
+    render(
+      <RulePauseReview
+        suggestions={[]}
+        rules={[
+          rule("r1", {
+            timezone: "Pacific/Kiritimati",
+            pauses: [{ startsOn: "2026-10-19", endsOn: null }],
+          }),
+        ]}
+        now="2026-10-18T12:00:00Z"
+      />,
+    );
+    fireEvent.click(screen.getByText(/休止中の予定/));
+
+    expect(screen.getByText("休止開始: 2026/10/19")).toBeInTheDocument();
+    expect(screen.queryByText(/休止開始予定/)).not.toBeInTheDocument();
+  });
+
+  it("D9: 同じ日に休止と再開予約をした空の期間(開始=終了)は、開始日の行を出さない", () => {
+    // 終了日は含まないため、1日も休止しない期間。「翌日から再開予定」と「休止開始予定」が矛盾しないようにする
     renderPaused([
       rule("r1", {
-        timezone: "Pacific/Kiritimati",
-        pauses: [{ startsOn: "2026-10-19", endsOn: null }],
+        pauses: [{ startsOn: "2026-10-19", endsOn: "2026-10-19" }],
       }),
     ]);
 
-    expect(screen.getByText("休止開始予定: 2026/10/19")).toBeInTheDocument();
+    expect(screen.getByText("翌日から再開予定です")).toBeInTheDocument();
+    expect(screen.queryByText(/休止開始/)).not.toBeInTheDocument();
+  });
+
+  it("D10: 今日を含む休止と、これから始まる休止があれば、今日を含む方の開始日を出す", () => {
+    renderPaused([
+      rule("r1", {
+        pauses: [
+          { startsOn: "2026-10-19", endsOn: null },
+          { startsOn: "2026-10-10", endsOn: "2026-10-19" },
+        ],
+      }),
+    ]);
+
+    expect(screen.getByText("休止開始: 2026/10/10")).toBeInTheDocument();
+    expect(screen.queryByText(/休止開始予定/)).not.toBeInTheDocument();
   });
 
   it("D5: 終了した過去の休止があっても、現在の休止の開始日を表示する", () => {

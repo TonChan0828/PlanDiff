@@ -62,11 +62,15 @@ test("375px: 休止を提案し、翌日から休止・再開できる", async (
   await expect(
     card.getByText(/^休止開始(予定)?: \d{4}\/\d+\/\d+$/),
   ).toBeVisible();
-  expect(
-    await card.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
+  // カード内と、カードを入れているスクロール領域の両方で横はみ出しがないことを見る
+  // (カードが広がると、カード自体ではなく親の領域が横スクロールになる)
+  for (const target of [card, card.locator("..")]) {
+    expect(
+      await target.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+  }
   await page.screenshot({ path: test.info().outputPath("paused-card.png") });
   const { data: pauses } = await testUser.admin
     .from("recurring_rule_pauses")
@@ -83,6 +87,8 @@ test("375px: 休止を提案し、翌日から休止・再開できる", async (
   expect(future).toEqual([]);
   await card.getByRole("button", { name: "翌日から再開する" }).click();
   await expect(card.getByText("翌日から再開予定です")).toBeVisible();
+  // G-93 D9: 同じ日の休止と再開予約は空の期間になる。開始日の行は出さない
+  await expect(card.getByText(/休止開始/)).toHaveCount(0);
   const { data: resumed } = await testUser.admin
     .from("recurring_rule_pauses")
     .select("ends_on")

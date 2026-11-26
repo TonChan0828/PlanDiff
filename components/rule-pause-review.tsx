@@ -30,16 +30,27 @@ function formatDateOnlyLabel(date: string): string {
   return `${year}/${month}/${day}`;
 }
 
-/** 現在有効な(または開始予定の)休止の開始日の表示。終わった休止は対象にしない */
+/**
+ * 現在有効な(または開始予定の)休止の開始日の表示。終わった休止は対象にしない。
+ * 開始日と終了日が同じ期間は除く: 終了日は含まないため1日も休止しない期間で
+ * (同じ日に休止と再開予約をすると作られる)、開始予定と表示すると「翌日から再開予定」と矛盾する。
+ */
 function pauseStartLabel(
   rule: RecurringRuleSummary,
   today: string,
 ): string | null {
-  const current = (rule.pauses ?? [])
-    .filter((pause) => !pause.endsOn || pause.endsOn > today)
+  const startsOnList = (rule.pauses ?? [])
+    .filter(
+      (pause) =>
+        !pause.endsOn ||
+        (pause.endsOn > today && pause.endsOn > pause.startsOn),
+    )
     .map((pause) => pause.startsOn)
-    .sort()
-    .at(-1);
+    .sort();
+  // 今日を含む休止があればその開始日(すでに休止中なのに「予定」と出さない)。なければ最も早く始まるもの
+  const current =
+    startsOnList.filter((startsOn) => startsOn <= today).at(-1) ??
+    startsOnList[0];
   if (!current) return null;
   const label = formatDateOnlyLabel(current);
   return current > today
