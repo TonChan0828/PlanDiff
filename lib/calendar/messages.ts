@@ -127,6 +127,11 @@ export const CALENDAR_MESSAGES = {
   pauseAction: "休止する",
   pauseSnoozeAction: "14日後に再確認",
   pausedRulesHeading: "休止中の予定",
+  // G-93: 同じ名前の予定を区別するための表示。schedule は「毎日 22:00〜22:30」の形
+  pauseSchedule: (patternLabel: string, startTime: string, endTime: string) =>
+    `${patternLabel} ${startTime}〜${endTime}`,
+  pauseStartedOn: (date: string) => `休止開始: ${date}`,
+  pauseStartsOnFuture: (date: string) => `休止開始予定: ${date}`,
   pauseStartsTomorrow:
     "翌日から予定の表示を休止します。過去の予定・実績は残ります。",
   pauseResumeAction: "翌日から再開する",
