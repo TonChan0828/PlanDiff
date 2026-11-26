@@ -109,7 +109,8 @@ it("保存中は二重操作を防ぐ", async () => {
 it("休止中の予定を一覧から再開できる", async () => {
   render(<RulePauseReview suggestions={[]} rules={[rule]} now={NOW} />);
   fireEvent.click(screen.getByText(/休止中の予定/));
-  const card = screen.getByRole("article", { name: "読書" });
+  // G-93: 読み上げ名に繰り返し条件と時刻が入る
+  const card = screen.getByRole("article", { name: "読書 毎日 09:00〜09:30" });
   fireEvent.click(
     within(card).getByRole("button", { name: M.pauseResumeAction }),
   );
