@@ -59,12 +59,13 @@ export async function fetchTimeEntriesInRange(
  * 「基準日を含む週の開始 − 4週間 − 1日」〜「週の開始 + 1日」で取得する。
  * 週境界の厳密なフィルタはクライアントの computeSuggestions がローカルTZで行うため、
  * ここでの±1日はTZ差を吸収するバッファ(computeSyncRange と同じ考え方)。
- * 取得失敗時は空配列を返し、提案セクションを出さないだけに留める(カレンダー本体を妨げない)。
+ * 取得失敗時は null を返し、提案セクションを出さないだけに留める(カレンダー本体を妨げない)。
+ * 空配列にしないのは、「条件に合う実績がない」の説明(G-92)を、取得の失敗でも出してしまわないため。
  */
 export async function fetchSuggestionSourceEntries(
   client: AppSupabaseClient,
   baseDate: Date,
-): Promise<TimeEntryItem[]> {
+): Promise<TimeEntryItem[] | null> {
   const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
   const timeMin = addDays(weekStart, -29).toISOString();
   const timeMax = addDays(weekStart, 1).toISOString();
@@ -76,7 +77,7 @@ export async function fetchSuggestionSourceEntries(
     .lt("start_at", timeMax)
     .order("start_at", { ascending: true });
   if (error) {
-    return [];
+    return null;
   }
   return (data ?? []).map((row) => ({
     id: row.id as string,

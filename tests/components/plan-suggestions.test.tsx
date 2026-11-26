@@ -209,10 +209,12 @@ describe("候補0件の空状態(G-92)", () => {
   it("C1: 候補がなければ、空状態の見出しと提案の条件を表示する", () => {
     render(renderEmpty());
 
-    expect(screen.getByText(M.suggestionEmptyTitle)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: M.suggestionEmptyTitle }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "直近4週間の記録で、同じ名前の作業が同じ曜日の近い時刻(開始の差が1時間以内)に2回以上あると、予定として提案します。すでに予定や繰り返し予定がある作業は表示しません。",
+        "表示している週より前の4週間で、同じ名前の作業を同じ曜日の近い時刻(開始の差が1時間以内)に2週以上記録していると、これからの日時の予定として提案します。同じ日に同じ名前の予定がある作業や、その曜日の繰り返し予定を登録済みの作業(休止中・終了したものを含む)は表示しません。",
       ),
     ).toBeInTheDocument();
   });
@@ -243,6 +245,21 @@ describe("候補0件の空状態(G-92)", () => {
     expect(html).toBe("");
   });
 
+  it("取得に失敗した(entries が null)ときは、「提案がありません」と出さず、セクションを表示しない(P5-2)", () => {
+    const { container } = render(
+      <PlanSuggestions
+        entries={null}
+        events={[]}
+        recurringRules={[]}
+        viewDate={VIEW_DATE}
+        now={NOW}
+        timeZone={TZ}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("C5: 説明の数値は、提案ロジックの定数から組み立てる", () => {
     expect(
       M.suggestionEmptyDescription(
@@ -250,7 +267,7 @@ describe("候補0件の空状態(G-92)", () => {
         formatDurationMinutes(SUGGESTION_CONDITIONS.clusterWindowMinutes),
         SUGGESTION_CONDITIONS.minOccurrenceDays,
       ),
-    ).toContain("直近4週間");
+    ).toContain("表示している週より前の4週間");
     expect(SUGGESTION_CONDITIONS).toEqual({
       lookbackDays: 28,
       clusterWindowMinutes: 60,

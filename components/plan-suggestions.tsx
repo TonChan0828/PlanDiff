@@ -25,8 +25,8 @@ import type { TimeEntryItem } from "@/lib/timer/types";
 // 再利用する。却下はセッション内の非表示のみ(永続化しない)。
 
 interface PlanSuggestionsProps {
-  /** 表示週開始前4週+バッファの完了実績(fetchSuggestionSourceEntries) */
-  entries: TimeEntryItem[];
+  /** 表示週開始前4週+バッファの完了実績(fetchSuggestionSourceEntries)。取得に失敗したら null */
+  entries: TimeEntryItem[] | null;
   /** 表示範囲の予定(重複判定用。title/startAt のみ参照) */
   events: SuggestionExistingEvent[];
   recurringRules: RecurringRuleSummary[];
@@ -88,7 +88,7 @@ export function PlanSuggestions({
     timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const suggestions = useMemo(
     () =>
-      hydrated
+      hydrated && entries
         ? computeSuggestions({
             entries,
             events,
@@ -110,8 +110,9 @@ export function PlanSuggestions({
   );
 
   const visible = suggestions.filter((s) => !hiddenKeys.has(s.key));
-  // ハイドレーション前はまだ計算していないため、「提案がありません」とは出さない(G-92)
-  if (!hydrated) {
+  // ハイドレーション前はまだ計算していないため、「提案がありません」とは出さない(G-92)。
+  // 実績の取得に失敗した場合も、条件に届いていないように見せないため、セクションを出さない(P5-2)
+  if (!hydrated || !entries) {
     return null;
   }
 
@@ -205,7 +206,9 @@ export function PlanSuggestions({
   if (visible.length === 0) {
     return (
       <section aria-label={M.suggestionHeading} className="flex flex-col gap-2">
-        <p className="text-ink text-sm font-medium">{M.suggestionEmptyTitle}</p>
+        <h2 className="text-ink text-sm font-medium">
+          {M.suggestionEmptyTitle}
+        </h2>
         <p className="text-ink-muted text-sm leading-relaxed">
           {M.suggestionEmptyDescription(
             SUGGESTION_CONDITIONS.lookbackDays / 7,

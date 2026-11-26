@@ -101,7 +101,10 @@ describe("提案元データの取得(S20)", () => {
       jstToUtcIso("2026-07-20", 10, 30),
     );
 
-    const entries = await fetchSuggestionSourceEntries(userA.client, BASE_DATE);
+    const entries = (await fetchSuggestionSourceEntries(
+      userA.client,
+      BASE_DATE,
+    ))!;
 
     expect(entries.map((entry) => entry.title)).toEqual(["範囲内の実績"]);
     expect(entries[0]?.endAt).toBe(jstToUtcIso("2026-06-26", 10, 30));
@@ -270,7 +273,10 @@ describe("RLS(S23)", () => {
       jstToUtcIso("2026-06-30", 10, 30),
     );
 
-    const entries = await fetchSuggestionSourceEntries(userA.client, BASE_DATE);
+    const entries = (await fetchSuggestionSourceEntries(
+      userA.client,
+      BASE_DATE,
+    ))!;
 
     expect(entries.map((entry) => entry.title)).toEqual(["自分の実績"]);
   });

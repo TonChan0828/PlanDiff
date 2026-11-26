@@ -16,13 +16,21 @@ test("375px: 提案がないとき、提案タブに条件の説明が出て横�
   await page.getByRole("tab", { name: "提案" }).click();
 
   await expect(page.getByText("いまは提案がありません")).toBeVisible();
-  await expect(
-    page.getByText(/直近4週間の記録で、同じ名前の作業が/),
-  ).toBeVisible();
+  await expect(page.getByText(/表示している週より前の4週間で/)).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
+  ).toBe(true);
+  // 提案タブは下部シート内のスクロール領域にあるため、はみ出しは document の幅では分からない。
+  // 提案の領域を含むスクロール領域でも、横スクロールが起きないことを確かめる
+  expect(
+    await page
+      .getByRole("region", { name: "実績からの提案" })
+      .evaluate((section) => {
+        const scroller = section.closest(".overflow-y-auto")!;
+        return scroller.scrollWidth <= scroller.clientWidth;
+      }),
   ).toBe(true);
   await page.screenshot({
     path: test.info().outputPath("suggestions-empty.png"),
