@@ -22,6 +22,13 @@ const DAY_MINUTES = 24 * 60;
 const BUNDLE_MIN_WEEKDAYS = 3;
 const WEEKDAY_SET = [1, 2, 3, 4, 5];
 
+/** 提案が出る条件。空状態の説明文(G-92)がこの値から組み立てられ、定数の変更とずれないようにする */
+export const SUGGESTION_CONDITIONS = {
+  lookbackDays: LOOKBACK_DAYS,
+  clusterWindowMinutes: CLUSTER_WINDOW_MINUTES,
+  minOccurrenceDays: MIN_OCCURRENCE_DAYS,
+} as const;
+
 export type SuggestionPattern = "weekly" | "weekdays" | "daily";
 
 export interface PlanSuggestion {

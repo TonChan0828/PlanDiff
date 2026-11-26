@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { RowLimitExceededError } from "@/lib/errors/row-limit";
 import { MAX_FETCH_ROWS, PAGE_SIZE } from "@/lib/supabase/paged-fetch";
-import { fetchTimeEntriesInRange } from "@/lib/timer/entries";
+import {
+  fetchSuggestionSourceEntries,
+  fetchTimeEntriesInRange,
+} from "@/lib/timer/entries";
 import {
   buildEntryRows,
   createPagedQueryMock,
@@ -112,5 +115,41 @@ describe("fetchTimeEntriesInRange の異常系(S13・S14)", () => {
     await fetchTimeEntriesInRange(client, RANGE);
 
     expect(orders).toEqual(["start_at", "id"]);
+  });
+});
+
+// 仕様書: docs/specs/G-92_提案タブの空状態.md
+// 「提案がない」と「取得できなかった」を区別する。区別しないと、失敗を「条件に届かない」と見せてしまう
+describe("fetchSuggestionSourceEntries の戻り値(G-92)", () => {
+  function clientReturning(result: {
+    data: unknown[] | null;
+    error: { message: string } | null;
+  }) {
+    const builder: Record<string, unknown> = {};
+    for (const name of ["select", "not", "gte", "lt"]) {
+      builder[name] = () => builder;
+    }
+    builder.order = () => Promise.resolve(result);
+    return { from: () => builder } as unknown as Parameters<
+      typeof fetchSuggestionSourceEntries
+    >[0];
+  }
+
+  it("取得に失敗したら null を返す", async () => {
+    const entries = await fetchSuggestionSourceEntries(
+      clientReturning({ data: null, error: { message: "failed" } }),
+      new Date(2026, 10, 24, 12, 0),
+    );
+
+    expect(entries).toBeNull();
+  });
+
+  it("該当がないだけなら空配列を返す", async () => {
+    const entries = await fetchSuggestionSourceEntries(
+      clientReturning({ data: [], error: null }),
+      new Date(2026, 10, 24, 12, 0),
+    );
+
+    expect(entries).toEqual([]);
   });
 });

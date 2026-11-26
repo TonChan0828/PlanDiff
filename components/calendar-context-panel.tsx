@@ -22,7 +22,7 @@ interface CalendarContextPanelProps {
   events: CalendarViewEvent[];
   timeEntries: TimeEntryItem[];
   recurringRules: RecurringRuleSummary[];
-  suggestionEntries: TimeEntryItem[];
+  suggestionEntries: TimeEntryItem[] | null;
   viewDate: string;
   onTabChange: (tab: CalendarContextTab) => void;
   onClose: () => void;

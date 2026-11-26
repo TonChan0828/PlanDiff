@@ -173,7 +173,8 @@ interface CalendarViewProps {
   /** 本人の繰り返し予定ルール一覧(P5-1)。「繰り返し全体」編集モードの初期値に使う */
   recurringRules?: RecurringRuleSummary[];
   /** 実績からの予定提案(P5-2)の元データ(表示週開始前4週の完了実績) */
-  suggestionEntries?: TimeEntryItem[];
+  /** null は実績の取得失敗(提案セクションを出さない) */
+  suggestionEntries?: TimeEntryItem[] | null;
   /** 提案経由の定期予定の自動学習補正(P10-1)で今回のロードで変更があった分の通知 */
   ruleAdjustments?: RuleAdjustmentNotice[];
   pauseSuggestions?: RulePauseSuggestion[];
