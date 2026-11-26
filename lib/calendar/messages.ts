@@ -104,6 +104,13 @@ export const CALENDAR_MESSAGES = {
     count: number,
   ) =>
     `${patternLabel} ${startTime}頃・約${durationLabel}(直近4週で${count}回)`,
+  suggestionEmptyTitle: "いまは提案がありません",
+  suggestionEmptyDescription: (
+    weeks: number,
+    windowLabel: string,
+    count: number,
+  ) =>
+    `直近${weeks}週間の記録で、同じ名前の作業が同じ曜日の近い時刻(開始の差が${windowLabel}以内)に${count}回以上あると、予定として提案します。すでに予定や繰り返し予定がある作業は表示しません。`,
   suggestionAddThisWeek: "この週に追加",
   suggestionMakeWeekly: "毎週にする",
   suggestionDismissLabel: (title: string) => `${title}の提案を閉じる`,

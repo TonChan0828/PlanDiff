@@ -12,6 +12,7 @@ import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringRuleSummary } from "@/lib/calendar/recurring-id";
 import {
   computeSuggestions,
+  SUGGESTION_CONDITIONS,
   type PlanSuggestion,
   type SuggestionExistingEvent,
 } from "@/lib/calendar/suggestions";
@@ -109,7 +110,8 @@ export function PlanSuggestions({
   );
 
   const visible = suggestions.filter((s) => !hiddenKeys.has(s.key));
-  if (visible.length === 0) {
+  // ハイドレーション前はまだ計算していないため、「提案がありません」とは出さない(G-92)
+  if (!hydrated) {
     return null;
   }
 
@@ -199,6 +201,21 @@ export function PlanSuggestions({
         }),
       M.suggestionMakeWeeklyError,
     );
+
+  if (visible.length === 0) {
+    return (
+      <section aria-label={M.suggestionHeading} className="flex flex-col gap-2">
+        <p className="text-ink text-sm font-medium">{M.suggestionEmptyTitle}</p>
+        <p className="text-ink-muted text-sm leading-relaxed">
+          {M.suggestionEmptyDescription(
+            SUGGESTION_CONDITIONS.lookbackDays / 7,
+            formatDurationMinutes(SUGGESTION_CONDITIONS.clusterWindowMinutes),
+            SUGGESTION_CONDITIONS.minOccurrenceDays,
+          )}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section aria-label={M.suggestionHeading} className="flex flex-col gap-2">

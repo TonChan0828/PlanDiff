@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TZDate } from "@date-fns/tz";
+import { renderToString } from "react-dom/server";
 
 import { PlanSuggestions } from "@/components/plan-suggestions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
+import { SUGGESTION_CONDITIONS } from "@/lib/calendar/suggestions";
+import { formatDurationMinutes } from "@/lib/summary/format";
 import type { TimeEntryItem } from "@/lib/timer/types";
 
 // 仕様書: docs/specs/P5-2_実績からの予定提案.md S14〜S19
@@ -187,19 +190,72 @@ describe("エラー表示(S18)", () => {
   });
 });
 
-describe("候補0件(S19)", () => {
-  it("S19: 候補がなければセクション自体が描画されない", () => {
-    render(
-      <PlanSuggestions
-        entries={[]}
-        events={[]}
-        recurringRules={[]}
-        viewDate={VIEW_DATE}
-        now={NOW}
-        timeZone={TZ}
-      />,
+// G-92 で仕様を変更: 候補が0件のときは、何も描画しないのではなく、空状態と条件の説明を出す
+// (仕様書: docs/specs/G-92_提案タブの空状態.md C1〜C5。P5-2 S19 を置き換える)
+function renderEmpty() {
+  return (
+    <PlanSuggestions
+      entries={[]}
+      events={[]}
+      recurringRules={[]}
+      viewDate={VIEW_DATE}
+      now={NOW}
+      timeZone={TZ}
+    />
+  );
+}
+
+describe("候補0件の空状態(G-92)", () => {
+  it("C1: 候補がなければ、空状態の見出しと提案の条件を表示する", () => {
+    render(renderEmpty());
+
+    expect(screen.getByText(M.suggestionEmptyTitle)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "直近4週間の記録で、同じ名前の作業が同じ曜日の近い時刻(開始の差が1時間以内)に2回以上あると、予定として提案します。すでに予定や繰り返し予定がある作業は表示しません。",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("C2: 候補があれば、空状態は表示しない", () => {
+    renderWithMorningMeeting();
+
+    expect(screen.getByText("朝会")).toBeInTheDocument();
+    expect(screen.queryByText(M.suggestionEmptyTitle)).not.toBeInTheDocument();
+  });
+
+  it("C3: 唯一の提案を閉じると、空状態に切り替わる", async () => {
+    const user = userEvent.setup();
+    renderWithMorningMeeting();
+
+    await user.click(
+      screen.getByRole("button", { name: M.suggestionDismissLabel("朝会") }),
     );
-    expect(screen.queryByText(M.suggestionHeading)).not.toBeInTheDocument();
+
+    expect(screen.getByText(M.suggestionEmptyTitle)).toBeInTheDocument();
+    expect(screen.queryByText("朝会")).not.toBeInTheDocument();
+  });
+
+  it("C4: ハイドレーション前(サーバー描画)は、まだ計算していないので空状態の文言を出さない", () => {
+    const html = renderToString(renderEmpty());
+
+    expect(html).not.toContain(M.suggestionEmptyTitle);
+    expect(html).toBe("");
+  });
+
+  it("C5: 説明の数値は、提案ロジックの定数から組み立てる", () => {
+    expect(
+      M.suggestionEmptyDescription(
+        SUGGESTION_CONDITIONS.lookbackDays / 7,
+        formatDurationMinutes(SUGGESTION_CONDITIONS.clusterWindowMinutes),
+        SUGGESTION_CONDITIONS.minOccurrenceDays,
+      ),
+    ).toContain("直近4週間");
+    expect(SUGGESTION_CONDITIONS).toEqual({
+      lookbackDays: 28,
+      clusterWindowMinutes: 60,
+      minOccurrenceDays: 2,
+    });
   });
 });
 
