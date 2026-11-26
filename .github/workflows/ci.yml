@@ -14,9 +14,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # All required jobs run in parallel. The timeout starts when each job runs.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +55,7 @@ jobs:
   integration:
     name: Integration and migration tests (local Supabase)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
@@ -81,27 +82,20 @@ jobs:
         run: supabase db reset --local --no-seed
       - name: Verify local migration history parser
         run: node scripts/check-migration-history.mjs --local
+      - name: Fetch the database type generator from GitHub Container Registry
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          # CLI 2.107.0 uses the ECR tag for gen types even when start uses GHCR.
+          image=ghcr.io/supabase/postgres-meta@sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
+          docker pull "$image"
+          docker tag "$image" public.ecr.aws/supabase/postgres-meta:v0.96.1
       # マイグレーションとコミット済みの型がずれていたら落とす(G-114)。
       # 直すときは、ローカルで `npm run db:types` を実行して生成物をコミットする。
       - name: Verify generated database types are up to date
         shell: bash
         run: |
-          # 型の生成は pg-meta の Docker イメージを取得する。レジストリの取得量制限
-          # (`Data limit exceeded`)などの一時的な失敗でCIが落ちないよう、生成だけを再試行する。
-          # ずれの判定(下の git diff)は再試行しない。
-          generated=0
-          for attempt in 1 2 3; do
-            if npm run db:types; then
-              generated=1
-              break
-            fi
-            echo "::warning::型の生成に失敗しました(試行 ${attempt}/3)。一時的な失敗の可能性があるため、待って再試行します。"
-            sleep $((attempt * 30))
-          done
-          if [ "$generated" -ne 1 ]; then
-            echo "::error::型の生成に3回失敗しました。ログのレジストリ・Docker のエラーを確認してください。" >&2
-            exit 1
-          fi
+          npm run db:types
           if ! git diff --exit-code -- lib/supabase/database.types.ts; then
             echo "::error::lib/supabase/database.types.ts がマイグレーションと一致しません。npm run db:types を実行して差分をコミットしてください。" >&2
             exit 1
@@ -124,7 +118,7 @@ jobs:
   e2e:
     name: Mobile browser tests (local Supabase)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
@@ -148,11 +142,11 @@ jobs:
         env:
           GOOGLE_CLIENT_ID: local-ci-client
           GOOGLE_CLIENT_SECRET: local-ci-secret
+          SUPABASE_DB_SEED_ENABLED: "false"
+        # On a fresh runner, start applies all migrations to the empty database.
         run: >-
           supabase start
           --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
-      - name: Apply all migrations to the disposable database
-        run: supabase db reset --local --no-seed
       - name: Export local-only Supabase settings
         shell: bash
         run: |
