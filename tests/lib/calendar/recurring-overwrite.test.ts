@@ -151,7 +151,7 @@ describe("materializeRecurringInstances の上書きオプション(G-112)", () 
     expect(upserts).toEqual([{ ids: ALL_IDS, ignoreDuplicates: true }]);
   });
 
-  it("既存行として返った id だけを上書きし、ほかは挿入のみで送る", async () => {
+  it("全行を挿入のみで送ったあと、既存行として返った id だけを上書きする", async () => {
     const { client, upserts, existingQueries } = createClient({
       existingIds: [id("2026-03-11"), id("2026-03-12")],
     });
@@ -166,7 +166,8 @@ describe("materializeRecurringInstances の上書きオプション(G-112)", () 
       { ids: ALL_IDS, gte: OVERWRITE_FROM.toISOString() },
     ]);
     expect(upserts).toEqual([
-      { ids: [id("2026-03-10")], ignoreDuplicates: true },
+      // 先に全行を挿入のみで書く(確認との間に他の挿入が入っても漏れないようにする)
+      { ids: ALL_IDS, ignoreDuplicates: true },
       { ids: [id("2026-03-11"), id("2026-03-12")], ignoreDuplicates: false },
     ]);
   });
