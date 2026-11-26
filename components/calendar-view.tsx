@@ -1633,22 +1633,36 @@ function ActualBlock({
         className={`absolute overflow-hidden border px-1 py-0.5 ${colorClassName} ${roundedClassName}`}
         style={positionStyle}
       >
-        {titleNode}
+        {tooltip ? (
+          // 操作できないブロックの title は支援技術で読まれないことが多いため、同じ内容を読み上げ用に持つ。
+          // 見えている省略表示は、二重に読まないよう読み上げから外す(G-99)
+          <>
+            <span className="sr-only">{tooltip}</span>
+            <div aria-hidden="true">{titleNode}</div>
+          </>
+        ) : (
+          titleNode
+        )}
       </li>
     );
   }
 
-  // 再計測(P5-4): ブロック全体は編集ボタンのため、入れ子を避けて兄弟要素として重ねる
+  // 再計測(P5-4): ブロック全体は編集ボタンのため、入れ子を避けて兄弟要素として重ねる。
+  // title は li に付け、重なる再計測ボタンの上でも同じ内容が出るようにする(G-99)
   // heightPercent由来の浮動小数点誤差(30分=27.999...px)を微小イプシロンで吸収する
   const blockPx = (block.heightPercent / 100) * 24 * HOUR_PX;
   const showRestart = blockPx >= RESTART_MIN_BLOCK_PX - 0.001;
 
   return (
-    <li data-testid="actual-block" className="absolute" style={positionStyle}>
+    <li
+      data-testid="actual-block"
+      title={tooltip}
+      className="absolute"
+      style={positionStyle}
+    >
       <button
         type="button"
         aria-label={`${T.editLabel(block.title)}${gapSuffix}`}
-        title={tooltip}
         onClick={() => onEdit(block)}
         className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left ${colorClassName} ${roundedClassName}`}
       >

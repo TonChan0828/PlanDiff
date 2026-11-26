@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -41,13 +41,14 @@ const entry = (overrides: Partial<TimeEntryItem>): TimeEntryItem => ({
 function renderWeek(
   timeEntries: TimeEntryItem[],
   runningEntry: RunningEntry | null = null,
+  { view = "week", events = [PLAN] } = {},
 ) {
   render(
     <CalendarView
-      events={[PLAN]}
+      events={events}
       timeEntries={timeEntries}
       runningEntry={runningEntry}
-      viewParam="week"
+      viewParam={view}
       dateParam="2026-07-07"
     />,
   );
@@ -137,5 +138,51 @@ describe("週表示のブロックの title(G-99)", () => {
     });
 
     expect(screen.getByTitle("実装 11:00〜記録中(フリー)")).toBeInTheDocument();
+  });
+});
+
+describe("ブロックの title の適用範囲と読み上げ(G-99 レビュー対応)", () => {
+  it("日表示では、時刻と差分が画面に出ているため title を付けない", () => {
+    renderWeek([entry({ startAt: iso(9, 15) })], null, { view: "day" });
+
+    expect(screen.queryByTitle(/09:00〜10:00/)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/09:15〜10:00/)).not.toBeInTheDocument();
+  });
+
+  it("タイトルが空の予定ブロックも「(タイトルなし)」になる", () => {
+    renderWeek([], null, { events: [{ ...PLAN, title: "" }] });
+
+    expect(
+      screen.getByTitle("(タイトルなし) 09:00〜10:00"),
+    ).toBeInTheDocument();
+  });
+
+  it("編集できる実績では、重なる再計測ボタンの上でも同じ title が出るようブロック全体に付ける", () => {
+    renderWeek([entry({})]);
+
+    const block = screen.getByTestId("actual-block");
+    expect(block).toHaveAttribute("title", "設計レビュー 09:00〜10:00");
+    expect(block).toContainElement(
+      screen.getByRole("button", { name: "設計レビューを再計測" }),
+    );
+  });
+
+  it("編集できない(実行中の)実績は、title だけでなく読み上げ用の文字でも同じ内容を持つ", () => {
+    renderWeek([], {
+      id: "running",
+      title: "実装",
+      googleEventId: null,
+      startAt: iso(11),
+    });
+
+    // 実行中タイマーのバーにも同じタイトルが出るため、実績ブロックの中に絞る
+    const block = within(screen.getByTestId("actual-block"));
+    expect(block.getByText("実装 11:00〜記録中(フリー)")).toHaveClass(
+      "sr-only",
+    );
+    // 見えているタイトルは読み上げから外し、二重に読ませない
+    expect(
+      block.getByText("実装", { exact: true }).closest("[aria-hidden]"),
+    ).not.toBeNull();
   });
 });
