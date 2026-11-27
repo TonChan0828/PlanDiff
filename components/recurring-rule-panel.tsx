@@ -8,6 +8,11 @@ import type {
   RecurringRuleSummary,
 } from "@/lib/calendar/recurring-id";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
+import { OverlapWarning } from "@/components/overlap-warning";
+import {
+  findRecurringOverlaps,
+  type OverlapCandidate,
+} from "@/lib/calendar/overlap";
 
 // 定期予定(P5-1)の「繰り返し全体」編集パネル。開始日(starts_on)は変更不可。
 // 今日以降の実体化済みインスタンスは保存時に再生成される(過去分は残る。呼び出し元で担保)。
@@ -26,6 +31,8 @@ export interface RecurringRulePanelValues {
 
 interface RecurringRulePanelProps {
   initial: RecurringRuleSummary;
+  /** 重なりの警告に使う、画面が読み込んでいる予定(G-94) */
+  existingEvents?: OverlapCandidate[];
   onSave: (values: RecurringRulePanelValues) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -37,6 +44,7 @@ interface RecurringRulePanelProps {
 
 export function RecurringRulePanel({
   initial,
+  existingEvents = [],
   onSave,
   onDelete,
   onClose,
@@ -134,6 +142,27 @@ export function RecurringRulePanel({
   };
 
   const displayedError = validationError ?? error;
+
+  // 保存で作り直すのは今日以降の回だけ(P5-1)のため、過去の日の予定は警告しない(G-94)
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: initial.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const overlaps = findRecurringOverlaps(
+    existingEvents,
+    {
+      pattern,
+      weekdays,
+      startTime,
+      endTime,
+      startsOn: initial.startsOn > today ? initial.startsOn : today,
+      endsOn: endsOnLocal || null,
+    },
+    initial.timezone,
+    initial.id,
+  );
 
   return (
     <div
@@ -302,6 +331,7 @@ export function RecurringRulePanel({
                 className="border-line bg-surface min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
               />
             </label>
+            <OverlapWarning overlaps={overlaps} />
             {displayedError ? (
               <p role="alert" className="text-danger text-sm">
                 {displayedError}
