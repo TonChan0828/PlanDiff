@@ -83,7 +83,9 @@ it.each(["returned", "thrown"])(
     fireEvent.click(screen.getByRole("button", { name: M.pauseAction }));
     expect(await screen.findByRole("alert")).toHaveTextContent(M.pauseError);
     expect(refresh).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: M.pauseRetry }));
+    const retry = screen.getByRole("button", { name: M.pauseRetry });
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
   },
