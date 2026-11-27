@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { X } from "lucide-react";
+import { TriangleAlert, X } from "lucide-react";
+import { planTimeLabel } from "@/components/running-warnings";
+import {
+  isLongDuration,
+  LONG_ENTRY_HOURS,
+  suggestedEndAt,
+} from "@/lib/timer/forgotten";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
 import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
@@ -116,6 +122,19 @@ export function EditEntryPanel({
         }
       : null;
 
+  // 止め忘れの可能性(G-91)。入力中の値で判定し、直せば目印と候補は消える
+  const checkedStart = unchanged ? entry.startAt : startLocal;
+  const checkedEnd = unchanged ? entry.endAt : endLocal;
+  const looksForgotten =
+    Boolean(checkedStart && checkedEnd) &&
+    isLongDuration(checkedStart, checkedEnd);
+  const endSuggestion = looksForgotten
+    ? suggestedEndAt(
+        { startAt: checkedStart, endAt: checkedEnd },
+        planContext?.plan,
+      )
+    : null;
+
   return (
     <div
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 sm:items-center sm:px-4"
@@ -194,6 +213,30 @@ export function EditEntryPanel({
               onChange={setEndLocal}
               disabled={pending}
             />
+            {looksForgotten ? (
+              <div className="border-interrupt/60 flex flex-col gap-2 rounded-lg border px-3 py-2">
+                <p className="flex items-start gap-1.5 text-sm font-medium">
+                  <TriangleAlert
+                    aria-hidden="true"
+                    className="text-interrupt mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  {T.forgottenNote(LONG_ENTRY_HOURS)}
+                </p>
+                {endSuggestion ? (
+                  // 入力欄を書き換えるだけで、保存はしない(確定は保存ボタン)
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEndLocal(toLocalInputValue(endSuggestion))
+                    }
+                    disabled={pending}
+                    className="border-line rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium disabled:opacity-50"
+                  >
+                    {T.applyPlanEnd(planTimeLabel(endSuggestion, checkedStart))}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {planContext ? (
               <PlanDiffSummary context={planContext} edited={editedActual} />
             ) : null}

@@ -3,7 +3,15 @@
 import { useMemo } from "react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { jaMinimal as ja } from "@/lib/ui/ja-locale";
-import { CalendarClock, Lightbulb, Pencil, Play, X } from "lucide-react";
+import {
+  CalendarClock,
+  Lightbulb,
+  Pencil,
+  Play,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { isLongDuration } from "@/lib/timer/forgotten";
 import type { CalendarViewEvent } from "@/components/calendar-view";
 import { PlanSuggestions } from "@/components/plan-suggestions";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
@@ -156,6 +164,11 @@ export function CalendarContextPanel({
                         title={entry.title}
                         startAt={entry.startAt}
                         endAt={entry.endAt}
+                        note={
+                          isLongDuration(entry.startAt, entry.endAt)
+                            ? T.forgottenBadge
+                            : undefined
+                        }
                       />
                       {/* 再計測(P5-4): 元実績のスナップショットで新規タイマーを開始する */}
                       <button
@@ -239,10 +252,13 @@ function ContextItem({
   title,
   startAt,
   endAt,
+  note,
 }: {
   title: string;
   startAt: string;
   endAt: string;
+  /** 注意の目印(止め忘れの可能性。G-91) */
+  note?: string;
 }) {
   const start = parseISO(startAt);
   const end = parseISO(endAt);
@@ -253,6 +269,15 @@ function ContextItem({
       <p className="text-ink-muted font-mono text-xs tabular-nums">
         {format(start, timeFormat)}〜{format(end, timeFormat)}
       </p>
+      {note ? (
+        <p className="text-ink flex items-center gap-1 text-xs font-medium">
+          <TriangleAlert
+            aria-hidden="true"
+            className="text-interrupt h-3.5 w-3.5 shrink-0"
+          />
+          {note}
+        </p>
+      ) : null}
     </div>
   );
 }

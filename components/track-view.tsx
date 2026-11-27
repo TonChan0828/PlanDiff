@@ -235,6 +235,9 @@ export function TrackView({
         {running ? (
           <RunningTimerHero
             entry={running}
+            plan={events.find(
+              (event) => event.googleEventId === running.googleEventId,
+            )}
             onStop={handleStopTimer}
             stopping={timerPending}
             onEditStart={handleOpenEditStart}

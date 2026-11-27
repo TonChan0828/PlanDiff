@@ -1101,6 +1101,9 @@ export function CalendarView({
         {running ? (
           <RunningTimerBar
             entry={running}
+            plan={events.find(
+              (event) => event.googleEventId === running.googleEventId,
+            )}
             onStop={handleStopTimer}
             stopping={timerPending}
             onEditStart={handleOpenEditStart}
