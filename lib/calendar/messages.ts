@@ -30,6 +30,10 @@ export const CALENDAR_MESSAGES = {
   eventCreateTitle: "予定を追加",
   eventEditTitle: "予定を編集",
   eventTitleField: "タイトル",
+  // G-94: 予定の重なりの警告
+  overlapHeading: "ほかの予定と時間が重なっています(保存はできます)",
+  overlapItem: (timeLabel: string, title: string) => `${timeLabel} ${title}`,
+  overlapMore: (count: number) => `ほか ${count}件`,
   eventStartField: "開始時刻",
   eventEndField: "終了時刻",
   eventTitleRequired: "タイトルを入力してください",

@@ -6,6 +6,12 @@ import { X } from "lucide-react";
 import { CALENDAR_MESSAGES as M } from "@/lib/calendar/messages";
 import type { RecurringPattern } from "@/lib/calendar/recurring-id";
 import { useDialogFocus } from "@/lib/ui/use-dialog-focus";
+import { OverlapWarning } from "@/components/overlap-warning";
+import {
+  findOverlappingEvents,
+  findRecurringOverlaps,
+  type OverlapCandidate,
+} from "@/lib/calendar/overlap";
 import { LOCAL_DATE_TIME_FORMAT } from "@/lib/ui/local-date-time";
 import { DateTimeStepper } from "@/components/date-time-stepper";
 
@@ -41,6 +47,10 @@ export interface RecurringSubmitValues {
 interface AppEventPanelProps {
   mode: "create" | "edit";
   initial: AppEventPanelValues;
+  /** 重なりの警告に使う、画面が読み込んでいる予定(G-94) */
+  existingEvents?: OverlapCandidate[];
+  /** 編集中の予定の id(重なりの対象から除く) */
+  editingEventId?: string;
   onSave: (values: AppEventPanelValues) => void;
   /** createモードのみ。渡されると繰り返し予定の作成UIを表示する(P5-1) */
   onSaveRecurring?: (values: RecurringSubmitValues) => void;
@@ -66,6 +76,8 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 export function AppEventPanel({
   mode,
   initial,
+  existingEvents = [],
+  editingEventId,
   onSave,
   onSaveRecurring,
   onDelete,
@@ -166,6 +178,35 @@ export function AppEventPanel({
   };
 
   const displayedError = validationError ?? error;
+
+  // 入力中の時間と重なる予定(G-94)。定期予定の作成では、繰り返し条件に当たる日の予定と比べる
+  const overlaps = (() => {
+    if (!startLocal || !endLocal) return [];
+    const startDate = new Date(startLocal);
+    const endDate = new Date(endLocal);
+    if (!(startDate.getTime() < endDate.getTime())) return [];
+    if (showRecurrence && recurrence !== "") {
+      // 定期予定は同じ日の中の時刻帯だけを持つ(日をまたぐ入力は保存時にエラー)
+      if (!isSameLocalDay(startDate, endDate)) return [];
+      return findRecurringOverlaps(
+        existingEvents,
+        {
+          pattern: recurrence,
+          weekdays,
+          startTime: format(startDate, "HH:mm"),
+          endTime: format(endDate, "HH:mm"),
+          startsOn: format(startDate, "yyyy-MM-dd"),
+          endsOn: endsOnLocal || null,
+        },
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
+    }
+    return findOverlappingEvents(
+      existingEvents,
+      { startAt: startDate.toISOString(), endAt: endDate.toISOString() },
+      editingEventId,
+    );
+  })();
 
   return (
     <div
@@ -302,6 +343,7 @@ export function AppEventPanel({
                 ) : null}
               </>
             ) : null}
+            <OverlapWarning overlaps={overlaps} />
             {displayedError ? (
               <p role="alert" className="text-danger text-sm">
                 {displayedError}

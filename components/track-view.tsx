@@ -401,6 +401,7 @@ export function TrackView({
         <AppEventPanel
           mode="create"
           initial={promotionInitial}
+          existingEvents={events}
           onSave={handleSavePromotion}
           onClose={handleClosePromotion}
           pending={promotionPending}

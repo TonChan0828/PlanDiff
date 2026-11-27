@@ -1152,6 +1152,10 @@ export function CalendarView({
           key={eventPanel.mode === "edit" ? eventPanel.eventId : "create"}
           mode={eventPanel.mode}
           initial={eventPanel.initial}
+          existingEvents={events}
+          editingEventId={
+            eventPanel.mode === "edit" ? eventPanel.eventId : undefined
+          }
           onSave={handleSaveEvent}
           onSaveRecurring={
             eventPanel.mode === "create" ? handleSaveRecurringRule : undefined
@@ -1175,6 +1179,7 @@ export function CalendarView({
               <RecurringRulePanel
                 key={rule.id}
                 initial={rule}
+                existingEvents={events}
                 onSave={handleSaveRuleEdit}
                 onDelete={handleDeleteRule}
                 onClose={handleCloseEventPanel}
