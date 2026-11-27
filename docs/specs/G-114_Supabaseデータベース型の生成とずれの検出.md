@@ -20,7 +20,7 @@ Supabase クライアントに DB 固有の型がなく、テーブル名・列�
    - 型付けで出た既存コードの型エラーは**呼び出し側を直して解消**する。`any` や型アサーションの追加で隠さない。
      やむを得ない箇所(JSON 列など)は理由コメントを付ける
    - 結合テスト用ヘルパー(`tests/integration/helpers.ts`)は型なしのままでよい(RLS 越しの検証用で、型が邪魔になる箇所があるため)。変更するなら理由を記録する
-3. **CI での差分検出**: integration ジョブの `supabase db reset` の後に、型を再生成し `git diff --exit-code lib/supabase/database.types.ts` で
+3. **CI での差分検出**: integration ジョブで空のローカル DB を起動して全マイグレーションの適用を確認した後に、型を再生成し `git diff --exit-code lib/supabase/database.types.ts` で
    コミット済みとの差分があれば失敗させる。失敗メッセージに `npm run db:types` での更新手順を出す
 4. **運用**: マイグレーションを追加した PR は `npm run db:types` を実行して生成物を同じ PR に含める。手順を `.claude/skills/db-migration` と
    `README` のコマンド欄に追記する(db-migration Skill への追記が必要なため、承認時に確認)

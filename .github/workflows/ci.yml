@@ -14,8 +14,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # All required jobs run in parallel. The timeout starts when each job runs.
+  # Keep the required check name and fail it if any prerequisite did not pass.
   check:
+    needs: [static, unit_first, unit_second]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require static checks and both unit test shards
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          UNIT_FIRST_RESULT: ${{ needs.unit_first.result }}
+          UNIT_SECOND_RESULT: ${{ needs.unit_second.result }}
+        run: |
+          if [[ "$STATIC_RESULT" != success || "$UNIT_FIRST_RESULT" != success || "$UNIT_SECOND_RESULT" != success ]]; then
+            echo "::error::Static checks: $STATIC_RESULT. Unit tests 1/2: $UNIT_FIRST_RESULT. Unit tests 2/2: $UNIT_SECOND_RESULT."
+            exit 1
+          fi
+
+  static:
+    name: Static checks and build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -49,17 +67,15 @@ jobs:
       # 依存方向・循環と、未使用/未宣言の npm パッケージ(G-110)
       - run: npm run check:deps
       - run: npm run check:packages
-      - run: npm test
       - run: npm run build
 
-  integration:
-    name: Integration and migration tests (local Supabase)
+  unit_first:
+    name: Unit tests (1/2)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      TZ: Asia/Tokyo
-      NEXT_TELEMETRY_DISABLED: "1"
-    steps:
+      UNIT_SHARD: 1/2
+    steps: &unit_steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -68,28 +84,63 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test -- --shard="$UNIT_SHARD"
+
+  unit_second:
+    name: Unit tests (2/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      UNIT_SHARD: 2/2
+    steps: *unit_steps
+
+  integration:
+    name: Integration and migration tests (local Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TZ: Asia/Tokyo
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Excluding containers alone still lets the CLI initialize service schemas.
+      SUPABASE_REALTIME_ENABLED: "false"
+      SUPABASE_STORAGE_ENABLED: "false"
+      SUPABASE_EDGE_RUNTIME_ENABLED: "false"
+      # CI only applies SQL migrations. Schema diff catalog caching starts Edge Runtime.
+      SUPABASE_EXPERIMENTAL_PGDELTA_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: 2.107.0
-      - name: Start disposable local Supabase
+      - name: Start local Supabase and prepare integration test dependencies
+        shell: bash
         env:
           GOOGLE_CLIENT_ID: local-ci-client
           GOOGLE_CLIENT_SECRET: local-ci-secret
-        run: >-
-          supabase start
-          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
-      - name: Apply all migrations to the disposable database
-        run: supabase db reset --local --no-seed
-      - name: Verify local migration history parser
-        run: node scripts/check-migration-history.mjs --local
-      - name: Fetch the database type generator from GitHub Container Registry
-        timeout-minutes: 1
-        shell: bash
+          SUPABASE_DB_SEED_ENABLED: "false"
         run: |
+          # Start applies all migrations to the fresh database.
+          supabase start \
+            --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector &
+          supabase_pid=$!
+          trap 'kill "$supabase_pid" 2>/dev/null || true' EXIT
+          npm ci
+
           # CLI 2.107.0 uses the ECR tag for gen types even when start uses GHCR.
           image=ghcr.io/supabase/postgres-meta@sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
-          docker pull "$image"
+          timeout 60s docker pull "$image"
           docker tag "$image" public.ecr.aws/supabase/postgres-meta:v0.96.1
+
+          wait "$supabase_pid"
+          trap - EXIT
+      - name: Verify local migration history
+        run: node scripts/check-migration-history.mjs --local
       # マイグレーションとコミット済みの型がずれていたら落とす(G-114)。
       # 直すときは、ローカルで `npm run db:types` を実行して生成物をコミットする。
       - name: Verify generated database types are up to date
@@ -122,6 +173,12 @@ jobs:
     env:
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
+      # Excluding containers alone still lets the CLI initialize service schemas.
+      SUPABASE_REALTIME_ENABLED: "false"
+      SUPABASE_STORAGE_ENABLED: "false"
+      SUPABASE_EDGE_RUNTIME_ENABLED: "false"
+      # CI only applies SQL migrations. Schema diff catalog caching starts Edge Runtime.
+      SUPABASE_EXPERIMENTAL_PGDELTA_ENABLED: "false"
       APP_ORIGIN: "http://127.0.0.1:3000"
       PRO_INTEREST_HMAC_SECRET: "local-ci-only-security-test-secret-32-bytes"
     steps:
@@ -132,21 +189,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: 2.107.0
-      - name: Install Chromium and Linux dependencies
-        run: npx playwright install --with-deps chromium
-      - name: Start disposable local Supabase
+      - name: Start local Supabase and install headless Chromium
+        shell: bash
         env:
           GOOGLE_CLIENT_ID: local-ci-client
           GOOGLE_CLIENT_SECRET: local-ci-secret
           SUPABASE_DB_SEED_ENABLED: "false"
-        # On a fresh runner, start applies all migrations to the empty database.
-        run: >-
-          supabase start
-          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
+        run: |
+          # On a fresh runner, start applies all migrations to the empty database.
+          # Browser dependencies can install while Supabase starts.
+          supabase start \
+            --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector &
+          supabase_pid=$!
+          trap 'kill "$supabase_pid" 2>/dev/null || true' EXIT
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+          wait "$supabase_pid"
+          trap - EXIT
       - name: Export local-only Supabase settings
         shell: bash
         run: |
@@ -161,7 +223,7 @@ jobs:
             printf 'SUPABASE_DB_URL=%s\n' "$DB_URL"
           } >> "$GITHUB_ENV"
       - run: npm run build
-      - run: npm run test:e2e
+      - run: npm run test:e2e -- --workers=2
       - name: Upload browser diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
