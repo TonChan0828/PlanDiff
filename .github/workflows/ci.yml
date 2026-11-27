@@ -96,9 +96,26 @@ jobs:
 
   integration:
     name: Integration and migration tests (local Supabase)
+    needs: [integration_first, integration_second]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
+    steps:
+      - name: Require both integration test shards
+        env:
+          FIRST_RESULT: ${{ needs.integration_first.result }}
+          SECOND_RESULT: ${{ needs.integration_second.result }}
+        run: |
+          if [[ "$FIRST_RESULT" != success || "$SECOND_RESULT" != success ]]; then
+            echo "::error::Integration tests 1/2: $FIRST_RESULT. Integration tests 2/2: $SECOND_RESULT."
+            exit 1
+          fi
+
+  integration_first:
+    name: Integration tests (1/2) and migration checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env: &integration_env
       TZ: Asia/Tokyo
       NEXT_TELEMETRY_DISABLED: "1"
       # Excluding containers alone still lets the CLI initialize service schemas.
@@ -107,7 +124,7 @@ jobs:
       SUPABASE_EDGE_RUNTIME_ENABLED: "false"
       # CI only applies SQL migrations. Schema diff catalog caching starts Edge Runtime.
       SUPABASE_EXPERIMENTAL_PGDELTA_ENABLED: "false"
-    steps:
+    steps: &integration_steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -133,9 +150,11 @@ jobs:
           npm ci
 
           # CLI 2.107.0 uses the ECR tag for gen types even when start uses GHCR.
-          image=ghcr.io/supabase/postgres-meta@sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
-          timeout 60s docker pull "$image"
-          docker tag "$image" public.ecr.aws/supabase/postgres-meta:v0.96.1
+          if [[ "$GITHUB_JOB" == integration_first ]]; then
+            image=ghcr.io/supabase/postgres-meta@sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
+            timeout 60s docker pull "$image"
+            docker tag "$image" public.ecr.aws/supabase/postgres-meta:v0.96.1
+          fi
 
           wait "$supabase_pid"
           trap - EXIT
@@ -144,6 +163,7 @@ jobs:
       # マイグレーションとコミット済みの型がずれていたら落とす(G-114)。
       # 直すときは、ローカルで `npm run db:types` を実行して生成物をコミットする。
       - name: Verify generated database types are up to date
+        if: github.job == 'integration_first'
         shell: bash
         run: |
           npm run db:types
@@ -164,7 +184,17 @@ jobs:
             printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
             printf 'SUPABASE_DB_URL=%s\n' "$DB_URL"
           } >> "$GITHUB_ENV"
-      - run: npm run test:integration
+      - name: Run integration test shard on its own database
+        env:
+          TEST_SHARD: ${{ github.job == 'integration_first' && '1/2' || '2/2' }}
+        run: npm run test:integration -- --shard="$TEST_SHARD"
+
+  integration_second:
+    name: Integration tests (2/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env: *integration_env
+    steps: *integration_steps
 
   e2e:
     name: Mobile browser tests (local Supabase)
