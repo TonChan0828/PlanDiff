@@ -1,5 +1,12 @@
 "use client";
 
+import { formatDurationMinutes } from "@/lib/summary/format";
+
+import {
+  capLongEntries,
+  type LongEntryDisplay,
+} from "@/lib/calendar/long-entry";
+
 import {
   Fragment,
   useEffect,
@@ -1323,9 +1330,15 @@ function DayColumn({
   // 親の任意のstate変更(パネル開閉・タブ切替など)で作り直さないようメモ化する(P6-3)。
   // now には依存させない(現在時刻ラインの位置だけが now を使う)
   const blocks = useMemo(() => layoutDayEvents(events, day), [events, day]);
+  // 週表示(showTime=false)は長時間の実績を省略する(G-104)。列の割り当てより前に縮めないと、
+  // ほかの実績が細い列に押し込まれたままになる。日表示は実際の長さのまま
   const actualBlocks = useMemo(
-    () => layoutDayEvents(actualInputs, day),
-    [actualInputs, day],
+    () =>
+      layoutDayEvents<ActualBlockInput & LongEntryDisplay>(
+        showTime ? actualInputs : capLongEntries(actualInputs, day),
+        day,
+      ),
+    [actualInputs, day, showTime],
   );
 
   const isToday = now ? isSameDay(day, now) : false;
@@ -1389,13 +1402,18 @@ function DayColumn({
           const plan = block.googleEventId
             ? planByEventId.get(block.googleEventId)
             : undefined;
+          // 省略したブロックの超過の斜線は、描いている下端まで(G-104)。続きの日の印には斜線を出さない
+          const shownEndAt = block.layoutEndAt ?? block.endAt;
+          const isContinuation = block.longEntry === "continuation";
           const delayBar =
-            gap.startDelayMinutes > 0 && plan
+            gap.startDelayMinutes > 0 && plan && !isContinuation
               ? gapBarStyle(day, plan.startAt, block.startAt)
               : null;
           const overrunBar =
-            gap.overrunMinutes > 0 && plan
-              ? gapBarStyle(day, plan.endAt, block.endAt)
+            gap.overrunMinutes > 0 &&
+            plan &&
+            Date.parse(plan.endAt) < Date.parse(shownEndAt)
+              ? gapBarStyle(day, plan.endAt, shownEndAt)
               : null;
           return (
             <Fragment key={block.id}>
@@ -1574,6 +1592,11 @@ function GapStripe({
   );
 }
 
+const BREAK_EDGE_STYLE = {
+  background:
+    "linear-gradient(135deg, var(--surface) 25%, transparent 25%) 0 0 / 8px 6px, linear-gradient(225deg, var(--surface) 25%, transparent 25%) 0 0 / 8px 6px",
+};
+
 function ActualBlock({
   block,
   gap,
@@ -1581,7 +1604,7 @@ function ActualBlock({
   onEdit,
   onRestart,
 }: {
-  block: CalendarBlock<ActualBlockInput>;
+  block: CalendarBlock<ActualBlockInput & LongEntryDisplay>;
   gap: ActualGapInfo;
   showTime: boolean;
   onEdit: (block: ActualBlockInput) => void;
@@ -1641,16 +1664,56 @@ function ActualBlock({
     </>
   ) : null;
 
-  const titleNode = (
-    <>
-      <p
-        className={`line-clamp-2 text-xs leading-tight font-medium break-words ${textColorClassName}`}
-      >
-        {block.title || M.untitled}
+  // 省略したブロックは大部分が超過になり、後から描く斜線が文字に重なって読めない。
+  // 文字を斜線より前に出し、ブロックと同じ色の下地を敷く(G-104)
+  const longLabelClassName = `relative z-[1] box-decoration-clone rounded-sm px-0.5 ${
+    gap.linked ? "bg-brand" : "bg-interrupt"
+  }`;
+
+  const titleNode =
+    block.longEntry === "continuation" ? (
+      <p className="text-[9px] leading-tight font-semibold break-words text-white">
+        <span className={longLabelClassName}>{T.longEntryContinued}</span>
       </p>
-      {detailNode}
-    </>
-  );
+    ) : (
+      <>
+        <p
+          className={`line-clamp-2 text-xs leading-tight font-medium break-words ${textColorClassName}`}
+        >
+          {block.longEntry ? (
+            <span className={longLabelClassName}>
+              {block.title || M.untitled}
+            </span>
+          ) : (
+            block.title || M.untitled
+          )}
+        </p>
+        {block.longEntry === "head" ? (
+          <>
+            <p className="mt-0.5 text-[9px] leading-snug font-bold break-words text-white tabular-nums">
+              <span className={longLabelClassName}>
+                {T.longEntryOmitted(
+                  formatDurationMinutes(
+                    differenceInMinutes(
+                      parseISO(block.endAt),
+                      parseISO(block.startAt),
+                    ),
+                  ),
+                )}
+              </span>
+            </p>
+            {/* 下端の切れ目(ギザギザ)。高さが実際の長さではないことを形で示す */}
+            <span
+              data-testid="long-entry-break"
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-1.5"
+              style={BREAK_EDGE_STYLE}
+            />
+          </>
+        ) : null}
+        {detailNode}
+      </>
+    );
 
   if (!block.editable) {
     return (
@@ -1689,7 +1752,12 @@ function ActualBlock({
     >
       <button
         type="button"
-        aria-label={`${T.editLabel(block.title)}${gapSuffix}`}
+        // 省略表示は高さから長さが分からないため、実際の時刻を読み上げ名に含める(G-104)
+        aria-label={`${T.editLabel(block.title)}${gapSuffix}${
+          block.longEntry
+            ? ` ${blockTimeLabel(block.startAt, block.endAt)}`
+            : ""
+        }`}
         onClick={() => onEdit(block)}
         className={`block h-full w-full overflow-hidden border px-1 py-0.5 text-left ${colorClassName} ${roundedClassName}`}
       >
