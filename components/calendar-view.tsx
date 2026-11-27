@@ -1670,10 +1670,22 @@ function ActualBlock({
     gap.linked ? "bg-brand" : "bg-interrupt"
   }`;
 
+  // 省略していることの文言。見える文字と読み上げ名で同じものを使う
+  const longEntryText =
+    block.longEntry === "head"
+      ? T.longEntryOmitted(
+          formatDurationMinutes(
+            differenceInMinutes(parseISO(block.endAt), parseISO(block.startAt)),
+          ),
+        )
+      : block.longEntry === "continuation"
+        ? T.longEntryContinued
+        : null;
+
   const titleNode =
     block.longEntry === "continuation" ? (
       <p className="text-[9px] leading-tight font-semibold break-words text-white">
-        <span className={longLabelClassName}>{T.longEntryContinued}</span>
+        <span className={longLabelClassName}>{longEntryText}</span>
       </p>
     ) : (
       <>
@@ -1691,16 +1703,7 @@ function ActualBlock({
         {block.longEntry === "head" ? (
           <>
             <p className="mt-0.5 text-[9px] leading-snug font-bold break-words text-white tabular-nums">
-              <span className={longLabelClassName}>
-                {T.longEntryOmitted(
-                  formatDurationMinutes(
-                    differenceInMinutes(
-                      parseISO(block.endAt),
-                      parseISO(block.startAt),
-                    ),
-                  ),
-                )}
-              </span>
+              <span className={longLabelClassName}>{longEntryText}</span>
             </p>
             {/* 下端の切れ目(ギザギザ)。高さが実際の長さではないことを形で示す */}
             <span
@@ -1741,7 +1744,10 @@ function ActualBlock({
   // title は li に付け、重なる再計測ボタンの上でも同じ内容が出るようにする(G-99)
   // heightPercent由来の浮動小数点誤差(30分=27.999...px)を微小イプシロンで吸収する
   const blockPx = (block.heightPercent / 100) * 24 * HOUR_PX;
-  const showRestart = blockPx >= RESTART_MIN_BLOCK_PX - 0.001;
+  // 続きの日の印は小さく、ボタンが文字に重なるため出さない(再計測は本体か「この日」の一覧から)
+  const showRestart =
+    blockPx >= RESTART_MIN_BLOCK_PX - 0.001 &&
+    block.longEntry !== "continuation";
 
   return (
     <li
@@ -1752,10 +1758,11 @@ function ActualBlock({
     >
       <button
         type="button"
-        // 省略表示は高さから長さが分からないため、実際の時刻を読み上げ名に含める(G-104)
+        // 省略表示は高さから長さが分からないため、省略の文言と実際の時刻を読み上げ名に含める(G-104)。
+        // aria-label はボタン内の文字を置き換えるので、見える文言もここに入れる
         aria-label={`${T.editLabel(block.title)}${gapSuffix}${
-          block.longEntry
-            ? ` ${blockTimeLabel(block.startAt, block.endAt)}`
+          longEntryText
+            ? ` ${longEntryText} ${blockTimeLabel(block.startAt, block.endAt)}`
             : ""
         }`}
         onClick={() => onEdit(block)}
@@ -1768,7 +1775,8 @@ function ActualBlock({
           type="button"
           aria-label={T.restartLabel(block.title)}
           onClick={() => onRestart(block)}
-          className="absolute top-0.5 right-0.5 inline-flex h-6 w-6 items-center justify-center rounded bg-white/25 text-white transition-colors hover:bg-white/40"
+          // z-[2]: 省略ブロックの前面に出した文字(z-[1])より手前に置き、押せるようにする
+          className="absolute top-0.5 right-0.5 z-[2] inline-flex h-6 w-6 items-center justify-center rounded bg-white/25 text-white transition-colors hover:bg-white/40"
         >
           <Play aria-hidden="true" className="h-3 w-3" fill="currentColor" />
         </button>

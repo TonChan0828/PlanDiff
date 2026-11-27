@@ -1,9 +1,12 @@
 import {
   addDays,
   addHours,
+  addMinutes,
   differenceInMinutes,
+  min,
   parseISO,
   startOfDay,
+  subMinutes,
 } from "date-fns";
 
 // 週表示の長時間実績の省略(G-104)。仕様書: docs/specs/G-104_週表示の長時間実績の省略表示.md
@@ -14,8 +17,12 @@ import {
 export const LONG_ENTRY_DISPLAY_THRESHOLD_HOURS = 8;
 /** 省略した実績の表示の長さ(開始から) */
 export const LONG_ENTRY_DISPLAY_HOURS = 2;
+/** 0時の直前に始まる本体の最小の高さ(分換算)。これ未満だとタイトルと「省略 …」が読めない */
+const HEAD_MIN_MINUTES = 90;
+/** 続きの日の印の高さ(分換算)。週表示の細い列で「前日から継続(省略)」が3行になっても収まる */
+const CONTINUATION_MINUTES = 45;
 
-/** head: 開始から2時間ぶんを描くブロック / continuation: 続きの日に出す印 */
+/** head: 開始日に、開始から2時間ぶん(0時まで)を描くブロック / continuation: 続きの日に出す印 */
 export type LongEntryPart = "head" | "continuation";
 
 export interface LongEntryDisplay {
@@ -39,20 +46,31 @@ export function capLongEntries<
     ) {
       return input;
     }
-    const shownEnd = addHours(start, LONG_ENTRY_DISPLAY_HOURS);
-    if (start < dayEnd && shownEnd > dayStart) {
+    // 本体は開始日の列だけに出す。2時間が0時を超える分は翌日に分けず、0時で切る
+    if (start >= dayStart && start < dayEnd) {
+      const shownEnd = min([addHours(start, LONG_ENTRY_DISPLAY_HOURS), dayEnd]);
+      const tooShort = differenceInMinutes(shownEnd, start) < HEAD_MIN_MINUTES;
       return {
         ...input,
+        // 0時の直前に始まると低くなりすぎるため、上に広げて読める高さにする(実際の時刻は変えない)
+        ...(tooShort
+          ? {
+              layoutStartAt: subMinutes(
+                shownEnd,
+                HEAD_MIN_MINUTES,
+              ).toISOString(),
+            }
+          : {}),
         layoutEndAt: shownEnd.toISOString(),
         longEntry: "head" as const,
       };
     }
-    // 表示ぶんより後の日で、実績がまだ続いている場合は、0時に最小の高さの印を置く
+    // 開始日より後で実績が続いている日は、0時に続きの印を置く
     if (start < dayStart && end > dayStart) {
       return {
         ...input,
         layoutStartAt: dayStart.toISOString(),
-        layoutEndAt: dayStart.toISOString(),
+        layoutEndAt: addMinutes(dayStart, CONTINUATION_MINUTES).toISOString(),
         longEntry: "continuation" as const,
       };
     }

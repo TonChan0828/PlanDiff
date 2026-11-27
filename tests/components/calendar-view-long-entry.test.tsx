@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { CalendarView } from "@/components/calendar-view";
+import type { TimeEntryItem } from "@/lib/timer/types";
 
 // 仕様書: docs/specs/G-104_週表示の長時間実績の省略表示.md J4〜J6
 // 日時はローカルTZで組み立て、現在時刻を固定する(R-1)
@@ -30,7 +31,7 @@ const LONG = {
   endAt: iso(18, 38),
 };
 
-function renderView(view: "week" | "day", entries = [LONG]) {
+function renderView(view: "week" | "day", entries: TimeEntryItem[] = [LONG]) {
   render(
     <CalendarView
       events={[PLAN]}
@@ -98,7 +99,7 @@ describe("週表示の長時間実績の省略(G-104)", () => {
       screen.getByTitle("副業 06:00〜18:38(+728分 超過)"),
     ).toBeInTheDocument();
     const button = screen.getByRole("button", {
-      name: "副業の実績を編集(+728分 超過) 06:00〜18:38",
+      name: "副業の実績を編集(+728分 超過) 省略 12時間38分 06:00〜18:38",
     });
     await user.click(button);
 
@@ -111,7 +112,7 @@ describe("週表示の長時間実績の省略(G-104)", () => {
     renderView("week", [
       {
         ...LONG,
-        googleEventId: null as never,
+        googleEventId: null,
         endAt: iso(7, 0, 8),
         startAt: iso(20),
       },
@@ -123,8 +124,26 @@ describe("週表示の長時間実績の省略(G-104)", () => {
     expect(
       within(blocks[1]!).getByText("前日から継続(省略)"),
     ).toBeInTheDocument();
-    expect(heightPercentOf(blocks[1]!)).toBeCloseTo((24 / 1440) * 100);
-    // 続きの印には超過の斜線を出さない
+    expect(heightPercentOf(blocks[1]!)).toBeCloseTo((45 / 1440) * 100);
+    // 読み上げでも、本体と続きの印を区別できる
+    expect(
+      within(blocks[0]!).getByRole("button", {
+        name: /省略 11時間 7\/7 20:00/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(blocks[1]!).getByRole("button", {
+        name: /前日から継続\(省略\) 7\/7 20:00/,
+      }),
+    ).toBeInTheDocument();
+    // 続きの印は小さいので、文字に重なる再計測ボタンを出さない(再計測は本体か一覧から)
+    expect(
+      within(blocks[1]!).queryByRole("button", { name: /を再計測/ }),
+    ).not.toBeInTheDocument();
+    // 再計測ボタンは、前面に出した文字より手前に置く
+    expect(
+      within(blocks[0]!).getByRole("button", { name: /を再計測/ }),
+    ).toHaveClass("z-[2]");
     await user.click(
       within(blocks[1]!).getByRole("button", { name: /の実績を編集/ }),
     );
@@ -138,5 +157,14 @@ describe("週表示の長時間実績の省略(G-104)", () => {
     renderView("week", [{ ...LONG, endAt: iso(7) }]);
 
     expect(screen.queryByText(/省略/)).not.toBeInTheDocument();
+  });
+
+  it("J4: 紐づく予定がある日またぎでは、超過の斜線は本体の下端までで、続きの印の日には出さない", () => {
+    renderView("week", [{ ...LONG, startAt: iso(6), endAt: iso(2, 0, 8) }]);
+
+    // 斜線は開始日の1本だけ(予定の終了 6:30 〜 本体の下端 8:00)
+    const stripes = screen.getAllByTestId("gap-overrun");
+    expect(stripes).toHaveLength(1);
+    expect(heightPercentOf(stripes[0]!)).toBeCloseTo((90 / 1440) * 100);
   });
 });

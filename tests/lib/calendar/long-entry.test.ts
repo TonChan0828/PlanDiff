@@ -36,7 +36,7 @@ describe("capLongEntries(G-104)", () => {
     expect(capLongEntries([running], DAY)).toEqual([running]);
   });
 
-  it("J2: 日をまたぐと、開始日は2時間ぶん、続きの日は0時の印になる", () => {
+  it("J2: 日をまたぐと、開始日は2時間ぶん、続きの日は読める高さ(45分ぶん)の印になる", () => {
     const overnight = entry("n", at(20), at(9, 0, 8));
 
     expect(capLongEntries([overnight], DAY)[0]).toMatchObject({
@@ -46,19 +46,49 @@ describe("capLongEntries(G-104)", () => {
     expect(capLongEntries([overnight], NEXT_DAY)[0]).toMatchObject({
       longEntry: "continuation",
       layoutStartAt: at(0, 0, 8),
-      layoutEndAt: at(0, 0, 8),
+      layoutEndAt: at(0, 45, 8),
       startAt: at(20),
     });
   });
 
-  it("J2(境界): 省略後の2時間が0時をまたぐ場合は、両方の日が先頭の表示になる", () => {
-    const overnight = entry("n", at(23), at(8, 0, 8));
+  it("J2(境界): 2時間が0時をまたいでも、本体は開始日だけで0時までにし、翌日は印にする", () => {
+    const overnight = entry("n", at(22, 5), at(8, 0, 8));
 
-    expect(capLongEntries([overnight], DAY)[0]!.longEntry).toBe("head");
-    expect(capLongEntries([overnight], NEXT_DAY)[0]).toMatchObject({
+    expect(capLongEntries([overnight], DAY)[0]).toMatchObject({
       longEntry: "head",
-      layoutEndAt: at(1, 0, 8),
+      layoutEndAt: at(0, 0, 8),
     });
+    expect(capLongEntries([overnight], NEXT_DAY)[0]!.longEntry).toBe(
+      "continuation",
+    );
+  });
+
+  it("J2(境界): 0時の直前に始まる本体は、文字が読めるよう上に広げて90分ぶんにする", () => {
+    const [head] = capLongEntries([entry("n", at(23, 50), at(9, 0, 8))], DAY);
+
+    expect(head).toMatchObject({
+      longEntry: "head",
+      layoutStartAt: at(22, 30),
+      layoutEndAt: at(0, 0, 8),
+      startAt: at(23, 50),
+    });
+  });
+
+  it("J2: 3日以上続く実績は、開始日より後のすべての日が印になる。0時ちょうどに終わる日には出さない", () => {
+    const days = entry("n", at(20), at(0, 0, 10));
+
+    for (const day of [8, 9]) {
+      expect(capLongEntries([days], new Date(2026, 6, day))[0]!.longEntry).toBe(
+        "continuation",
+      );
+    }
+    expect(capLongEntries([days], new Date(2026, 6, 10))[0]).toEqual(days);
+    expect(
+      layoutDayEvents(
+        capLongEntries([days], new Date(2026, 6, 10)),
+        new Date(2026, 6, 10),
+      ),
+    ).toEqual([]);
   });
 
   it("J3: 列の割り当ては省略後の範囲で行い、後半の時間帯の実績は全幅になる", () => {
