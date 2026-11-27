@@ -177,3 +177,75 @@ describe("findRecurringOverlaps(G-94 H3)", () => {
     ).toEqual(["night"]);
   });
 });
+
+describe("findRecurringOverlaps の休止・タイムゾーン・長い予定(G-94 レビュー対応)", () => {
+  const rule = {
+    pattern: "daily" as const,
+    weekdays: null,
+    startTime: "10:30",
+    endTime: "11:30",
+    startsOn: "2026-11-23",
+    endsOn: null,
+  };
+
+  it("休止する日(開始を含み、終了を含まない)は、回が作られないので重なりにしない", () => {
+    const week = [23, 24, 25, 26, 27].map((day) =>
+      event(`d${day}`, day, 10, 11),
+    );
+
+    expect(
+      ids(
+        findRecurringOverlaps(
+          week,
+          {
+            ...rule,
+            pauses: [{ startsOn: "2026-11-24", endsOn: "2026-11-26" }],
+          },
+          TZ,
+        ),
+      ),
+    ).toEqual(["d23", "d26", "d27"]);
+    expect(
+      ids(
+        findRecurringOverlaps(
+          week,
+          { ...rule, pauses: [{ startsOn: "2026-11-25", endsOn: null }] },
+          TZ,
+        ),
+      ),
+    ).toEqual(["d23", "d24"]);
+  });
+
+  it("曜日と日付は、実行環境ではなく指定したタイムゾーンで判定する", () => {
+    // 2026-11-22T20:30Z は、UTC では 11/22(日)だが、Pacific/Kiritimati(UTC+14)では 11/23(月)10:30
+    const monday = {
+      id: "k",
+      googleEventId: "app:k",
+      title: "k",
+      startAt: "2026-11-22T20:30:00.000Z",
+      endAt: "2026-11-22T21:00:00.000Z",
+    };
+    const weeklyMonday = {
+      ...rule,
+      pattern: "weekly" as const,
+      weekdays: [1],
+    };
+
+    expect(
+      ids(findRecurringOverlaps([monday], weeklyMonday, "Pacific/Kiritimati")),
+    ).toEqual(["k"]);
+    expect(findRecurringOverlaps([monday], weeklyMonday, "UTC")).toEqual([]);
+  });
+
+  it("調べ始める日より60日以上前から続く長い予定とも判定する", () => {
+    const long = {
+      id: "long",
+      googleEventId: "app:long",
+      title: "long",
+      startAt: new Date(2026, 7, 1, 0, 0).toISOString(),
+      endAt: iso(25, 0),
+    };
+
+    expect(ids(findRecurringOverlaps([long], rule, TZ))).toEqual(["long"]);
+  });
+});

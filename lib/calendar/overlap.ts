@@ -1,7 +1,9 @@
 import { TZDate } from "@date-fns/tz";
 import {
+  isOccurrencePaused,
   RECURRING_ID_PREFIX,
   type RecurringPattern,
+  type RecurringRulePause,
 } from "@/lib/calendar/recurring-id";
 
 // 予定の時間の重なりの判定(G-94)。仕様書: docs/specs/G-94_予定の時間の重なりの警告.md
@@ -27,6 +29,8 @@ export interface RecurringOverlapRule {
   /** この日以降("YYYY-MM-DD")の回を調べる */
   startsOn: string;
   endsOn: string | null;
+  /** 休止期間。休止する日は回が作られないため、重なりにしない */
+  pauses?: RecurringRulePause[];
 }
 
 const sortByStart = <T extends OverlapCandidate>(events: T[]) =>
@@ -90,9 +94,23 @@ export function findRecurringOverlaps<T extends OverlapCandidate>(
       }
       const eventStart = new TZDate(Date.parse(event.startAt), timeZone);
       const eventEndMs = Date.parse(event.endAt);
-      const year = eventStart.getFullYear();
-      const month = eventStart.getMonth();
-      const firstDay = eventStart.getDate();
+      // 予定の開始日と、調べ始める日の遅いほうから走査する(長く続く予定でも上限で打ち切られないように)
+      const [fromYear = 0, fromMonth = 1, fromDay = 1] = rule.startsOn
+        .split("-")
+        .map(Number);
+      const ruleStart = new TZDate(
+        fromYear,
+        fromMonth - 1,
+        fromDay,
+        0,
+        0,
+        timeZone,
+      );
+      const first =
+        eventStart.getTime() > ruleStart.getTime() ? eventStart : ruleStart;
+      const year = first.getFullYear();
+      const month = first.getMonth();
+      const firstDay = first.getDate();
       for (let offset = 0; offset < MAX_DAYS_PER_EVENT; offset += 1) {
         const day = new TZDate(year, month, firstDay + offset, 0, 0, timeZone);
         if (day.getTime() >= eventEndMs) break;
@@ -100,7 +118,8 @@ export function findRecurringOverlaps<T extends OverlapCandidate>(
         if (
           date < rule.startsOn ||
           (rule.endsOn && date > rule.endsOn) ||
-          !coversWeekday(rule, day.getDay())
+          !coversWeekday(rule, day.getDay()) ||
+          isOccurrencePaused(rule, date)
         ) {
           continue;
         }

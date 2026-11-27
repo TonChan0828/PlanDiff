@@ -63,6 +63,79 @@ describe("重なりの警告の結線(G-94 H7)", () => {
     expect(screen.getByText(WARNING)).toBeInTheDocument();
   });
 
+  it("カレンダーで予定を編集するとき、自分自身への警告は出ない", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(
+      <CalendarView
+        events={[{ ...PLAN, source: "app" as const }]}
+        timeEntries={[]}
+        runningEntry={null}
+        viewParam="day"
+        dateParam="2026-11-24"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "選択日の詳細を開く" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "英語学習の予定を編集" }),
+    );
+    await screen.findByRole("dialog");
+
+    expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
+  });
+
+  it("カレンダーの繰り返し全体の編集パネルにも、画面の予定が渡る", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const recurring = {
+      id: "row-r",
+      googleEventId: "rec:rule-1:2026-11-24",
+      title: "勉強",
+      startAt: iso(14),
+      endAt: iso(15),
+      source: "app" as const,
+    };
+    render(
+      <CalendarView
+        events={[recurring, { ...PLAN, startAt: iso(14), endAt: iso(15) }]}
+        timeEntries={[]}
+        runningEntry={null}
+        viewParam="day"
+        dateParam="2026-11-24"
+        recurringRules={[
+          {
+            id: "rule-1",
+            title: "勉強",
+            pattern: "daily",
+            weekdays: null,
+            startTime: "14:00",
+            endTime: "15:00",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            startsOn: "2026-11-01",
+            endsOn: null,
+            origin: "manual",
+            lastLearnedAt: null,
+            autoAdjustEnabled: false,
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "選択日の詳細を開く" }),
+    );
+    await user.click(screen.getByRole("button", { name: "勉強の予定を編集" }));
+    await user.click(
+      await screen.findByRole("button", { name: "繰り返し全体" }),
+    );
+
+    expect(await screen.findByText(WARNING)).toBeInTheDocument();
+    expect(
+      screen.getByText("11/24(火) 14:00〜15:00 英語学習"),
+    ).toBeInTheDocument();
+  });
+
   it("計測画面の「予定にする」パネルに、画面の予定が渡る", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     // 「予定にする」の初期値は翌日の同じ時刻(buildPromotionDefaults)のため、比べる予定も翌日に置く

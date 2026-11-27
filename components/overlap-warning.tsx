@@ -14,16 +14,23 @@ function timeLabel(event: OverlapCandidate): string {
   return `${format(start, "M/d(E) HH:mm", { locale: ja })}〜${format(end, endPattern, { locale: ja })}`;
 }
 
-/** 予定の重なりの警告(G-94)。保存は止めない。色だけに頼らず、アイコンと文言で示す */
+/**
+ * 予定の重なりの警告(G-94)。保存は止めない。色だけに頼らず、アイコンと文言で示す。
+ * status の領域は常に置き、中身だけを出し入れする。中身と同時に領域を挿入すると、
+ * 支援技術が読み上げないことがあるため。空の間は -mt-4 でフォームの余白(gap-4)を打ち消す
+ * (display: none は支援技術の対象から外れるので使わない)。
+ */
 export function OverlapWarning({ overlaps }: { overlaps: OverlapCandidate[] }) {
-  if (overlaps.length === 0) {
-    return null;
-  }
   return (
-    <div
-      role="status"
-      className="border-interrupt/60 flex flex-col gap-1 rounded-lg border px-3 py-2 text-sm"
-    >
+    <div role="status" className={overlaps.length === 0 ? "-mt-4" : undefined}>
+      {overlaps.length === 0 ? null : <OverlapList overlaps={overlaps} />}
+    </div>
+  );
+}
+
+function OverlapList({ overlaps }: { overlaps: OverlapCandidate[] }) {
+  return (
+    <div className="border-interrupt/60 flex flex-col gap-1 rounded-lg border px-3 py-2 text-sm">
       <p className="flex items-start gap-1.5 font-medium">
         <TriangleAlert
           aria-hidden="true"

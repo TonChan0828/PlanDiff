@@ -159,6 +159,7 @@ export function RecurringRulePanel({
       endTime,
       startsOn: initial.startsOn > today ? initial.startsOn : today,
       endsOn: endsOnLocal || null,
+      pauses: initial.pauses,
     },
     initial.timezone,
     initial.id,

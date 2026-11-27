@@ -80,6 +80,14 @@ describe("予定の作成パネルの重なりの警告(G-94)", () => {
     expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
   });
 
+  it("読み上げが届くよう、重なりがない間も status の領域を置いておく", () => {
+    renderEventPanel([event("e1", "英語学習", 24, 10, 11)]);
+
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    change("開始時刻", "2026-11-24T10:30");
+    expect(screen.getByRole("status")).toHaveTextContent(WARNING);
+  });
+
   it("H5: 4件以上は3件までと「ほか N件」を表示する", () => {
     renderEventPanel(
       [1, 2, 3, 4, 5].map((n) => event(`e${n}`, `予定${n}`, 24, 13, 14)),

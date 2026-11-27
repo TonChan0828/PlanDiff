@@ -103,7 +103,7 @@ export function isRulePaused(rule: RecurringRuleSummary, now: Date): boolean {
 }
 
 export function isOccurrencePaused(
-  rule: RecurringRuleSummary,
+  rule: Pick<RecurringRuleSummary, "pauses">,
   date: string,
 ): boolean {
   return (rule.pauses ?? []).some(
