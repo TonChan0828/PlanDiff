@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { formatElapsed } from "@/lib/timer/elapsed";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useNowSeconds } from "@/lib/timer/use-now-seconds";
+import { RunningWarnings } from "@/components/running-warnings";
 import type { RunningEntry } from "@/lib/timer/types";
 
 // 実行中タイマーバー(P2-2)。タイトル+経過時間+停止ボタン。
@@ -16,6 +17,8 @@ interface RunningTimerBarProps {
   stopping: boolean;
   /** 開始時刻変更パネルを開く(D-4)。省略時はボタンを出さない */
   onEditStart?: () => void;
+  /** 紐づく予定。止め忘れの警告に使う(G-91) */
+  plan?: { startAt: string; endAt: string };
 }
 
 export function RunningTimerBar({
@@ -23,6 +26,7 @@ export function RunningTimerBar({
   onStop,
   stopping,
   onEditStart,
+  plan,
 }: RunningTimerBarProps) {
   const nowSeconds = useNowSeconds();
   const now = nowSeconds === null ? null : new Date(nowSeconds * 1000);
@@ -31,42 +35,50 @@ export function RunningTimerBar({
   return (
     <div
       data-testid="running-timer-bar"
-      className="border-line bg-surface/95 sticky bottom-2 z-10 flex items-center gap-3 rounded-xl border py-2 pr-2 pl-4 shadow-lg"
+      className="border-line bg-surface/95 sticky bottom-2 z-10 flex flex-col rounded-xl border py-2 pr-2 pl-4 shadow-lg"
     >
-      {/* 記録中のドット(柿)。点滅はprefers-reduced-motionで停止する(D-2) */}
-      <span
-        aria-hidden="true"
-        className="bg-interrupt h-2 w-2 shrink-0 animate-pulse rounded-full motion-reduce:animate-none"
+      <RunningWarnings
+        startAt={entry.startAt}
+        plan={plan}
+        now={now}
+        className="border-line mb-2 flex flex-col gap-1 border-b pb-2"
       />
-      <div className="flex min-w-0 flex-1 items-baseline gap-3">
-        <p className="truncate text-sm font-medium">
-          {entry.title || T.untitled}
-        </p>
-        {onEditStart ? (
-          <button
-            type="button"
-            onClick={onEditStart}
-            aria-label={T.runningSinceLabel(startTime)}
-            className="text-ink-muted hover:text-ink inline-flex min-h-11 shrink-0 items-center font-mono text-xs tabular-nums underline underline-offset-2"
+      <div className="flex items-center gap-3">
+        {/* 記録中のドット(柿)。点滅はprefers-reduced-motionで停止する(D-2) */}
+        <span
+          aria-hidden="true"
+          className="bg-interrupt h-2 w-2 shrink-0 animate-pulse rounded-full motion-reduce:animate-none"
+        />
+        <div className="flex min-w-0 flex-1 items-baseline gap-3">
+          <p className="truncate text-sm font-medium">
+            {entry.title || T.untitled}
+          </p>
+          {onEditStart ? (
+            <button
+              type="button"
+              onClick={onEditStart}
+              aria-label={T.runningSinceLabel(startTime)}
+              className="text-ink-muted hover:text-ink inline-flex min-h-11 shrink-0 items-center font-mono text-xs tabular-nums underline underline-offset-2"
+            >
+              {startTime}〜
+            </button>
+          ) : null}
+          <p
+            aria-label="経過時間"
+            className="text-ink-muted shrink-0 font-mono text-lg font-semibold tabular-nums"
           >
-            {startTime}〜
-          </button>
-        ) : null}
-        <p
-          aria-label="経過時間"
-          className="text-ink-muted shrink-0 font-mono text-lg font-semibold tabular-nums"
+            {now ? formatElapsed(entry.startAt, now) : "0:00:00"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onStop}
+          disabled={stopping}
+          className="bg-danger hover:bg-danger/90 rounded-control inline-flex min-h-11 shrink-0 items-center justify-center px-5 text-sm font-bold text-white transition-colors disabled:opacity-50"
         >
-          {now ? formatElapsed(entry.startAt, now) : "0:00:00"}
-        </p>
+          {T.stop}
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onStop}
-        disabled={stopping}
-        className="bg-danger hover:bg-danger/90 rounded-control inline-flex min-h-11 shrink-0 items-center justify-center px-5 text-sm font-bold text-white transition-colors disabled:opacity-50"
-      >
-        {T.stop}
-      </button>
     </div>
   );
 }

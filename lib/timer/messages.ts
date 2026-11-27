@@ -38,6 +38,15 @@ export const TIMER_MESSAGES = {
   delayLabel: (minutes: number) => `+${minutes}分 遅れ`,
   overrunLabel: (minutes: number) => `+${minutes}分 超過`,
   freeBadge: "フリー",
+  // 止め忘れの可能性(G-91)。知らせるだけで、自動で停止・修正はしない
+  longRunning: (hours: number) =>
+    `${hours}時間以上計測しています。止め忘れではありませんか?`,
+  planOverrunRunning: (time: string) =>
+    `予定の終了(${time})を過ぎて計測しています`,
+  forgottenNote: (hours: number) =>
+    `止め忘れの可能性があります(${hours}時間以上)`,
+  applyPlanEnd: (time: string) => `終了を予定の終了(${time})にする`,
+  forgottenBadge: "止め忘れの可能性",
   // 実績の編集フォームの予定とのズレ(G-98)。色に頼らず「遅れ・早い・超過・不足」の文言で区別する
   planDiffHeading: "予定とのズレ",
   planDiffPlan: (timeLabel: string, duration: string) =>

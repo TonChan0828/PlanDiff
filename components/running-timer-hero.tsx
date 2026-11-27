@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { formatElapsed } from "@/lib/timer/elapsed";
 import { TIMER_MESSAGES as T } from "@/lib/timer/messages";
 import { useNowSeconds } from "@/lib/timer/use-now-seconds";
+import { RunningWarnings } from "@/components/running-warnings";
 import type { RunningEntry } from "@/lib/timer/types";
 
 // 計測ヒーロー(D-4)。計測画面で経過時間を主役として特大表示する。
@@ -15,6 +16,8 @@ interface RunningTimerHeroProps {
   onStop: () => void;
   stopping: boolean;
   onEditStart: () => void;
+  /** 紐づく予定。止め忘れの警告に使う(G-91) */
+  plan?: { startAt: string; endAt: string };
 }
 
 export function RunningTimerHero({
@@ -22,6 +25,7 @@ export function RunningTimerHero({
   onStop,
   stopping,
   onEditStart,
+  plan,
 }: RunningTimerHeroProps) {
   const nowSeconds = useNowSeconds();
   const elapsed =
@@ -54,6 +58,14 @@ export function RunningTimerHero({
         <span className="text-ink-muted">{elapsedSeconds}</span>
       </p>
       <p className="mt-1 text-sm font-semibold">{entry.title || T.untitled}</p>
+      <RunningWarnings
+        startAt={entry.startAt}
+        plan={plan}
+        now={nowSeconds === null ? null : new Date(nowSeconds * 1000)}
+        className="border-line mt-2 flex w-full flex-col gap-1 rounded-lg border px-3 py-2"
+        // 親の gap-1 を打ち消し、警告がないときの間隔を変えない
+        emptyClassName="-mt-1"
+      />
       <div className="mt-3 flex w-full items-stretch gap-2">
         <button
           type="button"
