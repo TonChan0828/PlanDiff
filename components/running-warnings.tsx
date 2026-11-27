@@ -26,6 +26,7 @@ export function RunningWarnings({
   plan,
   now,
   className = "",
+  emptyClassName,
 }: {
   startAt: string;
   /** 紐づく予定。画面のデータになければ省略する */
@@ -33,6 +34,8 @@ export function RunningWarnings({
   /** 現在時刻。サーバー描画では null(何も出さない) */
   now: Date | null;
   className?: string;
+  /** 何も出さないときのクラス(親の余白を打ち消す) */
+  emptyClassName?: string;
 }) {
   const nowIso = now?.toISOString();
   const messages: string[] = [];
@@ -43,7 +46,10 @@ export function RunningWarnings({
     messages.push(T.longRunning(LONG_ENTRY_HOURS));
   }
   return (
-    <div role="status" className={messages.length > 0 ? className : undefined}>
+    <div
+      role="status"
+      className={messages.length > 0 ? className : emptyClassName}
+    >
       {messages.map((message) => (
         <p key={message} className="flex items-start gap-1.5 text-sm">
           <TriangleAlert

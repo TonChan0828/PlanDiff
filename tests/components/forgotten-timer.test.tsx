@@ -141,6 +141,74 @@ describe("実績の編集パネルの止め忘れの目印と候補(G-91 I5・I6
     );
   });
 
+  it("候補を適用したら保存ボタンへフォーカスを移し、閉じるボタンに移らない", async () => {
+    renderPanel();
+    const apply = screen.getByRole("button", { name: APPLY });
+    apply.focus();
+
+    fireEvent.click(apply);
+    // ダイアログのフォーカス管理(MutationObserver)が動いた後も保存ボタンのまま
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "保存" })).toHaveFocus();
+  });
+
+  it("未編集のときは秒を含む元の値で判定する(一覧の目印と食い違わない)", () => {
+    // 09:00:30〜15:00:10 は 6時間未満。分に切り捨てると6時間になる
+    render(
+      <EditEntryPanel
+        entry={{
+          id: "a",
+          title: "設計",
+          startAt: new Date(2026, 10, 24, 9, 0, 30).toISOString(),
+          endAt: new Date(2026, 10, 24, 15, 0, 10).toISOString(),
+        }}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        pending={false}
+        error={null}
+      />,
+    );
+
+    expect(screen.queryByText(NOTE)).not.toBeInTheDocument();
+  });
+
+  it("予定の終了が開始と別の日なら、候補に日付も出す", () => {
+    const entry = {
+      id: "a",
+      title: "夜間",
+      startAt: new Date(2026, 10, 23, 22, 0).toISOString(),
+      endAt: iso(8),
+    };
+    render(
+      <EditEntryPanel
+        entry={entry}
+        planContext={{
+          plan: {
+            googleEventId: "g-1",
+            startAt: new Date(2026, 10, 23, 22, 0).toISOString(),
+            endAt: iso(1),
+          },
+          actuals: [{ ...entry, googleEventId: "g-1" }],
+        }}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+        pending={false}
+        error={null}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "終了を予定の終了(11/24 01:00)にする",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("I6: フリー実績は目印だけで、候補は出さない", () => {
     renderPanel({ linked: false });
 

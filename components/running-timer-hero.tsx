@@ -63,6 +63,8 @@ export function RunningTimerHero({
         plan={plan}
         now={nowSeconds === null ? null : new Date(nowSeconds * 1000)}
         className="border-line mt-2 flex w-full flex-col gap-1 rounded-lg border px-3 py-2"
+        // 親の gap-1 を打ち消し、警告がないときの間隔を変えない
+        emptyClassName="-mt-1"
       />
       <div className="mt-3 flex w-full items-stretch gap-2">
         <button

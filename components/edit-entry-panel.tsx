@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { format } from "date-fns";
 import { TriangleAlert, X } from "lucide-react";
 import { planTimeLabel } from "@/components/running-warnings";
@@ -81,6 +81,7 @@ export function EditEntryPanel({
     onClose();
   };
   const dialogRef = useDialogFocus(handleClose);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -226,9 +227,13 @@ export function EditEntryPanel({
                   // 入力欄を書き換えるだけで、保存はしない(確定は保存ボタン)
                   <button
                     type="button"
-                    onClick={() =>
-                      setEndLocal(toLocalInputValue(endSuggestion))
-                    }
+                    onClick={() => {
+                      // このボタンは適用後に消える。フォーカスを保存へ移してから書き換える。
+                      // 移さないと、ダイアログのフォーカス管理が「閉じる」へ移し、続けて Enter を押すと
+                      // 未保存の修正が捨てられる
+                      saveButtonRef.current?.focus();
+                      setEndLocal(toLocalInputValue(endSuggestion));
+                    }}
                     disabled={pending}
                     className="border-line rounded-control inline-flex min-h-11 items-center justify-center border px-3 text-sm font-medium disabled:opacity-50"
                   >
@@ -255,6 +260,7 @@ export function EditEntryPanel({
                 {T.delete}
               </button>
               <button
+                ref={saveButtonRef}
                 type="submit"
                 disabled={pending}
                 className="bg-brand text-brand-ink hover:bg-brand/90 rounded-control inline-flex min-h-11 items-center justify-center px-5 text-sm font-medium transition-colors disabled:opacity-50"

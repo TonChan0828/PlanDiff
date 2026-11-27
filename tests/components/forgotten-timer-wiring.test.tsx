@@ -58,6 +58,51 @@ describe("止め忘れの警告の結線(G-91)", () => {
     expect(await screen.findByText(OVERRUN)).toBeInTheDocument();
   });
 
+  // 先頭に別の終了済み予定を置き、実行中に紐づく予定だけが選ばれることを確かめる
+  const OTHER = {
+    id: "row-0",
+    googleEventId: "g-0",
+    title: "別の予定",
+    startAt: iso(7),
+    endAt: iso(8),
+  };
+
+  it.each([
+    [
+      "カレンダー",
+      (googleEventId: string | null) => (
+        <CalendarView
+          events={[OTHER, PLAN]}
+          timeEntries={[]}
+          runningEntry={{ ...RUNNING, googleEventId }}
+          viewParam="day"
+          dateParam="2026-11-24"
+        />
+      ),
+    ],
+    [
+      "計測画面",
+      (googleEventId: string | null) => (
+        <TrackView
+          events={[OTHER, PLAN]}
+          timeEntries={[]}
+          runningEntry={{ ...RUNNING, googleEventId }}
+        />
+      ),
+    ],
+  ])(
+    "I4: %s は紐づく予定の超過だけを出し、フリー実行中には出さない",
+    async (_name, view) => {
+      const linked = render(view("g-1"));
+      expect(await screen.findByText(OVERRUN)).toBeInTheDocument();
+      expect(screen.queryByText(/予定の終了\(08:00\)/)).not.toBeInTheDocument();
+      linked.unmount();
+
+      render(view(null));
+      expect(screen.queryByText(/予定の終了/)).not.toBeInTheDocument();
+    },
+  );
+
   it("I4: 計測画面のヒーローにも出る", async () => {
     render(
       <TrackView events={[PLAN]} timeEntries={[]} runningEntry={RUNNING} />,
