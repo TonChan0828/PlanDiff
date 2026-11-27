@@ -16,7 +16,7 @@ concurrency:
 jobs:
   # Keep the required check name and fail it if any prerequisite did not pass.
   check:
-    needs: [static, unit]
+    needs: [static, unit_first, unit_second]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -24,10 +24,11 @@ jobs:
       - name: Require static checks and both unit test shards
         env:
           STATIC_RESULT: ${{ needs.static.result }}
-          UNIT_RESULT: ${{ needs.unit.result }}
+          UNIT_FIRST_RESULT: ${{ needs.unit_first.result }}
+          UNIT_SECOND_RESULT: ${{ needs.unit_second.result }}
         run: |
-          if [[ "$STATIC_RESULT" != success || "$UNIT_RESULT" != success ]]; then
-            echo "::error::Static checks: $STATIC_RESULT. Unit tests: $UNIT_RESULT."
+          if [[ "$STATIC_RESULT" != success || "$UNIT_FIRST_RESULT" != success || "$UNIT_SECOND_RESULT" != success ]]; then
+            echo "::error::Static checks: $STATIC_RESULT. Unit tests 1/2: $UNIT_FIRST_RESULT. Unit tests 2/2: $UNIT_SECOND_RESULT."
             exit 1
           fi
 
@@ -68,15 +69,13 @@ jobs:
       - run: npm run check:packages
       - run: npm run build
 
-  unit:
-    name: Unit tests (${{ matrix.shard }}/2)
+  unit_first:
+    name: Unit tests (1/2)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
-    steps:
+    env:
+      UNIT_SHARD: 1/2
+    steps: &unit_steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -85,7 +84,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test -- --shard=${{ matrix.shard }}/2
+      - run: npm test -- --shard="$UNIT_SHARD"
+
+  unit_second:
+    name: Unit tests (2/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      UNIT_SHARD: 2/2
+    steps: *unit_steps
 
   integration:
     name: Integration and migration tests (local Supabase)
