@@ -10,6 +10,9 @@ export interface CalendarBlockInput {
   startAt: string;
   /** UTCのISO文字列 */
   endAt: string;
+  /** 配置にだけ使う開始・終了(G-104の省略表示)。省略時は startAt / endAt で配置する */
+  layoutStartAt?: string;
+  layoutEndAt?: string;
 }
 
 export interface CalendarBlockLayout {
@@ -83,8 +86,8 @@ export function layoutDayEvents<T extends CalendarBlockInput>(
 
   const items: WorkItem<T>[] = [];
   for (const input of events) {
-    const start = parseISO(input.startAt);
-    const end = parseISO(input.endAt);
+    const start = parseISO(input.layoutStartAt ?? input.startAt);
+    const end = parseISO(input.layoutEndAt ?? input.endAt);
     if (!intersectsDay(start, end, dayStart, dayEnd)) {
       continue;
     }

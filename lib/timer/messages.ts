@@ -38,6 +38,9 @@ export const TIMER_MESSAGES = {
   delayLabel: (minutes: number) => `+${minutes}分 遅れ`,
   overrunLabel: (minutes: number) => `+${minutes}分 超過`,
   freeBadge: "フリー",
+  // 週表示の長時間実績の省略(G-104)
+  longEntryOmitted: (duration: string) => `省略 ${duration}`,
+  longEntryContinued: "前日から継続(省略)",
   // 止め忘れの可能性(G-91)。知らせるだけで、自動で停止・修正はしない
   longRunning: (hours: number) =>
     `${hours}時間以上計測しています。止め忘れではありませんか?`,
